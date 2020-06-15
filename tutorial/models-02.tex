@@ -1,0 +1,18 @@
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Impact of OTC regulations on methamphetamine lab seizures. Lab capacity 2-8 oz and Lab capacity 9 oz or more }
+\begin{tabular}{l*{8}{c}}
+\hline\hline
+          &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}&\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}\\
+\hline
+OTC\_Restriction&   -2.251\sym{***}&   -2.258\sym{***}&   -1.752\sym{***}&   -1.940\sym{***}&   -0.266         &   -0.266         &   -0.185         &   -0.158         \\
+          &  (0.521)         &  (0.522)         &  (0.430)         &  (0.476)         &  (0.348)         &  (0.349)         &  (0.256)         &  (0.269)         \\
+\hline
+Mean      &    2.177         &    2.177         &    2.177         &    2.177         &    0.890         &    0.890         &    0.890         &    0.890         \\
+Observations&     4937         &     4937         &     4937         &     4937         &     4937         &     4937         &     4937         &     4937         \\
+States    &       50         &       50         &       50         &       50         &       50         &       50         &       50         &       50         \\
+\hline\hline
+\multicolumn{9}{l}{\footnotesize Notes: All regressions include state fixed effects and year/month fixed effects. The dependent variable in the regressions is count of labs seized or discovered in a month in a particular state.}\\
+\multicolumn{9}{l}{\footnotesize \sym{*} \(p<0.05\), \sym{**} \(p<0.01\), \sym{***} \(p<0.001\)}\\
+\end{tabular}
+\end{table}

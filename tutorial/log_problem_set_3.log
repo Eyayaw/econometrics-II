@@ -1,0 +1,296 @@
+--------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/eyayawteka/Documents/PhD Archive/semester-II/Eco
+> nometrics-2/tutorial/log_problem_set_3.log
+  log type:  text
+ opened on:  15 May 2020, 00:56:54
+
+. 
+. * Open the data-set:
+. 
+. use "http://fmwww.bc.edu/ec-p/data/wooldridge/ezunem.dta", clear
+
+. 
+. 
+. * declare dataset to be panel data
+. 
+. xtset city year
+       panel variable:  city (strongly balanced)
+        time variable:  year, 1980 to 1988
+                delta:  1 unit
+
+. 
+. * a) first difference 
+. * model: d.luclms_it = d.ez_it + d.year_dummies + d.u_it
+. 
+. * we can use the D or L operators to generate differences, gen dx 
+> = d.x or gen dx = x-l.x 
+. * we have to drop one of the year dummies, let's drop d81 so it's 
+> the reference year
+. reg d.luclms d.ez d.d82 d.d83 d.d84 d.d85 d.d86 d.d87 d.d88
+
+      Source |       SS           df       MS      Number of obs   =
+>        176
+-------------+----------------------------------   F(8, 167)       =
+>      34.50
+       Model |  12.8826177         8  1.61032721   Prob > F        =
+>     0.0000
+    Residual |  7.79579179       167  .046681388   R-squared       =
+>     0.6230
+-------------+----------------------------------   Adj R-squared   =
+>     0.6049
+       Total |  20.6784095       175   .11816234   Root MSE        =
+>     .21606
+
+--------------------------------------------------------------------
+> ----------
+    D.luclms |      Coef.   Std. Err.      t    P>|t|     [95% Conf.
+>  Interval]
+-------------+------------------------------------------------------
+> ----------
+          ez |
+         D1. |  -.1818761   .0781859    -2.33   0.021    -.3362363  
+>  -.0275159
+             |
+         d82 |
+         D1. |   .7787587   .0651442    11.95   0.000     .6501465  
+>    .907371
+             |
+         d83 |
+         D1. |   .7456388    .112833     6.61   0.000     .5228759  
+>   .9684018
+             |
+         d84 |
+         D1. |   .7284997   .1609884     4.53   0.000     .4106649  
+>   1.046334
+             |
+         d85 |
+         D1. |   1.051579    .209047     5.03   0.000      .638864  
+>   1.464295
+             |
+         d86 |
+         D1. |   1.343733    .254793     5.27   0.000     .8407031  
+>   1.846764
+             |
+         d87 |
+         D1. |   1.397681   .3006361     4.65   0.000     .8041441  
+>   1.991218
+             |
+         d88 |
+         D1. |   1.380629   .3465377     3.98   0.000     .6964692  
+>   2.064788
+             |
+       _cons |  -.3216314   .0460639    -6.98   0.000     -.412574  
+>  -.2306888
+--------------------------------------------------------------------
+> ----------
+
+. 
+. * b) first difference with fixed effect-year interaction
+. * model: d.luclms_it = d.ez_it + city_i*d.year_t + d.u_it
+. 
+. * let's create year_t index so that instead of year = 1981, 1982, 
+> ... we have 1, 2, ...
+. by city: gen year_t = _n
+
+. 
+. * let's create an interaction between individual fixed effect and 
+> year; city * year_t
+. gen cityear = c.city#c.year_t 
+
+. 
+. reg d.luclms d.ez  d.cityear 
+
+      Source |       SS           df       MS      Number of obs   =
+>        176
+-------------+----------------------------------   F(2, 173)       =
+>       2.32
+       Model |  .539608302         2  .269804151   Prob > F        =
+>     0.1015
+    Residual |  20.1388012       173  .116409256   R-squared       =
+>     0.0261
+-------------+----------------------------------   Adj R-squared   =
+>     0.0148
+       Total |  20.6784095       175   .11816234   Root MSE        =
+>     .34119
+
+--------------------------------------------------------------------
+> ----------
+    D.luclms |      Coef.   Std. Err.      t    P>|t|     [95% Conf.
+>  Interval]
+-------------+------------------------------------------------------
+> ----------
+          ez |
+         D1. |  -.2383388   .1111362    -2.14   0.033    -.4576961  
+>  -.0189814
+             |
+     cityear |
+         D1. |   .0005366   .0040552     0.13   0.895    -.0074675  
+>   .0085407
+             |
+       _cons |  -.1520158   .0537779    -2.83   0.005     -.258161  
+>  -.0458706
+--------------------------------------------------------------------
+> ----------
+
+. 
+. * c) include full set of year dummies in b)
+. reg d.luclms d.ez  d.cityear d.d82 d.d83 d.d84 d.d85 d.d86 d.d87 d
+> .d88
+
+      Source |       SS           df       MS      Number of obs   =
+>        176
+-------------+----------------------------------   F(9, 166)       =
+>      30.50
+       Model |  12.8851061         9  1.43167845   Prob > F        =
+>     0.0000
+    Residual |  7.79330342       166  .046947611   R-squared       =
+>     0.6231
+-------------+----------------------------------   Adj R-squared   =
+>     0.6027
+       Total |  20.6784095       175   .11816234   Root MSE        =
+>     .21667
+
+--------------------------------------------------------------------
+> ----------
+    D.luclms |      Coef.   Std. Err.      t    P>|t|     [95% Conf.
+>  Interval]
+-------------+------------------------------------------------------
+> ----------
+          ez |
+         D1. |  -.1813326   .0784441    -2.31   0.022    -.3362093  
+>  -.0264559
+             |
+     cityear |
+         D1. |   .0005929   .0025755     0.23   0.818     -.004492  
+>   .0056779
+             |
+         d82 |
+         D1. |   .7787587   .0653297    11.92   0.000     .6497746  
+>   .9077429
+             |
+         d83 |
+         D1. |   .7456388   .1131543     6.59   0.000     .5222318  
+>   .9690459
+             |
+         d84 |
+         D1. |   .7283514   .1614481     4.51   0.000     .4095951  
+>   1.047108
+             |
+         d85 |
+         D1. |   1.051332    .209645     5.01   0.000     .6374181  
+>   1.465247
+             |
+         d86 |
+         D1. |   1.343486   .2555207     5.26   0.000     .8389971  
+>   1.847976
+             |
+         d87 |
+         D1. |   1.397434    .301494     4.64   0.000     .8021771  
+>   1.992691
+             |
+         d88 |
+         D1. |   1.380381   .3475261     3.97   0.000     .6942406  
+>   2.066522
+             |
+       _cons |  -.3284503   .0548747    -5.99   0.000    -.4367926  
+>   -.220108
+--------------------------------------------------------------------
+> ----------
+
+. 
+end of do-file
+
+. do "/var/folders/kk/b78b96mn7217jxv1l4hxf07w0000gn/T//SD25438.0000
+> 00"
+
+. * Loading the data
+. use "http://fmwww.bc.edu/ec-p/data/wooldridge/ezunem.dta", clear
+
+. 
+end of do-file
+
+. do "/var/folders/kk/b78b96mn7217jxv1l4hxf07w0000gn/T//SD25438.0000
+> 00"
+
+. * Specify the data set as panel data 
+. xtset city year
+       panel variable:  city (strongly balanced)
+        time variable:  year, 1980 to 1988
+                delta:  1 unit
+
+. 
+end of do-file
+
+. tab year
+
+       year |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       1980 |         22       11.11       11.11
+       1981 |         22       11.11       22.22
+       1982 |         22       11.11       33.33
+       1983 |         22       11.11       44.44
+       1984 |         22       11.11       55.56
+       1985 |         22       11.11       66.67
+       1986 |         22       11.11       77.78
+       1987 |         22       11.11       88.89
+       1988 |         22       11.11      100.00
+------------+-----------------------------------
+      Total |        198      100.00
+
+. describe
+
+Contains data from http://fmwww.bc.edu/ec-p/data/wooldridge/ezunem.d
+> ta
+  obs:           198                          
+ vars:            37                          26 Jan 2000 12:16
+ size:        29,304                          
+--------------------------------------------------------------------
+              storage   display    value
+variable name   type    format     label      variable label
+--------------------------------------------------------------------
+year            float   %9.0g                 
+uclms           float   %9.0g                 
+ez              float   %9.0g                 
+d81             float   %9.0g                 
+d82             float   %9.0g                 
+d83             float   %9.0g                 
+d84             float   %9.0g                 
+d85             float   %9.0g                 
+d86             float   %9.0g                 
+d87             float   %9.0g                 
+d88             float   %9.0g                 
+c1              float   %9.0g                 
+c2              float   %9.0g                 
+c3              float   %9.0g                 
+c4              float   %9.0g                 
+c5              float   %9.0g                 
+c6              float   %9.0g                 
+c7              float   %9.0g                 
+c8              float   %9.0g                 
+c9              float   %9.0g                 
+c10             float   %9.0g                 
+c11             float   %9.0g                 
+c12             float   %9.0g                 
+c13             float   %9.0g                 
+c14             float   %9.0g                 
+c15             float   %9.0g                 
+c16             float   %9.0g                 
+c17             float   %9.0g                 
+c18             float   %9.0g                 
+c19             float   %9.0g                 
+c20             float   %9.0g                 
+c21             float   %9.0g                 
+c22             float   %9.0g                 
+luclms          float   %9.0g                 
+guclms          float   %9.0g                 
+cez             float   %9.0g                 
+city            float   %9.0g                 
+--------------------------------------------------------------------
+Sorted by: city  year
+
+. D.(luclms ez)
+D. is not a valid command name
+r(199);
+
+. exit 

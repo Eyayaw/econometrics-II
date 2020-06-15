@@ -1,0 +1,145 @@
+---
+title: "Econometrics II, Problem Set 3"
+author: "Eyayaw Beze"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  pdf_document: 
+link-citations: yes
+header-includes:
+  - \usepackage{xcolor}
+references:
+- type: article-journal
+  id: angrist-pischke2009
+  author:
+  - family: Angrist
+    given: Joshua
+  - family: Pischke
+    given: Joern-Steffen
+  issued:
+    year: 2009
+    month: 1
+  isbn: 978-0-691-12035-5
+  URL: "https://press.princeton.edu/books/paperback/9780691120355/mostly-harmless-econometrics"
+  title: "Mostly Harmless Econometrics: An Empiricist's Companion"
+  journal: "Mostly Harmless Econometrics: An Empiricist's Companion"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+source("tutorial-03-regression.R")
+```
+
+# Exercise 1: Panel data model
+
+Consider the following between model with a single explanatory variable $\bar{x_i}$:
+
+\begin{equation}
+\bar{y_i} = \beta_0 + \beta_1\bar{x_i} + a_i + \bar{u_i}
+\end{equation}
+
+$a_i + \bar{u_i}$ are unobserved. $E(a_i) = 0, \; E(\bar{u_i}) = 0, \;E(\bar{x_i}\bar{u_i}) = 0, \; and \quad Cov(x_{it}, a_{it}) = \sigma_{xa}\ne 0$
+
+(a) Show that the between estimator $\hat{\beta}^B_1$ satisfies the following probability limit property: 
+
+
+$$\displaystyle{plim \hat{\beta}^B_1 = \beta_1 + \frac{\sigma_{xa}}{Var(\bar x_i)}} \quad if \quad N \rightarrow \infty$$
+ 
+ 
+\begin{gather*}
+\begin{aligned}
+\underset{n\rightarrow \infty}{p\lim \mathsf{\hat\beta}^{B}_1 } & = \frac{Cov(\bar y_i,\bar x_i)}{Var(\bar x_i)}  = \frac{Cov(\beta_0 + \beta_1\bar{x_i} + a_i + \bar{u_i},\bar x_i)}{Var(\bar x_i)}\\
+& = \frac{Cov(\beta_0 + \beta_1 \bar x_i,\bar x_i) + Cov(a_i, \bar x_i) + \overbrace{Cov(\bar u_i, \bar x_i)}^{= \;0 \;by \;orthogonality}}{Var(x)} \\
+& = \frac{Cov(\beta_0 + \beta_1 \bar x_i,\bar x_i) + \sigma_{xa} }{Var(x)}\\
+& = \frac{\beta_0 E(\bar x_i) + \beta_1 E(\bar x_i^2) - E(\bar x_i)\bigl[\beta_0 + \beta_1E(\bar x_i)\bigr] + \sigma_{xa}}{Var(\bar x_i)}\\
+& = \frac{\beta_1 \left[E(\bar x_i^2) - [E(\bar x_i)]^2\right] +\sigma_{xa}}{Var(\bar x_i)}\\
+& = \beta_1 + \frac{\sigma_{xa}}{Var(\bar x_i)}
+\end{aligned}
+\end{gather*}
+
+(b) 
+\begin{gather*}
+\begin{aligned}
+Var(\bar x_i)  & = Var\left(\frac{1}{T} \sum_{t=1}^{T} x_{it}\right)\\
+ & = \frac{1}{T^2}Var\left( \sum_{t=1}^{T} x_{it}\right)\\
+ & = \frac{1}{T^2} \left( \sum_{t=1}^{T} Var(x_{it})\right)\\
+ & = \frac{1}{T^2} T\;Var(x_{it})\\
+ & = \frac{\sigma_x^2}{T}
+\end{aligned}
+\end{gather*}
+
+Then, 
+\begin{gather*}
+\begin{aligned}
+\underset{n\rightarrow \infty}{p\lim \mathsf{\hat\beta}^{B}_1 } & = \beta_1 + \frac{\sigma_{xa}}{Var(\bar x_i)}\\
+ & = \beta_1 +\frac{\sigma_{xa}}{\frac{\sigma_x^2}{T}}\\
+ & = \beta_1 +T \frac{\sigma_{xa}}{\sigma_x^2}
+\end{aligned}
+\end{gather*}
+ 
+ (c) When T grows $Var(\bar x_i)$ goes down and consequently, $\beta_1$ would be overestimated.  
+
+The assumption that the $x_{it}$'s are uncorrelated overtime is not necessarily reasonable. Because $x_{it}$'s could be serially correlated overtime for some i's or for some $x_i$'s such as income, education, knowledge etc. Income of individuals is likely to be correlated overtime. 
+ 
+# Exercise 2: **FE** vs **LDV**
+
+\begin{equation}
+ y_{it} = \beta_1y_{i{t-1}} + \beta_2X_{it} + \delta D_{it} + \alpha_{it} + \tau_t + u_{it}  \quad for \quad t = 1, 2,3,4,5\\
+ \label{fe-ldv}
+ \end{equation}
+ 
+(a) Consistent estimation of $\delta$ through OLS in equation (\ref{fe-ldv}) requires the usual Gauss-Markov set of assumptions to be satisfied.
+Particularly, no (perfect) correlation among the regressors; the lagged dependent variable $y_{i{t-1}}$, $X_{it}$, the treatment $D_{it}$, the year dummies $\tau_t$, and individual fixed effects $\alpha_{i}$ should be orthogonal to the error term $u_{it}$.
+
+However, if the treatment is correlated with an unobserved individual effect, $\alpha_i$, we may try to kill it (i.e, the fixed effect) by differencing,
+
+\begin{equation}
+ \Delta y_{it} = \beta_1\Delta y_{i{t-1}} + \beta_2\Delta X_{it} + \delta \Delta  D_{it}  + \Delta \tau_t + \Delta u_{it}  \quad for \quad t = 2,3,4, 5\\
+\label{fd-ldv}
+ \end{equation}. 
+ 
+This may not result in consistent estimator for the treatment effect. The problem here is that the differenced residual, $\Delta u_{it}$, is necessarily correlated with the lagged dependent variable, $\Delta y_{i{t-1}}$, because both are a function of $u_{i{t-1}}$. Consequently, the OLS estimates of the first differenced equation (\ref{fd-ldv}) are not consistent for the parameters in equation (\ref{fe-ldv}) [@angrist-pischke2009, pp. 182-185].
+
+Since we have more than three time periods, one solution to the above problem is to use $y_{i{t-2}}$ as an instrument for $\Delta y_{i{t-2}}$ in (\ref{fd-ldv}). But this requires that $y_{i{t-2}}$ be uncorrelated with the differenced residuals, $\Delta u_{it}$. However, if $u_{it}$ is serially correlated, there may be no consistent estimator for (\ref{fd-ldv}).
+
+(b) An empirical guy can check the robustness of his or her findings using alternative identifying assumptions and should expect broadly similar results from using both models, fixed effects or lagged dependent variables. In the particular setup of (\ref{fe-ldv}), the estimates of $\delta$ should be bounded by the estimates of fixed effects and lagged dependent variables (bracketing property) [@angrist-pischke2009, pp. 182-185].
+
+Mistakenly using fixed effects or lagged dependent variable model to estimate the causal effect, while the above pooled OLS set up is correct, may result in either over or underestimating the estimates of the treatment effect.
+ 
+# Exercise 3: First Differences
+
+
+\begin{equation}
+log(uclms_{it}) = \beta_1 ez_{it} + \alpha_i + \tau_t + u_{it}
+\label{model:1}
+\end{equation}
+
+(a) $\hat\beta_1$ = `r coef(fd_model)["ez"]`
+
+The interpretation of the estimate of the treatment effect $\beta_1$ would be: having enterprise zone in a city would lower (growth of) unemployment claims by about `r round(coef(fd_model)["ez"] * -100, 2)` percent, and the effect is statistically significant at 5 % level. 
+
+The differenced residual, $\Delta u_{it}$, could be correlated with the lagged differenced residual $u_{i{t-1}}$. So in our estimation we should account for this serial correlation in calculating standard errors and test statistics.
+
+\begin{equation}
+log(uclms_{it}) = \beta_1 ez_{it} + \alpha_i + \alpha_i * year_t + u_{it}
+\label{model:2}
+\end{equation}
+
+(b) $\hat\beta_1$ = `r coef(fd_model_interaction)["ez"]`
+
+The estimate of $\beta_1$ is slightly higher in this case. Thus, having enterprise zone reduces unemployment claims by about `r round(coef(fd_model_interaction)["ez"] * -100, 2)` percent while controlling for city and year (as interaction), but not for year dummies. 
+
+
+\begin{equation}
+log(uclms_{it}) = \beta_1 ez_{it} + \alpha_i + \alpha_i*year_t + \tau_t + u_{it}
+\label{model:3}
+\end{equation}
+
+(c) $\hat\beta_1$ = `r coef(fd_model_interaction_withdummies)["ez"]`
+
+The magnitude of effect of enterprise zone (about `r round(coef(fd_model_interaction_withdummies)["ez"] * -100, 2)` percent) is the same as in (\ref{model:1}) (where we control for full set of year dummies), adding an interaction between year and city fixed effects (like in (\ref{model:2})) does not seem to add effect-as compared to (\ref{model:1}). 
+
+Please refer to the do.file: **\textcolor{blue}{do\_problem\_set\_3.do}**
+
+# References
+ 
