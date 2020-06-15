@@ -1,8 +1,8 @@
 ------------------------------------------------------------------------------------------------------------------------
       name:  <unnamed>
-       log:  /Users/eyayawteka/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/tutorial-04.log
+       log:  /Users/eyayawteka/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/_04/tutorial-4.log
   log type:  text
- opened on:  15 Jun 2020, 01:44:02
+ opened on:  15 Jun 2020, 15:40:20
 
 . 
 . use otc_regulation.dta, clear 
@@ -762,8 +762,8 @@ delimiter now cr
 
 . 
 . 
-. graph export "event-time-dummies.eps", as(eps) preview(on) replace
-(file event-time-dummies.eps written in EPS format)
+. graph export "event-study.eps", as(eps) preview(on) replace
+(file event-study.eps written in EPS format)
 
 . 
 . 
@@ -777,13 +777,15 @@ delimiter now cr
 . local x months_from_until_otc2
 
 . foreach var of varlist cap_under_2_oz cap_2_8_oz cap_above_9_oz {
-  2.         if `var' == cap_under_2_oz {
+  2.         if "`var'" == "cap_under_2_oz" {
   3.                 local color blue 
   4.         }
-  5.         if `var' == cap_2_8_oz {
+  5.         
+.         else if "`var'" == "cap_2_8_oz" {
   6.                 local color red 
   7.         }
-  8.         if `var' == cap_above_9_oz {
+  8.         
+.         else if "`var'" == "cap_above_9_oz" {
   9.                 local color dkgreen 
  10.         }
  11.         twoway (scatter pi_j_`var' `x', connect(L) msize(medium) msymbol(S) mcolor(`color')) ///
@@ -802,7 +804,7 @@ delimiter now cr
 . 
 . log close 
       name:  <unnamed>
-       log:  /Users/eyayawteka/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/tutorial-04.log
+       log:  /Users/eyayawteka/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/_04/tutorial-4.log
   log type:  text
- closed on:  15 Jun 2020, 01:44:16
+ closed on:  15 Jun 2020, 15:40:35
 ------------------------------------------------------------------------------------------------------------------------

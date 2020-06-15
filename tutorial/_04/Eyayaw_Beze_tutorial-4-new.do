@@ -1,11 +1,11 @@
-local path "~/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/"
+local path "~/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/_04"
 
 cd "`path'"
 
 set more 1
 capture log close
 
-log using "tutorial-04.log", replace
+log using "tutorial-4.log", replace
 
 use otc_regulation.dta, clear 
 
