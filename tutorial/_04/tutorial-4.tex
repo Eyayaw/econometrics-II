@@ -67,8 +67,6 @@
 \setcounter{secnumdepth}{-\maxdimen} % remove section numbering
 \usepackage{multirow}
 \usepackage{booktabs}
-\usepackage{graphics}
-\usepackage{graphicx}
 \usepackage{float}
 \floatplacement{figure}{H}
 \newlength{\cslhangindent}
@@ -135,7 +133,7 @@ production and hence reduce its availability.
   state-specific time trends.
 \item
   Additionally, event studies are used to support the validity of the
-  main conclusions of the paper and get insight about the dynamic
+  main conclusions of the paper and to provide insight about the dynamic
   effects of the OTC restrictions.
 \end{itemize}
 
@@ -155,7 +153,7 @@ assumption}\label{key-identifying-assumption}}
 As noted above, there is variation in the timing of state OTC
 regulations. The paper aimed at separately identifying the effects of
 the regulations from common changes in outcomes across all states. Thus,
-the identification assumption is once one controls for state fixed and
+the identification assumption is once we control for state fixed and
 year/month effects (linear or nonlinear), there are no unmeasured
 state-level non-linear trends that are correlated with methamphetamine
 production and consumption and the introduction of the OTC restrictions.
@@ -198,10 +196,10 @@ The study compiled data from multiple sources.
   with the smallest production capacities, but it was relatively small
   in the number of larger laboratories.
 \item
-  According to their estimate, there is about 25\% decline in overall
-  domestic production of methamphetamine.
+  According to the paper's estimate, there is about 25\% decline in
+  overall domestic production of methamphetamine.
 \item
-  However, they found no evidence about the impact of the OTC
+  However, the study found no evidence about the impact of the OTC
   restrictions on the purity, price and consumption of methamphetamine,
   and drug related arrests.
 \item
@@ -232,21 +230,21 @@ I summarize the implications of the findings of the paper as follows.
   so that people's drug consumption are curtailed or at least
   controlled.
 \item
-  To highlight the possible policy implications of the paper, first it's
-  important to answer the question why the legislation's effectiveness
-  (in significantly reducing methamphetamine supply) did not translate
-  into reductions in drug consumption (in terms of price as well as
-  quality) and drug related arrests. It would require providing broader
-  insight about the interplay between the overall drug supply and demand
-  markets in the US and neighboring countries, especially in Mexico.
-  Because, for example having bulk production of close substitutes to
-  methamphetamine in the US and the possibility of importing it from
-  Mexico and other Latin American countries would obscure the effects of
-  the regulations. In fact, the study finds evidence that
-  methamphetamine producers in border counties responded to the OTC laws
-  by purchasing precursors in neighboring states that did not have a law
-  in place. This reduced the effectiveness of the laws and as purchasing
-  and transporting a legal product involves low if not no risk.
+  Highlighting the possible policy implications of the paper requires
+  answering the question why the legislation's effectiveness (in
+  significantly reducing methamphetamine supply) did not translate into
+  reductions in drug consumption (in terms of price as well as quality)
+  and drug related arrests. It would require providing broader insight
+  about the interplay between the overall drug supply and demand markets
+  in the US and neighboring countries, especially in Mexico. Because,
+  for example having a bulk production of close substitutes to
+  methamphetamine in the US and the possibility of import from Mexico
+  and other Latin American countries would obscure the effects of the
+  regulations. In fact, the study finds evidence that methamphetamine
+  producers in border counties responded to the OTC laws by purchasing
+  precursors in neighboring states that did not have a law in place.
+  This reduced the effectiveness of the laws and as purchasing and
+  transporting a legal product involves low if not no risk.
 \end{itemize}
 
 \hypertarget{limitations-of-the-paper}{%
@@ -260,11 +258,11 @@ spanning before and after the laws went into effect, the study relied on
 the number of labs discovered by law enforcement agents as a measure for
 the outcome variable(s). However, the number of labs discovered each
 month is just an unknown fraction of the total number of labs in
-operation that month. Thus, the outcome variable is understated.
+operation that month. Thus, the outcome variable is clearly understated.
 
 Moreover, the findings are based on the assumption that the probability
 of a lab being seized remains constant even after the introduction of
-the law. But once the regulation went to effect, it is likely that the
+the law. But following the regulation enactment, it is likely that the
 detection probability would change afterwards. For example, the
 investigation efforts of law enforcement agents may go down, reports
 from the public may increase as the public has now law protection due to
@@ -273,8 +271,8 @@ considered in the paper.
 
 The results on drug use might suffer from selection bias in the
 measurement of methamphetamine consumption as it is likely that only
-patients and workers with a previous record of drug use will be subject
-to methamphetamine consumption tests.
+patients and workers with a previous record of drug use are subject to
+methamphetamine consumption tests.
 
 In terms of the policy objective, the general problem of drug abuse and
 violence might remain unalleviated if the regulation restrictions do not
@@ -283,10 +281,10 @@ drugs. Special attention should also be accorded to producers that are
 more experienced and have widely established production and distribution
 networks since the detection likelihood of such firms is low. Moreover,
 the policy implications of the paper cannot be extrapolated to all drugs
-that are available for consumption for the US population since some
-drugs are mainly imported from neighboring countries. In addition,
-coordination among states and also with the federal government could
-have made the policy more effective.
+that are available for consumption for in the US since some drugs are
+mainly imported from neighboring countries. In addition, coordination
+among states and also with the federal government could have made the
+policy more effective.
 
 \hypertarget{exercise-2-did---practical-application}{%
 \section{Exercise 2: DiD - practical
@@ -310,7 +308,7 @@ of labs from 2004 to 2007 were not solely due to the OTC regulations, as
 the declines began before states enacted the sales restrictions. This
 fact is further supported by Figure (\ref{fig-2}).
 
-\begin{figure}[hbt!]
+\begin{figure}[H]
  \centering
  \includegraphics{number_of_labs_siezed-timeseries.eps}
  \caption{Methamphetamine labs discovered or seized by capacity. \\ The
@@ -521,44 +519,47 @@ the treatment.
   Does the effect look persistent?}
 \end{enumerate}
 
+We estimate the following model:
+
 \begin{equation}
 Y_{s t}=\sum_{j=-12}^{24} \pi_{j} 1\left(\tau_{s t}=j\right)+\alpha_{s}+\gamma_{t}+\delta_{s} * t+\epsilon_{s t}
 \end{equation}
 
 The estimated \(\pi_{j}\) coefficients with their 95 percent confidence
-intervals are plotted against event time dummies for
-\(j \in [-12, 24]\).
+intervals are plotted below against event time dummies for
+\(j \in [-12, 24]\) for each category of lab sizes.
 
 In terms of the effects of the treatment, what the confidence interval
 plots show is consistent with the previous findings (cf.~Table
 \ref{fe-results}). The reductions in the number of small labs are
-substantial. The effect on large labs is not significant since the 95
-percent confidence intervals of the \(\pi_j\) coefficients include zero
-(see \ref{ci-cap9})---consistent with the findings in the above
-regression models (see (c)). The effect looks quite persistent.
+substantial due to the regulation. The effect on large labs is not
+significant since the 95 percent confidence intervals of the \(\pi_j\)
+coefficients include zero (see \ref{ci-cap9})---consistent with the
+findings in the above regression models (see (c)). Yes, the effect looks
+persistent to me.
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{event-study.eps}
  \caption{Methamphetamine labs discovered or seized by capacity, event study.}
 \label{event-study}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{confidence-interval-plot-for-cap_under_2_oz.eps}
  \caption{Event Study: Methamphetamine Labs Discovered or Seized With Capacity Under 2 oz}
 \label{ci-cap2}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{confidence-interval-plot-for-cap_2_8_oz.eps}
  \caption{Event Study: Methamphetamine Labs Discovered or Seized With Capacity Between 2 and 8 oz}
 \label{ci-cap2-8}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{confidence-interval-plot-for-cap_above_9_oz.eps}
  \caption{Event Study: Methamphetamine Labs Discovered or Seized With Capacity Greater than 9 oz}

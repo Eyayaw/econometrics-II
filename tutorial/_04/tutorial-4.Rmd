@@ -302,6 +302,7 @@ Therefore, the existence of variation in the timing of state OTC regulations nec
 
 * Broadly, assumptions DiD1-DiD5
 
+
 (e) **What does equation (\ref{eq:1}) assume about the temporal evolution of the treatment effect? How does the regression equation (\ref{eq:2}) of the paper improve on this?**
 
 Equation (\ref{eq:1}) (implicitly) assumes the treatment effect to be constant over time; 
@@ -318,31 +319,31 @@ Y_{s t}=\sum_{j=-12}^{24} \pi_{j} 1\left(\tau_{s t}=j\right)+\alpha_{s}+\gamma_{
 
 The estimated $\pi_{j}$ coefficients with their 95 percent confidence intervals are plotted below against event time dummies for $j \in [-12, 24]$ for each category of lab sizes.  
 
-In terms of the effects of the treatment, what the confidence interval plots show is consistent with the previous findings (cf. Table \ref{fe-results}). The reductions in the number of small labs are substantial due to the regulation. The effect on large labs is not significant since the 95 percent confidence intervals of the $\pi_j$ coefficients include zero (see \ref{ci-cap9})---consistent with the findings in the above regression models (see (c)). The effect looks quite persistent.
+In terms of the effects of the treatment, what the confidence interval plots show is consistent with the previous findings (cf. Table \ref{fe-results}). The reductions in the number of small labs are substantial due to the regulation. The effect on large labs is not significant since the 95 percent confidence intervals of the $\pi_j$ coefficients include zero (see \ref{ci-cap9})---consistent with the findings in the above regression models (see (c)). Yes, the effect looks persistent to me.
 
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{event-study.eps}
  \caption{Methamphetamine labs discovered or seized by capacity, event study.}
 \label{event-study}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{confidence-interval-plot-for-cap_under_2_oz.eps}
  \caption{Event Study: Methamphetamine Labs Discovered or Seized With Capacity Under 2 oz}
 \label{ci-cap2}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{confidence-interval-plot-for-cap_2_8_oz.eps}
  \caption{Event Study: Methamphetamine Labs Discovered or Seized With Capacity Between 2 and 8 oz}
 \label{ci-cap2-8}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!hbtp]
  \centering
  \includegraphics{confidence-interval-plot-for-cap_above_9_oz.eps}
  \caption{Event Study: Methamphetamine Labs Discovered or Seized With Capacity Greater than 9 oz}
