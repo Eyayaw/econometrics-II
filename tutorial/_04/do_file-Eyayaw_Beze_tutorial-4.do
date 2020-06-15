@@ -1,4 +1,4 @@
-local path "~/Documents/PhD Archive/semester-II/Econometrics-2/tutorial/_04"
+local path "~/insert-path-here"
 
 cd "`path'"
 
