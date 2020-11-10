@@ -1,0 +1,541 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma08p1cmtests.txt
+  log type:  text
+ opened on:  17 May 2005, 14:04:20
+
+. 
+. ********** OVERVIEW OF MMA08P1CMTESTS.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 8.2.6 pages 269-71
+. * Conditional moment tests example producing Table 8.1
+. 
+. * (A) TEST OF THE CONDITIONAL MEAN
+. * (B) TEST THAT CONDITIONAL VARIANCE = MEAN 
+. * (C) ALTERNATIVE TEST THAT CONDITIONAL VARIANCE = MEAN 
+. * (D) INFORMATION MATRIX TEST
+. * (E) CHI-SQUARE GOODNESS OF FIT TEST 
+. * for a Poisson model with generated data (see below).
+. 
+. * The data generation requires free Stata add-on command rndpoix
+. * In Stata: search rndpoix
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+.   
+. ********** GENERATE DATA **********
+. 
+. * Model is
+. *   y ~ Poisson[exp(b1 + b2*x2]
+. * where 
+. *    x2 is iid ~ N[0,1]
+. * and b1=0 and b2=1.
+. 
+. set seed 10001
+
+. set obs 200
+obs was 0, now 200
+
+. scalar b1 = 0
+
+. scalar b2 = 1
+
+. 
+. * Generate regressors
+. gen x2 = invnorm(uniform())
+
+. 
+. * Generate y
+. gen mupoiss = exp(b1+b2*x2)
+
+. * The next requires Stata add-on. In Stata: search rndpoix
+. rndpoix(mupoiss)
+( Generating ................ )
+Variable xp created.
+
+. gen y = xp
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile y x2 using mma08p1cmtests.asc, replace
+
+. 
+. ********* POISSON REGRESSION **********
+. 
+. poisson y x2
+
+Iteration 0:   log likelihood = -263.53818  
+Iteration 1:   log likelihood =  -263.5288  
+Iteration 2:   log likelihood =  -263.5288  
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(1)      =     321.75
+                                                  Prob > chi2     =     0.0000
+Log likelihood =  -263.5288                       Pseudo R2       =     0.3791
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |    1.12402   .0687868    16.34   0.000     .9892006     1.25884
+       _cons |  -.1652935    .089065    -1.86   0.063    -.3398578    .0092707
+------------------------------------------------------------------------------
+
+. * Obtain exp(x'b)
+. 
+. * Obtain the scores to be used later
+. predict yhat       
+(option n assumed; predicted number of events)
+
+. * For the Poisson s = dlnf(y)/db = (y - exp(x'b))*x
+. gen s1 = (y - yhat)
+
+. gen s2 = (y - yhat)*x2
+
+. 
+. * Summarize data
+. * Should get s1 and s2 summing to zero
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          x2 |       200   -.0091098    1.010072  -2.857666   2.149822
+     mupoiss |       200    1.599601    1.674071   .0574026    8.58333
+          xp |       200       1.525    2.363749          0         15
+           y |       200       1.525    2.363749          0         15
+        yhat |       200       1.525    1.803242   .0341372   9.498652
+-------------+--------------------------------------------------------
+          s1 |       200    1.36e-09     1.36719  -3.148933   6.245292
+          s2 |       200    6.69e-09    1.889198  -6.420406   12.97311
+
+. 
+. ********** ANALYSIS: CONDITIONAL MOMENTS TESTS **********
+. 
+. * The program is appropriate for MLE with density assumed to be correctly specified.
+. * Let H0: E[m(y,x,theta)] = 0 
+. * Then CM = explained sum of squares or N times uncentered Rsq from 
+. * auxiliary regression of 1 on m and the components of s = dlnf(y)//dtheta
+. * The test is chi-squared with dim(m) degrees of freedom.
+. 
+. * Define the dependent variable one for the aucxiliary regressions
+. gen one = 1
+
+.  
+. *** (A) TEST OF THE CONDITIONAL MEAN  (Table 8.1 p.270 row 1)
+. 
+. * Test H0: E[(y - exp(x'b))*z] = 0  where z = x2sq
+. 
+. * A smilar test is relevant for many nonlinear models
+. * Just change the expression for the conditional mean.
+. * Here we used E[y|x] = exp(x'b) for the Poisson 
+. * Also for the Poisson z cannot be x as this sums to zero by Poisson foc
+. * For some other models (basically non-LEF models) z can be x 
+. 
+. gen z = x2*x2
+
+. gen mA = (y - yhat)*z
+
+. regress one mA s1 s2, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  3,   197) =    1.09
+       Model |  3.27177115     3  1.09059038           Prob > F      =  0.3536
+    Residual |  196.728229   197  .998620451           R-squared     =  0.0164
+-------------+------------------------------           Adj R-squared =  0.0014
+       Total |         200   200           1           Root MSE      =  .99931
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          mA |   .1046155   .0577969     1.81   0.072    -.0093646    .2185956
+          s1 |  -.0377486   .0822939    -0.46   0.647    -.2000387    .1245415
+          s2 |  -.1544278   .1029465    -1.50   0.135    -.3574463    .0485908
+------------------------------------------------------------------------------
+
+. scalar CMA = e(N)*e(r2)
+
+. di "CMA: " CMA    " p-value: " chi2tail(1,CMA)
+CMA: 3.2717711 p-value: .07048149
+
+. 
+. * Check that three different ways give same answer.
+. di "N times Uncentered R-squared:    " e(N)*e(r2)
+N times Uncentered R-squared:    3.2717711
+
+. di "Explained Sum of Squares:        " e(mss)
+Explained Sum of Squares:        3.2717711
+
+. di "N minus Residual Sum of Squares: " e(N) - e(rss)
+N minus Residual Sum of Squares: 3.2717711
+
+. 
+. *** (B) TEST THAT CONDITIONAL VARIANCE = MEAN  (Table 8.1 p.270 row 2)
+. 
+. * Test H0: E[{(y - exp(x'b))^2 - exp(x'b)}*x] = 0
+. 
+. * This test is peculiar to Poisson which restricts mean = variance
+. 
+. * Here m has 2 terms 
+. gen mB1 = ((y - yhat)^2 - yhat)
+
+. gen mB2 = ((y - yhat)^2 - yhat)*x2
+
+. regress one mB1 mB2 s1 s2, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  4,   196) =    0.60
+       Model |  2.43400011     4  .608500026           Prob > F      =  0.6604
+    Residual |     197.566   196   1.0079898           R-squared     =  0.0122
+-------------+------------------------------           Adj R-squared = -0.0080
+       Total |         200   200           1           Root MSE      =   1.004
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         mB1 |   .0432045   .0542516     0.80   0.427    -.0637873    .1501963
+         mB2 |  -.0052374   .0357193    -0.15   0.884    -.0756808     .065206
+          s1 |  -.0399879   .1073712    -0.37   0.710     -.251739    .1717633
+          s2 |   -.003196   .0852726    -0.04   0.970    -.1713655    .1649735
+------------------------------------------------------------------------------
+
+. scalar CMB = e(N)*e(r2)
+
+. di "CMB: " CMB    "  p-value: " chi2tail(2,CMB)
+CMB: 2.4340001  p-value: .29611717
+
+. 
+. *** (C) ALTERNATIVE TEST THAT CONDITIONAL VARIANCE = MEAN  (Table 8.1 p.270 row 3)
+. 
+. * Test H0: E[{(y - exp(x'b))^2 - y}*x] = 0
+. 
+. * This test is peculiar to Poisson which restricts mean = variance
+. * This test is also peculiar as here dm/db = 0
+. 
+. * Here m has 2 terms 
+. gen mC1 = ((y - yhat)^2 - y)
+
+. gen mC2 = ((y - yhat)^2 - y)*x2
+
+. 
+. * To be consistent with other tests include s1 and s2. 
+. regress one mC1 mC2 s1 s2, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  4,   196) =    0.60
+       Model |  2.43400011     4  .608500027           Prob > F      =  0.6604
+    Residual |     197.566   196   1.0079898           R-squared     =  0.0122
+-------------+------------------------------           Adj R-squared = -0.0080
+       Total |         200   200           1           Root MSE      =   1.004
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         mC1 |   .0432045   .0542516     0.80   0.427    -.0637873    .1501963
+         mC2 |  -.0052374   .0357192    -0.15   0.884    -.0756808     .065206
+          s1 |   .0032166   .0825345     0.04   0.969    -.1595531    .1659863
+          s2 |  -.0084334   .0641096    -0.13   0.895    -.1348665    .1179997
+------------------------------------------------------------------------------
+
+. scalar CMC = e(N)*e(r2)
+
+. di "CMC: " CMC     "  p-value: " chi2tail(2,CMC)
+CMC: 2.4340001  p-value: .29611717
+
+. 
+. * Since dm/db = 0 could just do the regression without the scores
+. regress one mC1 mC2, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  2,   198) =    1.21
+       Model |  2.40695177     2  1.20347588           Prob > F      =  0.3016
+    Residual |  197.593048   198  .997944688           R-squared     =  0.0120
+-------------+------------------------------           Adj R-squared =  0.0021
+       Total |         200   200           1           Root MSE      =  .99897
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         mC1 |   .0458705   .0510111     0.90   0.370    -.0547243    .1464652
+         mC2 |  -.0075807     .03212    -0.24   0.814    -.0709218    .0557605
+------------------------------------------------------------------------------
+
+. scalar CMCnoscores = e(N)*e(r2)
+
+. di "CMCnoscores: " CMC     "  p-value: " chi2tail(2,CMCnoscores)
+CMCnoscores: 2.4340001  p-value: .30014911
+
+. 
+. *** (D) INFORMATION MATRIX TEST   (Table 8.1 p.270 row 4)
+. 
+. * Test H0: E[{(y - exp(x'b))^2 - y}*vech(xx')] = 0
+. 
+. * A similar test is relevant for other parametric models
+. * In general m = vech(d2lnf(y)/dbdb')
+. * and for Poisson this yields above
+. 
+. * Here m is a 3x1 vector
+. gen mD1 = ((y - yhat)^2 - y)
+
+. gen mD2 = ((y - yhat)^2 - y)*x2
+
+. gen mD3 = ((y - yhat)^2 - y)*x2*x2
+
+. 
+. * To be consistent with other tests include s1 and s2. 
+. regress one mD1 mD2 mD3 s1 s2, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  5,   195) =    0.58
+       Model |   2.9463051     5   .58926102           Prob > F      =  0.7129
+    Residual |  197.053695   195  1.01053177           R-squared     =  0.0147
+-------------+------------------------------           Adj R-squared = -0.0105
+       Total |         200   200           1           Root MSE      =  1.0053
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         mD1 |   .0546342   .0566422     0.96   0.336    -.0570759    .1663442
+         mD2 |  -.0712751   .0994042    -0.72   0.474    -.2673205    .1247703
+         mD3 |   .0330527   .0464213     0.71   0.477    -.0584996     .124605
+          s1 |  -.0098554   .0846533    -0.12   0.907     -.176809    .1570982
+          s2 |  -.0146441   .0647803    -0.23   0.821    -.1424041    .1131158
+------------------------------------------------------------------------------
+
+. scalar CMD = e(N)*e(r2)
+
+. di "CMD: " CMD     "  p-value: " chi2tail(3,CMD)
+CMD: 2.9463051  p-value: .39997818
+
+. 
+. * Since dm/db = 0 could just do the regression without the scores
+. regress one mD1 mD2 mD3, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  3,   197) =    0.91
+       Model |  2.73445751     3  .911485837           Prob > F      =  0.4370
+    Residual |  197.265542   197  1.00134793           R-squared     =  0.0137
+-------------+------------------------------           Adj R-squared = -0.0013
+       Total |         200   200           1           Root MSE      =  1.0007
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         mD1 |    .056165    .054176     1.04   0.301    -.0506743    .1630043
+         mD2 |   -.056325   .0911035    -0.62   0.537    -.2359884    .1233384
+         mD3 |   .0233527   .0408339     0.57   0.568     -.057175    .1038805
+------------------------------------------------------------------------------
+
+. scalar CMDnoscores = e(N)*e(r2)
+
+. di "CMDnoscores: " CMDnoscores     "  p-value: " chi2tail(3,CMDnoscores)
+CMDnoscores: 2.7344575  p-value: .43440333
+
+. 
+. *** (E) CHI-SQUARE GOODNESS OF FIT TEST  (Table 8.1 p.270 row 5)
+. 
+. * Test H0: E[{d_j - Pr[y = j]] = 0
+. * where d_j = 1 if y = j   for j = 0, 1, 2, and 3 or more
+. * and  Pr[y = j] = exp(-lamda)*lamda^y/y!  for lamda = exp(x'b)
+. * Cells get too small if have more cells than up to 3 or more.
+. 
+. * A similar test is relevant for other parametric models,
+. * though a natural partitioning for y may be less obvious. 
+. 
+. * Here m has 4 terms
+. gen d0 = 0
+
+. replace d0 = 1 if y==0
+(87 real changes made)
+
+. gen d1 = 0
+
+. replace d1 = 1 if y==1
+(51 real changes made)
+
+. gen d2 = 0
+
+. replace d2 = 1 if y==2
+(22 real changes made)
+
+. gen p0 = exp(-yhat)
+
+. gen p1 = exp(-yhat)*yhat
+
+. gen p2 = exp(-yhat)*(yhat^2)/2
+
+. gen mE1 = d0 - p0
+
+. gen mE2 = d1 - p1
+
+. gen mE3 = d2 - p2
+
+. regress one mE1 mE2 mE3 s1 s2, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  5,   195) =    0.49
+       Model |  2.50056717     5  .500113433           Prob > F      =  0.7807
+    Residual |  197.499433   195   1.0128176           R-squared     =  0.0125
+-------------+------------------------------           Adj R-squared = -0.0128
+       Total |         200   200           1           Root MSE      =  1.0064
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         mE1 |   1.020078   .7290569     1.40   0.163    -.4177712    2.457927
+         mE2 |   .7149016   .5053259     1.41   0.159    -.2817042    1.711507
+         mE3 |   .2705081    .383646     0.71   0.482    -.4861201    1.027136
+          s1 |   .2916116   .2217763     1.31   0.190    -.1457765    .7289997
+          s2 |  -.1341565   .1125046    -1.19   0.235    -.3560384    .0877255
+------------------------------------------------------------------------------
+
+. scalar CME = e(N)*e(r2)
+
+. di "CME: " CME     "  p-value: " chi2tail(3,CME)
+CME: 2.5005672  p-value: .47518859
+
+. 
+. * Wrong alternative is basic chisquare
+. quietly sum d0
+
+. scalar sumd0 = r(sum)
+
+. quietly sum d1
+
+. scalar sumd1 = r(sum)
+
+. quietly sum d2
+
+. scalar sumd2 = r(sum)
+
+. scalar sumd3 = 1 - sumd0 - sumd1 - sumd2
+
+. quietly sum p0
+
+. scalar sump0 = r(sum)
+
+. quietly sum p1
+
+. scalar sump1 = r(sum)
+
+. quietly sum p2
+
+. scalar sump2 = r(sum)
+
+. scalar sump3 = 1 - sump0 - sump1 - sump2
+
+. scalar chisq = (sumd0-sump0)^2/sump0 + (sumd1-sump1)^2/sump1 /*
+>             */  + (sumd2-sump2)^2/sump2 + (sumd3-sump3)^2/sump3 
+
+. di "Wrong Traditional chi-square: " chisq " p = " chi2tail(3,chisq)
+Wrong Traditional chi-square: .47431003 p = .92449803
+
+. 
+. 
+. ********** DISPLAY RESULTS  (Table 8.1 p.270) **********
+. 
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          x2 |       200   -.0091098    1.010072  -2.857666   2.149822
+     mupoiss |       200    1.599601    1.674071   .0574026    8.58333
+          xp |       200       1.525    2.363749          0         15
+           y |       200       1.525    2.363749          0         15
+        yhat |       200       1.525    1.803242   .0341372   9.498652
+-------------+--------------------------------------------------------
+          s1 |       200    1.36e-09     1.36719  -3.148933   6.245292
+          s2 |       200    6.69e-09    1.889198  -6.420406   12.97311
+         one |       200           1           0          1          1
+           z |       200    1.015227    1.286795   .0000877   8.166255
+          mA |       200    .1563713    3.403966  -13.52498   26.94856
+-------------+--------------------------------------------------------
+         mB1 |       200     .334863    3.470417  -6.436038   30.24896
+         mB2 |       200      .43869    5.749749  -11.74974   62.83503
+         mC1 |       200     .334863    3.077815  -6.838236   24.00367
+         mC2 |       200      .43869    4.897291    -12.484   49.86192
+         mD1 |       200     .334863    3.077815  -6.838236   24.00367
+-------------+--------------------------------------------------------
+         mD2 |       200      .43869    4.897291    -12.484   49.86192
+         mD3 |       200    .8381842    9.190652    -22.791   103.5763
+          d0 |       200        .435    .4970011          0          1
+          d1 |       200        .255     .436955          0          1
+          d2 |       200         .11    .3136749          0          1
+-------------+--------------------------------------------------------
+          p0 |       200     .429237    .2918348    .000075   .9664389
+          p1 |       200    .2406035    .1137756    .000712    .367864
+          p2 |       200    .1235594    .0894167   .0005631   .2706694
+         mE1 |       200     .005763    .4287003  -.9289918   .9571021
+         mE2 |       200    .0143965    .4210301   -.367864   .9315748
+-------------+--------------------------------------------------------
+         mE3 |       200   -.0135594    .3065698  -.2706694   .9688674
+
+. 
+. * Gives Rows 1-5 of Table 8.1 (The CMxnoscores are not reported)
+. di "CMA: " CMA    " p-value: " chi2tail(1,CMA)
+CMA: 3.2717711 p-value: .07048149
+
+. di "CMB: " CMB    " p-value: " chi2tail(2,CMB)
+CMB: 2.4340001 p-value: .29611717
+
+. di "CMC: " CMC    " p-value: " chi2tail(2,CMC)
+CMC: 2.4340001 p-value: .29611717
+
+. di "CMD: " CMD    " p-value: " chi2tail(3,CMD)
+CMD: 2.9463051 p-value: .39997818
+
+. di "CME: " CME    " p-value: " chi2tail(3,CME)
+CME: 2.5005672 p-value: .47518859
+
+. di "CMCnoscores: " CMCnoscores     "  p-value: " chi2tail(2,CMCnoscores)
+CMCnoscores: 2.4069518  p-value: .30014911
+
+. di "CMDnoscores: " CMDnoscores     "  p-value: " chi2tail(3,CMDnoscores)
+CMDnoscores: 2.7344575  p-value: .43440333
+
+. 
+. ********** FURTHER ANALYSIS gives M** column in Table 8.1 **********
+. 
+. * The following drops the scores from the regression. Provides lower bound.
+. * Results are reported in last column in Table 8.1
+. quietly regress one mA, noconstant
+
+. di "CMA without scores:" e(N)*e(r2) " with p = " chi2tail(1,e(N)*e(r2))
+CMA without scores:.42328231 with p = .51530376
+
+. quietly regress one mB1 mB2, noconstant
+
+. di "CMB without scores:" e(N)*e(r2) " with p = " chi2tail(2,e(N)*e(r2))
+CMB without scores:1.8897296 with p = .38873213
+
+. quietly regress one mC1 mC2, noconstant
+
+. di "CMC without scores:" e(N)*e(r2) " with p = " chi2tail(2,e(N)*e(r2))
+CMC without scores:2.4069518 with p = .30014911
+
+. quietly regress one mD1 mD2 mD3, noconstant
+
+. di "CMD without scores:" e(N)*e(r2) " with p = " chi2tail(3,e(N)*e(r2))
+CMD without scores:2.7344575 with p = .43440333
+
+. quietly regress one mE1 mE2 mE3, noconstant
+
+. di "CME without scores:" e(N)*e(r2) " with p = " chi2tail(3,e(N)*e(r2))
+CME without scores:.73842732 with p = .86413036
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma08p1cmtests.txt
+  log type:  text
+ closed on:  17 May 2005, 14:04:20
+----------------------------------------------------------------------------------------------------

@@ -1,0 +1,1314 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma16p3selection.txt
+  log type:  text
+ opened on:  19 May 2005, 13:04:33
+
+. 
+. ********** OVERVIEW OF MMA16P3SELECTION.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 16.6 pages 553-5
+. * Selection models example
+. * It provides
+. *   (1) Two-part model estimation (Table 16.1)
+. *   (2) Selection model estimation
+. *     (2A) ML estimates  (Table 16.1)
+. *     (2B) Heckman 2-step estimates  (Table 16.1)
+. *     (2C) Check for possible collinearity problems in Heckman 2-Step 
+. 
+. * To use this program you need health expenditure data in Stata data set
+. *   randdata.dta    
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * Essentially same data as in P. Deb and P.K. Trivedi (2002)
+. * "The Structure of Demand for Medical Care: Latent Class versus
+. *  Two-Part Models", Journal of Health Economics, 21, 601-625
+. * except that paper used different outcome (counts rather than $)
+. 
+. * Each observation is for an individual over a year.
+. * Individuals may appear in up to five years.
+. * All available sample is used except only fee for service plans included.
+. * In analysis here only year 2 is used so panel complications are avoided.
+. * Clustering of individuals within household is ignored here.
+. 
+. * Dependent variable is 
+. *      MED      med        Annual medical expenditures in constant dollars 
+. *                          excluding dental and outpatient mental 
+. *      LNMED    lnmeddol   Ln(Medical expenditures) given meddol > 0
+. *                          Missing otherwise
+. *      DMED     binexp     1 if medical expenditures > 0
+. 
+. * Regressors are 
+. *  - Health insurance measures
+. *       LC       logc      log(coinsrate+1)  where coinsurance rate is 0 to 100
+. *       IDP      idp       1 if individual deductible plan
+. *       LPI      lpi       1og(annual participation incentive payment) or 0 if no payment 
+. *       FMDE     fmde      log(max(medical deductible expenditure)) if IDP=1 and MDE>1 or 0 otherw
+> ise.
+. *  - Health status measures
+. *       NDISEASE disea     number of chronic diseases
+. *       PHYSLIM  physlm    1 if physical limitation
+. *       HLTHG    hlthg     1 if good health
+. *       HLTHF    hlthf     1 if good health
+. *       HLTHP    hlthp     1 if good health  (omitted is excellent)
+. *  - Socioeconomic characteristics
+. *       LINC     linc      log of annual family income (in $)
+. *       LFAM     lfam      log of family size
+. *       EDUCDEC  educdec   years of schooling of decision maker
+. *       AGE      xage      exact age
+. *       BLACK    black     1 if black
+. *       FEMALE   female    1 if female 
+. *       CHILD    child     1 if child
+. *       FEMCHILD fchild    1 if female child
+. 
+. * If panel data used then clustering is on
+. *       zper      person id
+. 
+. ********** READ DATA **********
+. 
+. use randdata.dta, clear
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        plan |     20190    11.17553    3.976751          1         19
+        site |     20190    3.298811     1.80382          1          6
+       coins |     20190     26.3056    36.40386          0        100
+    tookphys |     20190    .5974245    .4904288          0          1
+        year |     20190    2.420109    1.217141          1          5
+-------------+--------------------------------------------------------
+        zper |     20190    357965.5    180868.1     125024     632167
+       black |     20190    .1814983    .3827071          0          1
+      income |     20190    8037.409    4058.371          0   29237.54
+        xage |     20190    25.72233    16.76945          0   64.27515
+      female |     20190    .5170381     .499722          0          1
+-------------+--------------------------------------------------------
+     educdec |     20186    11.96681    2.806255          0         25
+        time |     20190    .9989561    .0259741   .0767123          1
+     outpdol |     20190    51.12649    94.92627          0   2599.902
+     drugdol |     20190     13.1687    33.76212          0   706.3979
+     suppdol |     20190      6.8024    21.39346          0    1009.47
+-------------+--------------------------------------------------------
+     mentdol |     20190    6.870347    58.41298          0   1340.834
+      inpdol |     20190    100.4694    655.6215          0   38649.81
+      meddol |     20190    171.5679    698.2015          0   39182.02
+      totadm |     20190    .1127291    .4111857          0          8
+      inpmis |     20190    .0039624     .062824          0          1
+-------------+--------------------------------------------------------
+     mentvis |     20190    .4322437    3.430789          0         62
+       mdvis |     20190    2.860426    4.504365          0         77
+    notmdvis |     20190    .6855869    3.763543          0        109
+         num |     20190    3.954235    1.853034          1         14
+         mhi |     20190    76.55584    12.50224       12.2        100
+-------------+--------------------------------------------------------
+       disea |     20190    11.24449    6.741449          0       58.6
+      physlm |     20190    .1235003    .3220164          0          1
+      ghindx |     14967    73.09055    15.99371        3.7        100
+      mdeoff |     20185    417.8422    384.1199          0       1000
+       pioff |     20185     446.677     367.466          0    1291.68
+-------------+--------------------------------------------------------
+       child |     20190    .4013373    .4901812          0          1
+      fchild |     20190    .1937098    .3952139          0          1
+        lfam |     20190    1.248156     .539301          0   2.639057
+         lpi |     20190    4.707894     2.69784          0   7.163699
+         idp |     20190    .2599802    .4386343          0          1
+-------------+--------------------------------------------------------
+        logc |     20190    2.383342    2.041776          0   4.564348
+        fmde |     20190    4.029524    3.471353          0   8.294049
+       hlthg |     20190    .3620109    .4805938          0          1
+       hlthf |     20190     .077266    .2670196          0          1
+       hlthp |     20190    .0149579    .1213874          0          1
+-------------+--------------------------------------------------------
+     xghindx |     20190     73.2375     14.2332        3.7        100
+        linc |     20190    8.708265    1.228309          0   10.28324
+        lnum |     20190    1.248156     .539301          0   2.639057
+    lnmeddol |     15737    4.109318    1.484654  -.8495329   10.57597
+      binexp |     20190    .7794453     .414631          0          1
+
+. 
+. /* Describe and summarize the original data.
+> describe
+> summarize
+> * The orignal data are a panel. 
+> * The following summarizes panel features for completeness
+> iis zper
+> tis year
+> xtdes
+> xtsum meddol lnmeddol binexp
+> */
+. 
+. ********** DATA SELECTION AND TRANSFORMATIONS **********
+. 
+. * Use only Year 2
+. keep if year==2
+(14615 observations deleted)
+
+. 
+. * educdec is missing for one observation
+. drop if educdec==.
+(1 observation deleted)
+
+. 
+. * rename variables
+. rename meddol MED
+
+. rename binexp DMED
+
+. rename lnmeddol LNMED
+
+. rename linc LINC
+
+. rename lfam LFAM
+
+. rename educdec EDUCDEC
+
+. rename xage AGE
+
+. rename female FEMALE
+
+. rename child CHILD 
+
+. rename fchild FEMCHILD
+
+. rename black BLACK
+
+. rename disea NDISEASE
+
+. rename physlm PHYSLIM
+
+. rename hlthg HLTHG
+
+. rename hlthf HLTHF
+
+. rename hlthp HLTHP
+
+. rename idp IDP
+
+. rename logc LC
+
+. rename lpi LPI
+
+. rename fmde FMDE
+
+. 
+. * Define the regressor list which in commands can refer to as $XLIST
+. global XLIST LC IDP LPI FMDE PHYSLIM NDISEASE HLTHG HLTHF HLTHP /* 
+>      */ LINC LFAM EDUCDEC AGE FEMALE CHILD FEMCHILD BLACK
+
+. 
+. * Summarize the dependents and regressors
+. sum MED DMED LNMED $XLIST
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MED |      5574    169.7247    802.8303          0   39182.02
+        DMED |      5574    .7680301    .4221277          0          1
+       LNMED |      4281    4.069462    1.499372  -.5343859   10.57597
+          LC |      5574    2.420739    2.043883          0   4.564348
+         IDP |      5574     .261751    .4396272          0          1
+-------------+--------------------------------------------------------
+         LPI |      5574    4.726834    2.681354          0   7.163699
+        FMDE |      5574    4.065015    3.450558          0   8.294049
+     PHYSLIM |      5574    .1242463    .3233768          0          1
+    NDISEASE |      5574    11.20526    6.788959          0       58.6
+       HLTHG |      5574    .3649085    .4814477          0          1
+-------------+--------------------------------------------------------
+       HLTHF |      5574    .0782203     .268542          0          1
+       HLTHP |      5574    .0156082     .123965          0          1
+        LINC |      5574    8.696929    1.220592          0   10.28324
+        LFAM |      5574    1.241407    .5403965          0   2.564949
+     EDUCDEC |      5574     11.9466    2.837492          0         25
+-------------+--------------------------------------------------------
+         AGE |      5574    25.57613    16.73011   .0253251   63.27515
+      FEMALE |      5574    .5184787    .4997032          0          1
+       CHILD |      5574    .4050951    .4909545          0          1
+    FEMCHILD |      5574    .1955508    .3966597          0          1
+       BLACK |      5574    .1859852    .3860055          0          1
+
+. 
+. * Detailed summary shows that MED>0 very skewed whereas LNMED is not
+. sum MED LNMED if MED>0, detail
+
+               medical exp excl outpatient men
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     2.109705       .5860291
+ 5%     5.752914       .6630728
+10%     9.376465       .6770833       Obs                4281
+25%     21.31435       .6770833       Sum of Wgt.        4281
+
+50%     52.64357                      Mean            220.987
+                        Largest       Std. Dev.      909.9021
+75%     136.4518       12044.11
+90%     453.8059       17465.98       Variance       827921.9
+95%      904.328       18641.98       Skewness       24.00829
+99%     2666.309       39182.02       Kurtosis        873.379
+
+                            LNMED
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%      .746548      -.5343859
+ 5%     1.749707      -.4108706
+10%     2.238203      -.3899609       Obs                4281
+25%     3.059381      -.3899609       Sum of Wgt.        4281
+
+50%     3.963544                      Mean           4.069462
+                        Largest       Std. Dev.      1.499372
+75%     4.915971       9.396331
+90%      6.11767        9.76801       Variance       2.248116
+95%     6.807192       9.833171       Skewness        .347695
+99%     7.888451       10.57597       Kurtosis        3.28909
+
+. 
+. * Write final data to a text (ascii) file so can use with programs other than Stata
+. outfile DMED MED LNMED LC IDP LPI FMDE PHYSLIM NDISEASE HLTHG HLTHF HLTHP /* 
+>      */ LINC LFAM EDUCDEC AGE FEMALE CHILD FEMCHILD BLACK /*
+>      */ using mma16p3selection.asc, replace
+
+. 
+. ****************** CHAPTER 16.6 REGRESSION ANALYSIS  **************
+. 
+. * The analysis below models log expenditure (lny), not expenditure (y)
+. * where here y = MED and lny = LNMED.
+. 
+. * This makes regular tobit difficult as it is not clear 
+. * what the censoring/truncation point is since ln(0) = -infinity
+. * Also note that some LNMED<0 as 0<MED<1 is possible.
+. * So just do two-part model and sample selection model.
+. 
+. * Interested in comparing MED not LNMED at end of day.
+. * So use 
+. *   If   lny = xb + u,  u ~ N[0, s^2]     for y > 0  
+. *   Then E[y] = exp(xb + (s^2)/2)         for y > 0
+. *   and  E[y] = Pr[y>0]*exp(xb + (s^2)/2) for all y
+. 
+. * The models estimated are 
+. * (1) Two-part model using 
+. *     (a) probit for whether positive y 
+. *     (b) regress with lny as dependent variable
+. * (2) Sample selection model similar to (3) 
+. *     except that inverse Mills ratio appears in (b), estimated by
+. *     (a) MLE
+. *     (b) Heckman 2-step
+. 
+. * Additionally censored tobit and truncated tobit commands in levels 
+. * are given below for completeness. 
+. 
+. ************ (1) TWO-PART MODEL ************
+. 
+. * Two-part model: binary probit and then lognormal for expenditures
+. 
+. * First part: probit for MED > 0
+. probit DMED $XLIST          /* global XLIST defined earlier */
+
+Iteration 0:   log likelihood = -3019.1326
+Iteration 1:   log likelihood =  -2698.302
+Iteration 2:   log likelihood = -2690.6146
+Iteration 3:   log likelihood = -2690.5768
+Iteration 4:   log likelihood = -2690.5768
+
+Probit estimates                                  Number of obs   =       5574
+                                                  LR chi2(17)     =     657.11
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -2690.5768                       Pseudo R2       =     0.1088
+
+------------------------------------------------------------------------------
+        DMED |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |   -.118708   .0269005    -4.41   0.000    -.1714319    -.065984
+         IDP |  -.1279483   .0522351    -2.45   0.014    -.2303272   -.0255693
+         LPI |   .0283091   .0088793     3.19   0.001      .010906    .0457121
+        FMDE |   .0075319   .0161584     0.47   0.641     -.024138    .0392018
+     PHYSLIM |   .2732013   .0743761     3.67   0.000     .1274268    .4189758
+    NDISEASE |   .0224861   .0035958     6.25   0.000     .0154384    .0295338
+       HLTHG |   .0387516   .0438545     0.88   0.377    -.0472016    .1247049
+       HLTHF |   .1920062   .0836688     2.29   0.022     .0280185     .355994
+       HLTHP |   .6397294   .2126322     3.01   0.003      .222978    1.056481
+        LINC |   .0518413   .0168128     3.08   0.002     .0188889    .0847938
+        LFAM |  -.0335599    .041728    -0.80   0.421    -.1153452    .0482253
+     EDUCDEC |    .036307   .0076536     4.74   0.000     .0213062    .0513078
+         AGE |   .0002631   .0021606     0.12   0.903    -.0039715    .0044978
+      FEMALE |   .4451035    .054292     8.20   0.000     .3386932    .5515138
+       CHILD |    .111489   .0808338     1.38   0.168    -.0469424    .2699203
+    FEMCHILD |  -.4512845   .0799219    -5.65   0.000    -.6079284   -.2946405
+       BLACK |  -.6057367   .0523148   -11.58   0.000    -.7082718   -.5032017
+       _cons |   -.271605   .1877345    -1.45   0.148    -.6395579    .0963478
+------------------------------------------------------------------------------
+
+. estimates store twoparta    /* version 8 command for later table */ 
+
+. scalar llprobit = e(ll)     /* Log-likelihood */
+
+. predict probsel2part, p     /* Pr[y>0] = PHI(x'b) */ 
+
+. predict xbprobit, xb        /* x'b */
+
+. 
+. * Second part: OLS for log of positive values 
+. *  Here LNMED where LNMED missing if MED < 0
+. regress LNMED $XLIST 
+
+      Source |       SS       df       MS              Number of obs =    4281
+-------------+------------------------------           F( 17,  4263) =   39.69
+       Model |  1314.70352    17   77.335501           Prob > F      =  0.0000
+    Residual |  8307.23358  4263  1.94868252           R-squared     =  0.1366
+-------------+------------------------------           Adj R-squared =  0.1332
+       Total |   9621.9371  4280  2.24811614           Root MSE      =   1.396
+
+------------------------------------------------------------------------------
+       LNMED |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0164006   .0312495    -0.52   0.600    -.0776658    .0448647
+         IDP |  -.0789998    .061796    -1.28   0.201    -.2001522    .0421526
+         LPI |   .0027057   .0097138     0.28   0.781    -.0163383    .0217498
+        FMDE |  -.0306123   .0180695    -1.69   0.090    -.0660379    .0048134
+     PHYSLIM |   .2619829   .0687459     3.81   0.000     .1272052    .3967607
+    NDISEASE |   .0198922   .0034441     5.78   0.000       .01314    .0266444
+       HLTHG |   .1438008   .0483778     2.97   0.003     .0489553    .2386464
+       HLTHF |   .3642649   .0881004     4.13   0.000     .1915422    .5369876
+       HLTHP |   .7865099   .1700502     4.63   0.000      .453123    1.119897
+        LINC |   .0931988   .0217849     4.28   0.000     .0504891    .1359085
+        LFAM |  -.1408033    .046203    -3.05   0.002    -.2313852   -.0502214
+     EDUCDEC |  -5.66e-06   .0082599    -0.00   0.999    -.0161993     .016188
+         AGE |   .0055602    .002251     2.47   0.014     .0011471    .0099733
+      FEMALE |   .3442509   .0571573     6.02   0.000     .2321929     .456309
+       CHILD |  -.2677921   .0904307    -2.96   0.003    -.4450833   -.0905009
+    FEMCHILD |  -.3512207   .0896517    -3.92   0.000    -.5269847   -.1754568
+       BLACK |  -.1964412   .0677021    -2.90   0.004    -.3291725   -.0637099
+       _cons |   3.077182   .2213448    13.90   0.000      2.64323    3.511133
+------------------------------------------------------------------------------
+
+. estimates store twopartb   
+
+. scalar lllognormal = e(ll)  /* Log-likelihood */
+
+. scalar sols = e(rmse)       /* Standard error of the regression */
+
+. predict pLNMED, xb          /* Predicted mean from OLS */
+
+. predict rLNMED, residuals
+(1293 missing values generated)
+
+. 
+. * Check for normal errors
+. hettest
+
+Breusch-Pagan / Cook-Weisberg test for heteroskedasticity 
+         Ho: Constant variance
+         Variables: fitted values of LNMED
+
+         chi2(1)      =    17.11
+         Prob > chi2  =   0.0000
+
+. * imtest
+. sktest LNMED rLNMED
+
+                   Skewness/Kurtosis tests for Normality
+                                                 ------- joint ------
+    Variable |  Pr(Skewness)   Pr(Kurtosis)  adj chi2(2)    Prob>chi2
+-------------+-------------------------------------------------------
+       LNMED |      0.000         0.001               .       0.0000
+      rLNMED |      0.000         0.000               .       0.0000
+
+. 
+. * Create two-part model log-likelihood
+. scalar lltwopart = llprobit + lllognormal
+
+. di "lltwopart = " lltwopart
+lltwopart = -10184.076
+
+. 
+. * Create predictions of level of expenditures not logs
+. * E[y] = exp(pLNMED + (s^2)/2)  for y > 0
+. * and E[y] = Pr[y>0]*exp(xb + (s^2)/2) for all y
+. gen pMEDpos2part = exp(pLNMED + (sols^2)/2) 
+
+. gen pMEDall2part = probsel2part*pMEDpos2part
+
+. 
+. * Compare predictions to actual for MED > 0
+. sum LNMED pLNMED MED pMEDpos2part if MED > 0 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       LNMED |      4281    4.069462    1.499372  -.5343859   10.57597
+      pLNMED |      4281    4.069462    .5542326   2.298199   6.482164
+         MED |      4281     220.987    909.9021   .5860291   39182.02
+pMEDpos2part |      4281     183.462    126.0213   26.37827   1731.088
+
+. corr LNMED pLNMED MED pMEDpos2part if MED > 0
+(obs=4281)
+
+             |    LNMED   pLNMED      MED pMEDpo~t
+-------------+------------------------------------
+       LNMED |   1.0000
+      pLNMED |   0.3696   1.0000
+         MED |   0.4560   0.1576   1.0000
+pMEDpos2part |   0.3387   0.9204   0.1669   1.0000
+
+
+. 
+. * Compare predictions to actual including zeroes
+. sum MED pMEDall2part DMED probsel2part
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MED |      5574    169.7247    802.8303          0   39182.02
+pMEDall2part |      5574     140.966    120.2022   4.880651   1729.783
+        DMED |      5574    .7680301    .4221277          0          1
+probsel2part |      5574    .7678377    .1457464   .1526731    .999246
+
+. corr MED pMEDall2part DMED probsel2part
+(obs=5574)
+
+             |      MED pMEDal~t     DMED probse~t
+-------------+------------------------------------
+         MED |   1.0000
+pMEDall2part |   0.1772   1.0000
+        DMED |   0.1162   0.2158   1.0000
+probsel2part |   0.1031   0.6380   0.3467   1.0000
+
+
+. 
+. ************ (2) SELECTION MODEL ************
+. 
+. * Sample selection model for log expenditures
+. * Selection equation:  
+. *      Observe y = y* if I = z'a + u > 0   u ~ N[0,1]
+. * Regression equation: 
+. *            y* = x'b + v   v ~ N[0,s^2] and Corr[u,v]=rho
+. 
+. * (2A) MLE for sample selection model
+. heckman LNMED $XLIST, select (DMED = $XLIST)
+
+Iteration 0:   log likelihood = -10183.753  (not concave)
+Iteration 1:   log likelihood = -10183.676  (not concave)
+Iteration 2:   log likelihood = -10183.593  (not concave)
+Iteration 3:   log likelihood = -10183.525  (not concave)
+Iteration 4:   log likelihood = -10183.467  (not concave)
+Iteration 5:   log likelihood = -10183.408  (not concave)
+Iteration 6:   log likelihood = -10183.311  (not concave)
+Iteration 7:   log likelihood =  -10183.21  (not concave)
+Iteration 8:   log likelihood = -10179.155  
+Iteration 9:   log likelihood = -10176.799  
+Iteration 10:  log likelihood =  -10170.17  
+Iteration 11:  log likelihood =  -10170.11  
+Iteration 12:  log likelihood =  -10170.11  
+
+Heckman selection model                         Number of obs      =      5574
+(regression model with sample selection)        Censored obs       =      1293
+                                                Uncensored obs     =      4281
+
+                                                Wald chi2(17)      =    805.17
+Log likelihood = -10170.11                      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+LNMED        |
+          LC |  -.0760236   .0337456    -2.25   0.024    -.1421638   -.0098833
+         IDP |  -.1497199   .0661379    -2.26   0.024    -.2793478    -.020092
+         LPI |     .01493   .0105015     1.42   0.155    -.0056526    .0355127
+        FMDE |   -.023522   .0194745    -1.21   0.227    -.0616913    .0146474
+     PHYSLIM |   .3548628   .0755425     4.70   0.000     .2068023    .5029233
+    NDISEASE |   .0286474   .0037972     7.54   0.000     .0212051    .0360897
+       HLTHG |   .1559173   .0521775     2.99   0.003     .0536513    .2581834
+       HLTHF |   .4451223   .0955263     4.66   0.000     .2578942    .6323505
+       HLTHP |   .9986065   .1878791     5.32   0.000     .6303701    1.366843
+        LINC |   .1214009   .0230845     5.26   0.000     .0761562    .1666457
+        LFAM |  -.1583018   .0497464    -3.18   0.001     -.255803   -.0608005
+     EDUCDEC |   .0175951   .0090183     1.95   0.051    -.0000805    .0352707
+         AGE |   .0057376   .0024426     2.35   0.019     .0009501    .0105251
+      FEMALE |   .5503441   .0633313     8.69   0.000     .4262171    .6744711
+       CHILD |  -.1976875    .097398    -2.03   0.042    -.3885841    -.006791
+    FEMCHILD |  -.5653227   .0975292    -5.80   0.000    -.7564765    -.374169
+       BLACK |  -.5358684   .0749191    -7.15   0.000    -.6827072   -.3890296
+       _cons |   2.107745   .2442285     8.63   0.000     1.629066    2.586424
+-------------+----------------------------------------------------------------
+DMED         |
+          LC |  -.1068027   .0264766    -4.03   0.000    -.1586959   -.0549096
+         IDP |   -.108769   .0509938    -2.13   0.033    -.2087149   -.0088231
+         LPI |   .0294804   .0086214     3.42   0.001     .0125827    .0463781
+        FMDE |   .0007403   .0158738     0.05   0.963    -.0303719    .0318524
+     PHYSLIM |   .2848256   .0722656     3.94   0.000     .1431877    .4264635
+    NDISEASE |   .0210805   .0034967     6.03   0.000     .0142271     .027934
+       HLTHG |   .0576901    .042799     1.35   0.178    -.0261945    .1415747
+       HLTHF |   .2237238   .0814547     2.75   0.006     .0640755    .3833721
+       HLTHP |   .7984291   .2048087     3.90   0.000     .3970114    1.199847
+        LINC |   .0553122   .0166179     3.33   0.001     .0227416    .0878827
+        LFAM |   -.031201   .0402985    -0.77   0.439    -.1101846    .0477827
+     EDUCDEC |    .031499   .0074987     4.20   0.000     .0168018    .0461961
+         AGE |  -.0006072   .0021064    -0.29   0.773    -.0047357    .0035212
+      FEMALE |   .4093059   .0532548     7.69   0.000     .3049283    .5136834
+       CHILD |   .0530643   .0786326     0.67   0.500    -.1010527    .2071813
+    FEMCHILD |  -.3953421   .0783811    -5.04   0.000    -.5489662    -.241718
+       BLACK |  -.5831049   .0520534   -11.20   0.000    -.6851277   -.4810822
+       _cons |  -.2141574   .1842169    -1.16   0.245    -.5752159     .146901
+-------------+----------------------------------------------------------------
+     /athrho |   .9408188   .0736303    12.78   0.000      .796506    1.085132
+    /lnsigma |   .4511091   .0177227    25.45   0.000     .4163732     .485845
+-------------+----------------------------------------------------------------
+         rho |   .7355982   .0337886                      .6620789    .7950943
+       sigma |   1.570053   .0278256                      1.516452    1.625548
+      lambda |   1.154928   .0702985                      1.017145     1.29271
+------------------------------------------------------------------------------
+LR test of indep. eqns. (rho = 0):   chi2(1) =    27.93   Prob > chi2 = 0.0000
+------------------------------------------------------------------------------
+
+. estimates store heckmle
+
+. scalar llhecklogs = e(ll)      /* Log-likelihood */
+
+. scalar shml = e(sigma)         /* s where Var[v]=s^2 */
+
+. 
+. * Save the Stata predictions: 
+. * Distinguish between ystar=E[y*], ypos=E[y|I>0] and yall=E[y] 
+. predict ystarhml, xb           /* E[y*] = x'b */
+
+. predict yposhml, ycond         /* E[y|I>0] = E[y*|I>0] = x'b+c*lamda(z'a) */
+
+. predict invmillhml, mills      /* lamda(z'a) = phi(z'a)/PHI(z'a) */
+
+. predict probselhml, psel      /* PHI(z'a) */
+
+. * The following not appropriate here as it sets y=0 if I<0
+. * whereas here data is in logs and y=ln(MED)=-infinity if I<0  
+. predict yallhml, yexpected     /* E[y] = PHI(z'a)*E[y|I>0] */
+
+. sum ystarhml yposhml invmillhml probselhml yallhml
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ystarhml |      5574    3.543161    .7462608   .9570364    6.92732
+     yposhml |      5574    4.000607    .5482433    2.50515    6.92955
+  invmillhml |      5574     .396082    .2165116   .0019309   1.476998
+  probselhml |      5574    .7674107    .1404707   .1737047   .9994534
+     yallhml |      5574    3.124032    .9125439   .4932862   6.925763
+
+. 
+. * Create predictions of level of expenditures not logs
+. * E[y] = exp(ypos + (s^2)/2)  for y > 0    Var[v]=s^2
+. * and E[y] = Pr[y>0]*exp(ypos + (s^2)/2) for all y
+. gen pMEDposhml = exp(yposhml + (shml^2)/2) 
+
+. gen pMEDallhml = probselhml*pMEDposhml
+
+. 
+. * Compare predictions to actual for MED > 0
+. sum LNMED yposhml MED pMEDposhml if MED > 0 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       LNMED |      4281    4.069462    1.499372  -.5343859   10.57597
+     yposhml |      4281    4.071295    .5573439    2.50515    6.92955
+         MED |      4281     220.987    909.9021   .5860291   39182.02
+  pMEDposhml |      4281    240.4096    185.0424   42.00053    3505.48
+
+. corr LNMED yposhml MED pMEDpos2part if MED > 0
+(obs=4281)
+
+             |    LNMED  yposhml      MED pMEDpo~t
+-------------+------------------------------------
+       LNMED |   1.0000
+     yposhml |   0.3690   1.0000
+         MED |   0.4560   0.1592   1.0000
+pMEDpos2part |   0.3387   0.9343   0.1669   1.0000
+
+
+. 
+. * Compare predictions to actual including zeroes
+. sum MED pMEDallhml DMED probselhml
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MED |      5574    169.7247    802.8303          0   39182.02
+  pMEDallhml |      5574    184.5571    174.1649   8.814864   3503.564
+        DMED |      5574    .7680301    .4221277          0          1
+  probselhml |      5574    .7674107    .1404707   .1737047   .9994534
+
+. corr MED pMEDallhml DMED probselhml
+(obs=5574)
+
+             |      MED pMEDal~l     DMED probse~l
+-------------+------------------------------------
+         MED |   1.0000
+  pMEDallhml |   0.1734   1.0000
+        DMED |   0.1162   0.2015   1.0000
+  probselhml |   0.1074   0.6092   0.3468   1.0000
+
+
+. 
+. * (2B) Heckman 2 step for sample selection model
+. *     Same as MLE execpt add option twostep in heckman command
+. heckman LNMED $XLIST, select (DMED = $XLIST) twostep
+
+Heckman selection model -- two-step estimates   Number of obs      =      5574
+(regression model with sample selection)        Censored obs       =      1293
+                                                Uncensored obs     =      4281
+
+                                                Wald chi2(34)      =    944.44
+                                                Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+LNMED        |
+          LC |  -.0279209    .039754    -0.70   0.482    -.1058373    .0499955
+         IDP |  -.0922898   .0680191    -1.36   0.175    -.2256048    .0410252
+         LPI |   .0052225   .0111057     0.47   0.638    -.0165442    .0269893
+        FMDE |  -.0295212   .0182427    -1.62   0.106    -.0652762    .0062339
+     PHYSLIM |   .2814948   .0804535     3.50   0.000     .1238088    .4391808
+    NDISEASE |    .021617   .0050395     4.29   0.000     .0117398    .0314943
+       HLTHG |   .1474026   .0490497     3.01   0.003      .051267    .2435381
+       HLTHF |   .3821683   .0961284     3.98   0.000       .19376    .5705765
+       HLTHP |    .833294   .1974488     4.22   0.000     .4463015    1.220287
+        LINC |   .0990973   .0251548     3.94   0.000     .0497948    .1483998
+        LFAM |  -.1441358   .0468074    -3.08   0.002    -.2358766    -.052395
+     EDUCDEC |   .0033639   .0109501     0.31   0.759    -.0180979    .0248257
+         AGE |   .0055556   .0022549     2.46   0.014     .0011361    .0099751
+      FEMALE |   .3846323   .1032799     3.72   0.000     .1822074    .5870573
+       CHILD |  -.2565136   .0936771    -2.74   0.006    -.4401173   -.0729098
+    FEMCHILD |   -.392146    .125089    -3.13   0.002     -.637316    -.146976
+       BLACK |  -.2633649   .1577542    -1.67   0.095    -.5725574    .0458276
+       _cons |   2.882514   .4698969     6.13   0.000     1.961533    3.803495
+-------------+----------------------------------------------------------------
+DMED         |
+          LC |   -.118708   .0269005    -4.41   0.000    -.1714319    -.065984
+         IDP |  -.1279483   .0522351    -2.45   0.014    -.2303272   -.0255693
+         LPI |   .0283091   .0088793     3.19   0.001      .010906    .0457121
+        FMDE |   .0075319   .0161584     0.47   0.641     -.024138    .0392018
+     PHYSLIM |   .2732013   .0743761     3.67   0.000     .1274268    .4189758
+    NDISEASE |   .0224861   .0035958     6.25   0.000     .0154384    .0295338
+       HLTHG |   .0387516   .0438545     0.88   0.377    -.0472016    .1247049
+       HLTHF |   .1920062   .0836688     2.29   0.022     .0280185     .355994
+       HLTHP |   .6397294   .2126322     3.01   0.003      .222978    1.056481
+        LINC |   .0518413   .0168128     3.08   0.002     .0188889    .0847938
+        LFAM |  -.0335599    .041728    -0.80   0.421    -.1153452    .0482253
+     EDUCDEC |    .036307   .0076536     4.74   0.000     .0213062    .0513078
+         AGE |   .0002631   .0021606     0.12   0.903    -.0039715    .0044978
+      FEMALE |   .4451035    .054292     8.20   0.000     .3386932    .5515138
+       CHILD |    .111489   .0808338     1.38   0.168    -.0469424    .2699203
+    FEMCHILD |  -.4512845   .0799219    -5.65   0.000    -.6079284   -.2946405
+       BLACK |  -.6057367   .0523148   -11.58   0.000    -.7082718   -.5032017
+       _cons |   -.271605   .1877345    -1.45   0.148    -.6395579    .0963478
+-------------+----------------------------------------------------------------
+mills        |
+      lambda |   .2358048   .5018117     0.47   0.638    -.7477282    1.219338
+-------------+----------------------------------------------------------------
+         rho |    0.16833
+       sigma |  1.4008246
+      lambda |  .23580476   .5018117
+------------------------------------------------------------------------------
+
+. estimates store heck2step
+
+. scalar sh2s = e(sigma)         /* s where Var[v]=s^2 */
+
+. 
+. * Save the Stata predictions: 
+. * Distinguish between ystar=E[y*], ypos=E[y|I>0] and yall=E[y] 
+. predict ystarh2s, xb           /* E[y*] = x'b */
+
+. predict yposh2s, ycond         /* E[y|I>0] = E[y*|I>0] = x'b+c*lamda(z'a) */
+
+. predict invmillh2s, mills      /* lamda(z'a) = phi(z'a)/PHI(z'a) */
+
+. predict probselh2s, psel      /* PHI(z'a) */
+
+. * The following not appropriate here as it sets y=0 if I<0
+. * whereas here data is in logs and y=ln(MED)=-infinity if I<0  
+. predict yallh2s, yexpected     /* E[y] = PHI(z'a)*E[y|I>0] */
+
+. sum ystarh2s yposh2s invmillh2s probselh2s yallh2s
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ystarh2s |      5574    3.904371     .589474   2.005307   6.573941
+     yposh2s |      5574    3.997637    .5516546   2.337985   6.574553
+  invmillh2s |      5574    .3955256    .2253329    .002599   1.545223
+  probselh2s |      5574    .7678377    .1457464   .1526731    .999246
+     yallh2s |      5574    3.124344    .9213697   .4450346   6.569597
+
+. 
+. * Create predictions of level of expenditures not logs
+. * E[y] = exp(ypos + (s^2)/2)  for y > 0    Var[v]=s^2
+. * and E[y] = Pr[y>0]*exp(ypos + (s^2)/2) for all y
+. gen pMEDposh2s = exp(yposh2s + (sh2s^2)/2) 
+
+. gen pMEDallh2s = probselh2s*pMEDposh2s
+
+. 
+. * Compare predictions to actual for MED > 0
+. sum LNMED yposh2s MED pMEDposh2s if MED > 0 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       LNMED |      4281    4.069462    1.499372  -.5343859   10.57597
+     yposh2s |      4281    4.069462    .5543231   2.337985   6.574553
+         MED |      4281     220.987    909.9021   .5860291   39182.02
+  pMEDposh2s |      4281    184.9993    129.5432   27.63657   1911.624
+
+. corr LNMED yposh2s MED pMEDpos2part if MED > 0
+(obs=4281)
+
+             |    LNMED  yposh2s      MED pMEDpo~t
+-------------+------------------------------------
+       LNMED |   1.0000
+     yposh2s |   0.3697   1.0000
+         MED |   0.4560   0.1584   1.0000
+pMEDpos2part |   0.3387   0.9240   0.1669   1.0000
+
+
+. 
+. * Compare predictions to actual including zeroes
+. sum MED pMEDallh2s DMED probselh2s
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MED |      5574    169.7247    802.8303          0   39182.02
+  pMEDallh2s |      5574    142.1438    123.2964   5.272963   1910.182
+        DMED |      5574    .7680301    .4221277          0          1
+  probselh2s |      5574    .7678377    .1457464   .1526731    .999246
+
+. corr MED pMEDallh2s DMED probselh2s
+(obs=5574)
+
+             |      MED pMEDa~2s     DMED probs~2s
+-------------+------------------------------------
+         MED |   1.0000
+  pMEDallh2s |   0.1772   1.0000
+        DMED |   0.1162   0.2132   1.0000
+  probselh2s |   0.1031   0.6298   0.3467   1.0000
+
+
+. 
+. * (2C) Check for possible collinearity problems in Heckman 2-Step 
+. 
+. * Check variation in inverse mills ratio and related measures
+. gen zprimea = invnorm(probselh2s)
+
+. gen zprimeasq = zprimea*zprimea
+
+. sum invmillh2s probselh2s zprimea ystarh2s
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+  invmillh2s |      5574    .3955256    .2253329    .002599   1.545223
+  probselh2s |      5574    .7678377    .1457464   .1526731    .999246
+     zprimea |      5574    .8217315    .5175712  -1.025036    3.17314
+    ystarh2s |      5574    3.904371     .589474   2.005307   6.573941
+
+. sum invmillh2s probselh2s zprimea ystarh2s, detail
+
+                        Mills' ratio
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0443035        .002599
+ 5%     .1081773       .0065964
+10%     .1479522       .0074306       Obs                5574
+25%     .2404661       .0111331       Sum of Wgt.        5574
+
+50%     .3522253                      Mean           .3955256
+                        Largest       Std. Dev.      .2253329
+75%     .5044507        1.42819
+90%     .7088638        1.42819       Variance       .0507749
+95%      .863094       1.466996       Skewness       1.105156
+99%     1.080771       1.545223       Kurtosis       4.403004
+
+                          Pr(DMED)
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%      .338421       .1526731
+ 5%     .4598847       .1769602
+10%     .5570307       .1900167       Obs                5574
+25%     .6946899       .1900167       Sum of Wgt.        5574
+
+50%     .7984734                      Mean           .7678377
+                        Largest       Std. Dev.      .1457464
+75%     .8717066       .9962835
+90%      .927941       .9976236       Variance        .021242
+95%     .9502093       .9979156       Skewness      -1.048826
+99%     .9823552        .999246       Kurtosis       3.903288
+
+                           zprimea
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%    -.4167765      -1.025036
+ 5%    -.1007243      -.9270119
+10%     .1434453      -.8778346       Obs                5574
+25%     .5091883      -.8778346       Sum of Wgt.        5574
+
+50%     .8361809                      Mean           .8217315
+                        Largest       Std. Dev.      .5175712
+75%     1.134495       2.676793
+90%     1.460626        2.82333       Variance       .2678799
+95%     1.646887       2.865093       Skewness      -.0298741
+99%     2.105021        3.17314       Kurtosis       3.462529
+
+                      Linear prediction
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     2.770451       2.005307
+ 5%     3.096997       2.005307
+10%     3.248734       2.066777       Obs                5574
+25%     3.460358       2.093177       Sum of Wgt.        5574
+
+50%     3.818303                      Mean           3.904371
+                        Largest       Std. Dev.       .589474
+75%     4.304362       6.054721
+90%      4.68132       6.055911       Variance       .3474796
+95%     4.946257       6.273092       Skewness       .5047628
+99%     5.495563       6.573941       Kurtosis       3.235111
+
+. 
+. * Check for Mills ratio linear in zprimea
+. regress invmillh2s zprimea
+
+      Source |       SS       df       MS              Number of obs =    5574
+-------------+------------------------------           F(  1,  5572) =84783.34
+       Model |  265.518552     1  265.518552           Prob > F      =  0.0000
+    Residual |  17.4500012  5572   .00313173           R-squared     =  0.9383
+-------------+------------------------------           Adj R-squared =  0.9383
+       Total |  282.968553  5573  .050774906           Root MSE      =  .05596
+
+------------------------------------------------------------------------------
+  invmillh2s |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     zprimea |  -.4217284   .0014484  -291.18   0.000    -.4245677    -.418889
+       _cons |   .7420731   .0014065   527.59   0.000     .7393158    .7448305
+------------------------------------------------------------------------------
+
+. regress invmillh2s zprimea zprimeasq
+
+      Source |       SS       df       MS              Number of obs =    5574
+-------------+------------------------------           F(  2,  5571) =       .
+       Model |  282.919807     2  141.459904           Prob > F      =  0.0000
+    Residual |   .04874607  5571  8.7500e-06           R-squared     =  0.9998
+-------------+------------------------------           Adj R-squared =  0.9998
+       Total |  282.968553  5573  .050774906           Root MSE      =  .00296
+
+------------------------------------------------------------------------------
+  invmillh2s |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     zprimea |  -.6381933   .0001715 -3720.60   0.000    -.6385296   -.6378571
+   zprimeasq |   .1329635   .0000943  1410.22   0.000     .1327787    .1331484
+       _cons |   .7945547   .0000831  9556.73   0.000     .7943917    .7947177
+------------------------------------------------------------------------------
+
+. * twoway scatter yinvmill probitxb
+. 
+. * Check R-squared from regress yinvmill on other regressors
+. regress invmillh2s $XLIST
+
+      Source |       SS       df       MS              Number of obs =    5574
+-------------+------------------------------           F( 17,  5556) = 7477.36
+       Model |  271.118403    17  15.9481414           Prob > F      =  0.0000
+    Residual |    11.85015  5556  .002132856           R-squared     =  0.9581
+-------------+------------------------------           Adj R-squared =  0.9580
+       Total |  282.968553  5573  .050774906           Root MSE      =  .04618
+
+------------------------------------------------------------------------------
+  invmillh2s |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |   .0529008    .000877    60.32   0.000     .0511815    .0546202
+         IDP |   .0590603   .0017037    34.67   0.000     .0557204    .0624003
+         LPI |  -.0113774   .0002792   -40.75   0.000    -.0119247     -.01083
+        FMDE |  -.0054681   .0005178   -10.56   0.000    -.0064831    -.004453
+     PHYSLIM |  -.0864947   .0021028   -41.13   0.000     -.090617   -.0823724
+    NDISEASE |  -.0077731   .0001032   -75.31   0.000    -.0079754   -.0075707
+       HLTHG |  -.0155696   .0013947   -11.16   0.000    -.0183037   -.0128355
+       HLTHF |  -.0844067   .0025693   -32.85   0.000    -.0894435   -.0793698
+       HLTHP |  -.2164141   .0052914   -40.90   0.000    -.2267872    -.206041
+        LINC |  -.0293205   .0005678   -51.64   0.000    -.0304337   -.0282074
+        LFAM |   .0170455   .0013216    12.90   0.000     .0144545    .0196364
+     EDUCDEC |  -.0152414   .0002405   -63.38   0.000    -.0157128     -.01477
+         AGE |   .0001145   .0000665     1.72   0.085    -.0000158    .0002448
+      FEMALE |  -.1792718   .0016754  -107.00   0.000    -.1825563   -.1759873
+       CHILD |  -.0474152   .0025807   -18.37   0.000    -.0524744    -.042356
+    FEMCHILD |   .1803783    .002565    70.32   0.000     .1753498    .1854067
+       BLACK |   .3020816   .0017915   168.62   0.000     .2985695    .3055937
+       _cons |    .875215   .0061051   143.36   0.000     .8632467    .8871833
+------------------------------------------------------------------------------
+
+. 
+. * Find the condition number with inverse mills ratio included
+. matrix accum XX = invmillh2s $XLIST
+(obs=5574)
+
+. matrix XXScaled = corr(XX)
+
+. matrix symeigen XXSeigvec XXSeigval = XXScaled 
+
+. scalar rowsXX = rowsof(XX) 
+
+. scalar condnum1 = sqrt(XXSeigval[1,1]/XXSeigval[1,rowsXX])
+
+. scalar condnum2 = sqrt(XXSeigval[1,1]/XXSeigval[1,(rowsXX-1)])
+
+. 
+. * Find the condition number without inverse mills ratio
+. matrix accum ZZ = $XLIST  
+(obs=5574)
+
+. matrix ZZScaled = corr(ZZ)
+
+. matrix symeigen ZZSeigvec ZZSeigval = ZZScaled 
+
+. scalar rowsZZ = rowsof(ZZ) 
+
+. scalar condnumnoinvmills1 = sqrt(ZZSeigval[1,1]/ZZSeigval[1,rowsZZ])
+
+. scalar condnumnoinvmills2 = sqrt(ZZSeigval[1,1]/ZZSeigval[1,(rowsZZ-1)])
+
+. 
+. * Condition numbers between 30 and 100 indicate a strong near dependency
+. scalar list condnum1 condnum2
+  condnum1 =  82.333696
+  condnum2 =  24.558474
+
+. scalar list condnumnoinvmills1 condnumnoinvmills2
+condnumnoinvmills1 =  36.660119
+condnumnoinvmills2 =  20.990872
+
+. 
+. * (2D) Do Heckman 2 step manually (this is unnecessary)
+. quietly probit DMED $XLIST          /* global XLIST defined earlier */
+
+. predict pselmanual, p       /* Pr[y>0] = PHI(x'b) */ 
+
+. predict xbmanual, xb        /* x'b */
+
+. gen invmillsmanual = normden(xbmanual)/pselmanual
+
+. regress LNMED $XLIST invmillsmanual if MED > 0
+
+      Source |       SS       df       MS              Number of obs =    4281
+-------------+------------------------------           F( 18,  4262) =   37.49
+       Model |  1315.13292    18    73.06294           Prob > F      =  0.0000
+    Residual |  8306.80418  4262  1.94903899           R-squared     =  0.1367
+-------------+------------------------------           Adj R-squared =  0.1330
+       Total |   9621.9371  4280  2.24811614           Root MSE      =  1.3961
+
+------------------------------------------------------------------------------
+       LNMED |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0279209   .0397381    -0.70   0.482    -.1058282    .0499864
+         IDP |  -.0922898    .067979    -1.36   0.175     -.225564    .0409844
+         LPI |   .0052225   .0110962     0.47   0.638    -.0165318    .0269769
+        FMDE |  -.0295212     .01822    -1.62   0.105     -.065242    .0061996
+     PHYSLIM |   .2814948   .0803424     3.50   0.000     .1239819    .4390076
+    NDISEASE |   .0216171   .0050367     4.29   0.000     .0117426    .0314915
+       HLTHG |   .1474026   .0489869     3.01   0.003     .0513627    .2434424
+       HLTHF |   .3821683   .0960103     3.98   0.000     .1939381    .5703985
+       HLTHP |    .833294   .1971219     4.23   0.000     .4468325    1.219756
+        LINC |   .0990973   .0251514     3.94   0.000     .0497875    .1484071
+        LFAM |  -.1441358   .0467495    -3.08   0.002    -.2357891   -.0524825
+     EDUCDEC |   .0033639   .0109441     0.31   0.759    -.0180922    .0248201
+         AGE |   .0055556   .0022512     2.47   0.014      .001142    .0099692
+      FEMALE |   .3846324    .103291     3.72   0.000     .1821281    .5871366
+       CHILD |  -.2565135   .0935766    -2.74   0.006    -.4399725   -.0730546
+    FEMCHILD |   -.392146   .1250644    -3.14   0.002    -.6373374   -.1469547
+       BLACK |  -.2633649   .1578399    -1.67   0.095    -.5728134    .0460835
+invmillsma~l |    .235805   .5023784     0.47   0.639    -.7491182    1.220728
+       _cons |   2.882514    .470116     6.13   0.000     1.960841    3.804186
+------------------------------------------------------------------------------
+
+. predict yposmanual, xb 
+
+. * Predictions here should equal those from heckman two-step earlier
+. sum yposh2s yposmanual invmillh2s invmillsmanual probselh2s pselmanual
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     yposh2s |      5574    3.997637    .5516546   2.337985   6.574553
+  yposmanual |      5574    3.997637    .5516546   2.337985   6.574553
+  invmillh2s |      5574    .3955256    .2253329    .002599   1.545223
+invmillsma~l |      5574    .3955256    .2253329    .002599   1.545223
+  probselh2s |      5574    .7678377    .1457464   .1526731    .999246
+-------------+--------------------------------------------------------
+  pselmanual |      5574    .7678377    .1457464   .1526731    .999246
+
+. * And put in squared invmills ratio 
+. gen invmillssq = invmillsmanual*invmillsmanual
+
+. regress LNMED $XLIST invmillsmanual invmillssq if MED > 0
+
+      Source |       SS       df       MS              Number of obs =    4281
+-------------+------------------------------           F( 19,  4261) =   35.64
+       Model |  1319.30272    19  69.4369854           Prob > F      =  0.0000
+    Residual |  8302.63438  4261  1.94851781           R-squared     =  0.1371
+-------------+------------------------------           Adj R-squared =  0.1333
+       Total |   9621.9371  4280  2.24811614           Root MSE      =  1.3959
+
+------------------------------------------------------------------------------
+       LNMED |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0793176   .0530386    -1.50   0.135    -.1833009    .0246658
+         IDP |  -.1419148    .075965    -1.87   0.062    -.2908457    .0070161
+         LPI |   .0174224   .0138796     1.26   0.209    -.0097888    .0446337
+        FMDE |  -.0258495   .0183897    -1.41   0.160    -.0619029    .0102039
+     PHYSLIM |   .3867535   .1078448     3.59   0.000     .1753217    .5981854
+    NDISEASE |   .0305019   .0078898     3.87   0.000     .0150337    .0459701
+       HLTHG |   .1652111   .0504705     3.27   0.001     .0662626    .2641596
+       HLTHF |   .4576241   .1089774     4.20   0.000     .2439716    .6712766
+       HLTHP |   1.056745   .2493566     4.24   0.000     .5678762    1.545614
+        LINC |   .1169339    .027948     4.18   0.000     .0621414    .1717264
+        LFAM |  -.1550441   .0473343    -3.28   0.001    -.2478439   -.0622443
+     EDUCDEC |    .018452   .0150373     1.23   0.220     -.011029     .047933
+         AGE |   .0057227   .0022538     2.54   0.011      .001304    .0101414
+      FEMALE |   .5748999   .1660813     3.46   0.001     .2492941    .9005056
+       CHILD |  -.2096856   .0988886    -2.12   0.034    -.4035587   -.0158125
+    FEMCHILD |  -.5873068   .1828525    -3.21   0.001    -.9457929   -.2288207
+       BLACK |  -.5010232   .2264954    -2.21   0.027    -.9450721   -.0569744
+invmillsma~l |   2.159812   1.407886     1.53   0.125    -.6003768    4.920001
+  invmillssq |  -1.043357   .7132265    -1.46   0.144    -2.441653    .3549381
+       _cons |   1.909849   .8142753     2.35   0.019     .3134454    3.506253
+------------------------------------------------------------------------------
+
+. 
+. ************ (3) DISPLAY RESULTS FOR TABLE 16.1 (page 554) ************
+. 
+. * Note for brevity the coefficients for only some of the regressors are reported
+. 
+. * First two columns of Table 16.1 (page 554) 
+. * Two part estimates: probit for first part and lognormal for second
+. estimates table twoparta twopartb, t stats(N ll rank aic bic) b(%10.3f)
+
+----------------------------------------
+    Variable |  twoparta     twopartb   
+-------------+--------------------------
+          LC |     -0.119       -0.016  
+             |      -4.41        -0.52  
+         IDP |     -0.128       -0.079  
+             |      -2.45        -1.28  
+         LPI |      0.028        0.003  
+             |       3.19         0.28  
+        FMDE |      0.008       -0.031  
+             |       0.47        -1.69  
+     PHYSLIM |      0.273        0.262  
+             |       3.67         3.81  
+    NDISEASE |      0.022        0.020  
+             |       6.25         5.78  
+       HLTHG |      0.039        0.144  
+             |       0.88         2.97  
+       HLTHF |      0.192        0.364  
+             |       2.29         4.13  
+       HLTHP |      0.640        0.787  
+             |       3.01         4.63  
+        LINC |      0.052        0.093  
+             |       3.08         4.28  
+        LFAM |     -0.034       -0.141  
+             |      -0.80        -3.05  
+     EDUCDEC |      0.036       -0.000  
+             |       4.74        -0.00  
+         AGE |      0.000        0.006  
+             |       0.12         2.47  
+      FEMALE |      0.445        0.344  
+             |       8.20         6.02  
+       CHILD |      0.111       -0.268  
+             |       1.38        -2.96  
+    FEMCHILD |     -0.451       -0.351  
+             |      -5.65        -3.92  
+       BLACK |     -0.606       -0.196  
+             |     -11.58        -2.90  
+       _cons |     -0.272        3.077  
+             |      -1.45        13.90  
+-------------+--------------------------
+           N |   5574.000     4281.000  
+          ll |  -2690.577    -7493.499  
+        rank |     18.000       18.000  
+         aic |   5417.154    15022.998  
+         bic |   5536.419    15137.513  
+----------------------------------------
+                             legend: b/t
+
+. di "lltwopart = " lltwopart
+lltwopart = -10184.076
+
+. 
+. * Last four columns of Table 16.1 (page 554) 
+. * Sample selection estimates: 2step and MLE estimates
+. set matsize 60
+
+. estimates table heck2step heckmle, t stats(N ll rank aic bic) b(%10.3f)
+
+----------------------------------------
+    Variable | heck2step     heckmle    
+-------------+--------------------------
+LNMED        |                          
+          LC |     -0.028       -0.076  
+             |      -0.70        -2.25  
+         IDP |     -0.092       -0.150  
+             |      -1.36        -2.26  
+         LPI |      0.005        0.015  
+             |       0.47         1.42  
+        FMDE |     -0.030       -0.024  
+             |      -1.62        -1.21  
+     PHYSLIM |      0.281        0.355  
+             |       3.50         4.70  
+    NDISEASE |      0.022        0.029  
+             |       4.29         7.54  
+       HLTHG |      0.147        0.156  
+             |       3.01         2.99  
+       HLTHF |      0.382        0.445  
+             |       3.98         4.66  
+       HLTHP |      0.833        0.999  
+             |       4.22         5.32  
+        LINC |      0.099        0.121  
+             |       3.94         5.26  
+        LFAM |     -0.144       -0.158  
+             |      -3.08        -3.18  
+     EDUCDEC |      0.003        0.018  
+             |       0.31         1.95  
+         AGE |      0.006        0.006  
+             |       2.46         2.35  
+      FEMALE |      0.385        0.550  
+             |       3.72         8.69  
+       CHILD |     -0.257       -0.198  
+             |      -2.74        -2.03  
+    FEMCHILD |     -0.392       -0.565  
+             |      -3.13        -5.80  
+       BLACK |     -0.263       -0.536  
+             |      -1.67        -7.15  
+       _cons |      2.883        2.108  
+             |       6.13         8.63  
+-------------+--------------------------
+DMED         |                          
+          LC |     -0.119       -0.107  
+             |      -4.41        -4.03  
+         IDP |     -0.128       -0.109  
+             |      -2.45        -2.13  
+         LPI |      0.028        0.029  
+             |       3.19         3.42  
+        FMDE |      0.008        0.001  
+             |       0.47         0.05  
+     PHYSLIM |      0.273        0.285  
+             |       3.67         3.94  
+    NDISEASE |      0.022        0.021  
+             |       6.25         6.03  
+       HLTHG |      0.039        0.058  
+             |       0.88         1.35  
+       HLTHF |      0.192        0.224  
+             |       2.29         2.75  
+       HLTHP |      0.640        0.798  
+             |       3.01         3.90  
+        LINC |      0.052        0.055  
+             |       3.08         3.33  
+        LFAM |     -0.034       -0.031  
+             |      -0.80        -0.77  
+     EDUCDEC |      0.036        0.031  
+             |       4.74         4.20  
+         AGE |      0.000       -0.001  
+             |       0.12        -0.29  
+      FEMALE |      0.445        0.409  
+             |       8.20         7.69  
+       CHILD |      0.111        0.053  
+             |       1.38         0.67  
+    FEMCHILD |     -0.451       -0.395  
+             |      -5.65        -5.04  
+       BLACK |     -0.606       -0.583  
+             |     -11.58       -11.20  
+       _cons |     -0.272       -0.214  
+             |      -1.45        -1.16  
+-------------+--------------------------
+mills        |                          
+      lambda |      0.236               
+             |       0.47               
+-------------+--------------------------
+athrho       |                          
+       _cons |                   0.941  
+             |                   12.78  
+-------------+--------------------------
+lnsigma      |                          
+       _cons |                   0.451  
+             |                   25.45  
+-------------+--------------------------
+Statistics   |                          
+           N |   5574.000     5574.000  
+          ll |              -10170.110  
+        rank |     37.000       38.000  
+         aic |          .    20416.221  
+         bic |          .    20668.004  
+----------------------------------------
+                             legend: b/t
+
+. 
+. ************ (4) A LITTLE FURTHER ANALYSIS **********
+. 
+. * Predictions
+. * Compare predictions to actual for MED > 0
+. sum MED pMEDpos2part pMEDposhml pMEDposh2s if MED > 0
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MED |      4281     220.987    909.9021   .5860291   39182.02
+pMEDpos2part |      4281     183.462    126.0213   26.37827   1731.088
+  pMEDposhml |      4281    240.4096    185.0424   42.00053    3505.48
+  pMEDposh2s |      4281    184.9993    129.5432   27.63657   1911.624
+
+. corr MED pMEDpos2part pMEDposhml pMEDposh2s if MED > 0  
+(obs=4281)
+
+             |      MED pMEDpo~t pMEDpo~l pMEDp~2s
+-------------+------------------------------------
+         MED |   1.0000
+pMEDpos2part |   0.1669   1.0000
+  pMEDposhml |   0.1617   0.9830   1.0000
+  pMEDposh2s |   0.1669   0.9994   0.9887   1.0000
+
+
+. 
+. * Compare predictions to actual including zeroes
+. sum MED pMEDall2part pMEDallhml pMEDallh2s DMED probsel2part probselhml probselh2s
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MED |      5574    169.7247    802.8303          0   39182.02
+pMEDall2part |      5574     140.966    120.2022   4.880651   1729.783
+  pMEDallhml |      5574    184.5571    174.1649   8.814864   3503.564
+  pMEDallh2s |      5574    142.1438    123.2964   5.272963   1910.182
+        DMED |      5574    .7680301    .4221277          0          1
+-------------+--------------------------------------------------------
+probsel2part |      5574    .7678377    .1457464   .1526731    .999246
+  probselhml |      5574    .7674107    .1404707   .1737047   .9994534
+  probselh2s |      5574    .7678377    .1457464   .1526731    .999246
+
+. corr MED pMEDall2part pMEDallhml pMEDallh2s DMED probsel2part probselhml probselh2s
+(obs=5574)
+
+             |      MED pMEDal~t pMEDal~l pMEDa~2s     DMED probse~t probse~l probs~2s
+-------------+------------------------------------------------------------------------
+         MED |   1.0000
+pMEDall2part |   0.1772   1.0000
+  pMEDallhml |   0.1734   0.9861   1.0000
+  pMEDallh2s |   0.1772   0.9995   0.9909   1.0000
+        DMED |   0.1162   0.2158   0.2015   0.2132   1.0000
+probsel2part |   0.1031   0.6380   0.5939   0.6298   0.3467   1.0000
+  probselhml |   0.1074   0.6552   0.6092   0.6468   0.3468   0.9980   1.0000
+  probselh2s |   0.1031   0.6380   0.5939   0.6298   0.3467   1.0000   0.9980   1.0000
+
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma16p3selection.txt
+  log type:  text
+ closed on:  19 May 2005, 13:04:40
+----------------------------------------------------------------------------------------------------

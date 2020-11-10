@@ -1,0 +1,232 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section3\mma12p2mslmsm.txt
+  log type:  text
+ opened on:  18 May 2005, 21:46:27
+
+. 
+. ********** OVERVIEW OF MMA12P2MSLMSM.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 12.4.5 pages 397-8 and 12.5.5 pages 402-4
+. * Computes integral numerically and by simulation
+. *  (1) Maximum Simulated likelihood  Table 12.2
+. *  (2) Method of Simulated Moments   Table 12.3
+. * with application to generated data
+. 
+. * The application is only illustrative.
+. * This is not a template program for MSL or MSM.
+. 
+. * Different number of simulations S lead to different estimators.
+. * This program gives entries in Tables 12.2 and 12.3 for S = 100
+. * For other values of S change the value of simreps 
+. * from the current  global simreps 100
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * Model is  y = theta + u + e
+. * where  theta is a scalar parameter equal to 1
+. *        u is extreme value type 1
+. *        e is N(0,1)
+. * n is set in global numobs
+. 
+. ********** DEFINE GLOBALS **********
+. 
+. global simreps 100  /* change this to change the number of simulations */
+
+. global numobs 100   /* change this to change the number of observations */
+
+. 
+. 
+. ********** (1) MAXIMUM SIMULATED LIKELIHOOD (Table 12.2 p.398) **********
+. 
+. * This MSL program is inefficiently written computer code 
+. * as it requires drawing the same random variates at each iteration
+. 
+. * Generate data
+. clear
+
+. set obs $numobs
+obs was 0, now 100
+
+. set seed 10101
+
+. gen u = -log(-log(uniform()))
+
+. gen e = invnorm(uniform())
+
+. gen y = 1 + u + e
+
+. summarize u e y
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           u |       100    .7236045    1.372637  -1.827296   6.423636
+           e |       100    .0415449    .9472174  -2.906972   2.302204
+           y |       100    1.765149    1.684177  -2.227185   8.143228
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile u e y using mma12p2mslmsm.asc, replace
+
+. 
+. * Use the variant ml d0 as this gives the entire likelihood, not just one observation. 
+. * I want this so that seed is only reset for the entire data.
+. * My program is inefficient as variates needs to be redrawn at each iteration 
+. program define msl
+  1.   version 6.0
+  2.   args todo b lnf        /* Need to use the names todo b and lnf
+>                             todo always contains 1 and may be ignored 
+>                             b is parameters and lnf is log-density   */
+  3.   tempvar theta1         /* create as needed to calculate lf, g, ... */
+  4.   mleval `theta1' = `b', eq(1)   /* theta1 is theta1_i = x_i'b       */
+  5.   local y "$ML_y1"       /* create to make program more readable     */ 
+  6.   set seed 10101
+  7.   tempvar denssim 
+  8.   global isim=1
+  9.   quietly gen `denssim' = exp(-0.5*(`y'-`theta1'+log(-log(uniform())))^2)/sqrt(2*_pi)
+ 10.   while $isim < $simreps {
+ 11.      quietly replace `denssim' = `denssim' + exp(-0.5*(`y'-`theta1'+log(-log(uniform())))^2)/sq
+> rt(2*_pi)
+ 12.   global isim=$isim+1
+ 13.   }
+ 14.   mlsum `lnf' = ln(`denssim'/$isim)
+ 15. end
+
+. 
+. gen one = 1
+
+. ml model d0 msl (y = one, nocons )
+
+. ml maximize
+
+initial:       log likelihood = -216.68168
+alternative:   log likelihood = -199.54479
+rescale:       log likelihood = -191.09715
+Iteration 0:   log likelihood = -191.09715  
+Iteration 1:   log likelihood =  -190.4391  (not concave)
+Iteration 2:   log likelihood = -190.43885  
+Iteration 3:   log likelihood =  -190.4385  
+Iteration 4:   log likelihood =  -190.4385  
+
+                                                  Number of obs   =        100
+                                                  Wald chi2(1)    =      65.72
+Log likelihood =  -190.4385                       Prob > chi2     =     0.0000
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         one |   1.177456   .1452451     8.11   0.000     .8927806    1.462131
+------------------------------------------------------------------------------
+
+. 
+. *** Display MSL results in one column of Table 12.2 p.398
+. 
+. di "For number of simulations S = " $simreps
+For number of simulations S = 100
+
+. di "MSL estimator:   " _b[one]
+MSL estimator:   1.1774557
+
+. di "Standard error:  " _se[one]
+Standard error:  .14524511
+
+. 
+. ********** (2) METHOD OF SIMULATED MOMENTS (Table 12.3 p.404) **********
+. 
+. clear
+
+. set obs $numobs 
+obs was 0, now 100
+
+. set seed 10101
+
+. gen u = -log(-log(uniform()))
+
+. gen e = invnorm(uniform())
+
+. gen y = 1 + u + e
+
+. summarize u e y
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           u |       100    .7236045    1.372637  -1.827296   6.423636
+           e |       100    .0415449    .9472174  -2.906972   2.302204
+           y |       100    1.765149    1.684177  -2.227185   8.143228
+
+. 
+. global isim=1
+
+.   gen usim = -log(-log(uniform()))
+
+.   gen esim = invnorm(uniform())
+
+. while $isim < $simreps {
+  2.   quietly replace usim = usim-log(-log(uniform()))
+  3.   quietly replace esim = esim+invnorm(uniform())
+  4.   global isim=$isim+1
+  5.   }
+
+. gen usimbar = usim/$isim
+
+. gen esimbar = esim/$isim
+
+. gen theta = y - usimbar - esimbar
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           u |       100    .7236045    1.372637  -1.827296   6.423636
+           e |       100    .0415449    .9472174  -2.906972   2.302204
+           y |       100    1.765149    1.684177  -2.227185   8.143228
+        usim |       100    57.36345    13.16979   21.96637   90.07499
+        esim |       100   -.9702956    11.38655  -26.38858   33.28406
+-------------+--------------------------------------------------------
+     usimbar |       100    .5736345    .1316979   .2196637   .9007499
+     esimbar |       100    -.009703    .1138655  -.2638858   .3328406
+       theta |       100    1.201218    1.681435  -2.757669    7.75245
+
+. 
+. * Results for Table 12.3 on page 404
+. * Here the st.eror of theta_MSM is approximated by the st. dev. of theta
+. * divided by the square root of S (the number of simulations)
+. quietly sum theta
+
+. scalar theta_MSM = r(mean)
+
+. scalar approx_sterror = r(sd)/sqrt($simreps)
+
+. 
+. * Display MSM results in one column of Table 12.3 p.404 
+. di "For number of simulations S = " $simreps
+For number of simulations S = 100
+
+. di "MSM estimator:  " theta_MSM
+MSM estimator:  1.2012178
+
+. di "Approximate standard error:  " approx_sterror
+Approximate standard error:  .16814348
+
+. 
+. * As written this will not give the correct standard errors (see p.403).
+. * Can get this by also computing the squared rv to get E[y^2]
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section3\mma12p2mslmsm.txt
+  log type:  text
+ closed on:  18 May 2005, 21:46:28
+----------------------------------------------------------------------------------------------------

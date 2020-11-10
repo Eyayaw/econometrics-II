@@ -1,0 +1,480 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames*,x11names*}{xcolor}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={IV Estimation: Strangetown},
+  pdfauthor={Eyayaw Beze},
+  colorlinks=true,
+  linkcolor=Maroon,
+  filecolor=Maroon,
+  citecolor=Blue,
+  urlcolor=Blue,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+
+\title{IV Estimation: Strangetown}
+\author{Eyayaw Beze}
+\date{July 11, 2020}
+
+\begin{document}
+\maketitle
+
+Let \(y_i\) be a measure of good health, and \(D_i\) an indicator for
+smoking \[ D_i = \left\{
+ \begin{array}{lr}
+ 1, \quad if \;i \; smokes\\
+ 0, \quad otherwise
+ \end{array}
+ \right.
+ \]
+
+\[ Z_i = \left\{
+ \begin{array}{lr}
+ 1, \quad if \;i \; \text{received a pack of cigarettes}\\
+ 0, \quad otherwise
+ \end{array}
+ \right.
+ \]
+
+The true model reads: \begin{equation}
+ y_{i}=\alpha+\beta_{1}^{\text {true}} D_{i}+\beta_{2} w_{i}+\epsilon_{i}\label{eq:1}
+ \end{equation} with \(w_{i}\) denoting individual income. But since you
+do not observe income you can only estimate the following model:
+\begin{equation}
+ y_{i}=\alpha+\beta_{1} D_{i}+u_{i}\label{eq:2}
+ \end{equation} a) Over- or under-estimate \(\beta_{1}^{\text {true}}\)
+if we don't observe wage in (\ref{eq:1})? Show the inconsistency of the
+coefficient if we estimate (\ref{eq:2}) instead?
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# data generating process}
+\NormalTok{dgp \textless{}{-}}\StringTok{ }\ControlFlowTok{function}\NormalTok{(n, y.bar, d, z) \{}
+\NormalTok{  sigma \textless{}{-}}\StringTok{ }\DecValTok{1} \OperatorTok{/}\StringTok{ }\KeywordTok{sqrt}\NormalTok{(n)}
+\NormalTok{  y \textless{}{-}}\StringTok{ }\NormalTok{y.bar }\OperatorTok{+}\StringTok{ }\NormalTok{sigma }\OperatorTok{*}\StringTok{ }\KeywordTok{scale}\NormalTok{(}\KeywordTok{rnorm}\NormalTok{(n)) }\CommentTok{\# with fixed mean and sd; }
+                                       \CommentTok{\# mean(y) == y.bar, sd(x) == sigma}
+  \KeywordTok{return}\NormalTok{(}\KeywordTok{data.frame}\NormalTok{(y, }\DataTypeTok{D =} \KeywordTok{rep}\NormalTok{(d, n), }\DataTypeTok{Z =} \KeywordTok{rep}\NormalTok{(z, n)))}
+\NormalTok{\}}
+
+\CommentTok{\# to vectorize over n, y.bar, D, and Z}
+\NormalTok{map\_df \textless{}{-}}\StringTok{ }\ControlFlowTok{function}\NormalTok{(..., f, }\DataTypeTok{binder =}\NormalTok{ rbind) \{}
+  \KeywordTok{return}\NormalTok{(}\KeywordTok{as.data.frame}\NormalTok{(}\KeywordTok{do.call}\NormalTok{(binder, }\KeywordTok{Map}\NormalTok{(f, ...))))}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{n \textless{}{-}}\StringTok{ }\DecValTok{70} \CommentTok{\#\# sample size}
+\CommentTok{\# Di = Zi = 0}
+\NormalTok{n00 \textless{}{-}}\StringTok{ }\DecValTok{30}
+\NormalTok{y00.bar \textless{}{-}}\StringTok{ }\FloatTok{1.0}
+
+\CommentTok{\# Di = 0; Zi = 1}
+\NormalTok{n01 \textless{}{-}}\StringTok{ }\DecValTok{10}
+\NormalTok{y01.bar \textless{}{-}}\StringTok{ }\FloatTok{0.8}
+\CommentTok{\# Di = 1; Zi = 0}
+\NormalTok{n10 \textless{}{-}}\StringTok{ }\DecValTok{20}
+\NormalTok{y10.bar \textless{}{-}}\StringTok{ }\FloatTok{1.5}
+\CommentTok{\# Di = Zi = 1}
+\NormalTok{n11 \textless{}{-}}\StringTok{ }\DecValTok{10}
+\NormalTok{y11.bar \textless{}{-}}\StringTok{ }\FloatTok{1.2}
+
+\NormalTok{n.vec \textless{}{-}}\StringTok{ }\KeywordTok{c}\NormalTok{(n00, n01, n10, n11)}
+\NormalTok{y.bar \textless{}{-}}\StringTok{ }\KeywordTok{c}\NormalTok{(y00.bar, y01.bar, y10.bar, y11.bar)}
+\NormalTok{D \textless{}{-}}\StringTok{ }\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+\NormalTok{Z \textless{}{-}}\StringTok{ }\KeywordTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+
+\KeywordTok{set.seed}\NormalTok{(}\DecValTok{123}\NormalTok{) }\CommentTok{\# for reproducibility}
+\NormalTok{toy\_data \textless{}{-}}\StringTok{ }\KeywordTok{map\_df}\NormalTok{(n.vec, y.bar, D, Z, }\DataTypeTok{f =}\NormalTok{ dgp)}
+
+\KeywordTok{head}\NormalTok{(toy\_data) }\CommentTok{\# view 6 rows of the data}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#>         y D Z
+#> 1 0.90446 0 0
+#> 2 0.96593 0 0
+#> 3 1.29885 0 0
+#> 4 1.02189 0 0
+#> 5 1.03283 0 0
+#> 6 1.32795 0 0
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{subsets \textless{}{-}}\StringTok{ }\KeywordTok{alist}\NormalTok{(}
+\NormalTok{  D }\OperatorTok{==}\StringTok{ }\DecValTok{0} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{,}
+\NormalTok{  D }\OperatorTok{==}\StringTok{ }\DecValTok{0} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{,}
+\NormalTok{  D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{,}
+\NormalTok{  D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}
+\NormalTok{)}
+
+\CommentTok{\# check whether the mean of the generated data matches the sample means}
+\KeywordTok{sapply}\NormalTok{(subsets, }\ControlFlowTok{function}\NormalTok{(x) }\KeywordTok{mean}\NormalTok{(toy\_data[}\KeywordTok{eval}\NormalTok{(x, toy\_data), }\StringTok{"y"}\NormalTok{]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] 1.0 0.8 1.5 1.2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{y.bar}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] 1.0 0.8 1.5 1.2
+\end{verbatim}
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\setcounter{enumi}{2}
+\tightlist
+\item
+  Calculate \(\beta^{OLS}_1\) that you obtain by estimating equation (2)
+  by OLS. Interpret the coefficient. \begin{gather}
+  \begin{aligned}
+  \beta^{OLS}_1 &= \frac{Cov(y_i, D_i)}{Var(D_i)} = \frac{E\left[y_i D_i\right]-E\left[y_i\right] E\left[D_i\right]}{E[D_i^2]-(E[D_i])^2} = \frac{E\left[y_i\mid D_i=1\right]-E\left[y_i\right] E[D_i]}{E[D_i]-(E[D_i])^2} \\
+  & = \frac{\frac{(n_{10}\bar{y}_{10} + n_{11}\bar{y}_{11})}{n} - \frac{(n_{00}\bar{y}_{00} + n_{01}\bar{y}_{01} + n_{10}\bar{y}_{10} + n_{11}\bar{y}_{11})}{n}\frac{(n_{10} + n_{11})}{n}}{(\frac{n_{10} + n_{11}}{n}) - \left(\frac{n_{10} + n_{11}}{n}\right)^2}  \\
+  &= \frac{(1/70)\left(20\cdot1.5 + 10\cdot1.2)\right) - \left[(1/70) \left(30\cdot1.0 + 10\cdot0.8 + 20\cdot1.5 + 10\cdot1.2\right)\right]\left[(1/70)(20 + 10)\right]}{(\frac{20 + 10}{70})-(\frac{20 + 10}{70})^2} \label{eq:3}
+  \end{aligned}
+  \end{gather} Note: \(E[D_i] = p\) and \(Var(D_i) = p(1-p)\) where p is
+  the probability that \(D_i\) takes on 1---\textbf{since
+  \(\boldsymbol{D_i}\) is a Bernoulli random variable}. In our case,
+  \(Pr(D_i=1) = p = \frac{n_{10} + n_{11}}{n_{00} + n_{01} + n_{10} + n_{11}} = (20 + 10) / 70 = 3/7\).
+\end{enumerate}
+
+\hypertarget{iv-estimation-latewald}{%
+\section{IV Estimation: LATE/Wald}\label{iv-estimation-latewald}}
+
+By (\ref{eq:3}),
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{b\_ols \textless{}{-}}\StringTok{ }\NormalTok{((}\DecValTok{1} \OperatorTok{/}\StringTok{ }\NormalTok{n) }\OperatorTok{*}\StringTok{ }\NormalTok{(n10 }\OperatorTok{*}\StringTok{ }\NormalTok{y10.bar }\OperatorTok{+}\StringTok{ }\NormalTok{n11 }\OperatorTok{*}\StringTok{ }\NormalTok{y11.bar) }\OperatorTok{{-}}
+\StringTok{  }\NormalTok{((}\DecValTok{1} \OperatorTok{/}\StringTok{ }\NormalTok{n) }\OperatorTok{*}\StringTok{ }\NormalTok{(n00 }\OperatorTok{*}\StringTok{ }\NormalTok{y00.bar }\OperatorTok{+}\StringTok{ }\NormalTok{n01 }\OperatorTok{*}\StringTok{ }\NormalTok{y01.bar }\OperatorTok{+}\StringTok{ }\NormalTok{n10 }\OperatorTok{*}\StringTok{ }\NormalTok{y10.bar }\OperatorTok{+}\StringTok{ }\NormalTok{n11 }\OperatorTok{*}\StringTok{ }\NormalTok{y11.bar) }\OperatorTok{*}\StringTok{ }\NormalTok{(n10 }\OperatorTok{+}\StringTok{ }\NormalTok{n11) }\OperatorTok{/}\StringTok{ }\NormalTok{n}
+\NormalTok{  )) }\OperatorTok{/}
+\StringTok{  }\NormalTok{((n10 }\OperatorTok{+}\StringTok{ }\NormalTok{n11) }\OperatorTok{/}\StringTok{ }\NormalTok{n }\OperatorTok{{-}}\StringTok{ }\NormalTok{((n10 }\OperatorTok{+}\StringTok{ }\NormalTok{n11) }\OperatorTok{/}\StringTok{ }\NormalTok{n)}\OperatorTok{\^{}}\DecValTok{2}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\(\hat{\beta}^{OLS}_1=\) 0.45.
+
+Or using the \texttt{covariance} and \texttt{variance} formula:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{beta\_ols \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }\KeywordTok{cov}\NormalTok{(y, D) }\OperatorTok{/}\StringTok{ }\KeywordTok{var}\NormalTok{(D))}
+\NormalTok{alpha \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }\KeywordTok{mean}\NormalTok{(y) }\OperatorTok{{-}}\StringTok{ }\NormalTok{beta\_ols }\OperatorTok{*}\StringTok{ }\KeywordTok{mean}\NormalTok{(D))}
+\end{Highlighting}
+\end{Shaded}
+
+\(\hat{\beta}^{OLS}_1=\) 0.45 and \(\hat\alpha\) = 0.95.
+
+Or using \texttt{lm}---a linear model estimation workhorse in
+\texttt{R}:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{lm}\NormalTok{(y }\OperatorTok{\textasciitilde{}}\StringTok{ }\NormalTok{D, toy\_data)}\OperatorTok{$}\NormalTok{coefficients}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> (Intercept)           D 
+#>        0.95        0.45
+\end{verbatim}
+
+\begin{enumerate}
+\def\labelenumi{(\alph{enumi})}
+\setcounter{enumi}{3}
+\tightlist
+\item
+  Calculate \({\beta}^{IV}_1\) and discuss your result w.r.t. to the
+  previous findings. Using The Wald Estimator: \[
+  {\beta}^{IV}_1=\frac{\mathbb{E}\left(Y_{i} \mid z_{i}=1\right)-\mathbb{E}\left(Y_{i} \mid z_{i}=0\right)}{\mathbb{E}\left(D_{i} \mid z_{i}=1\right)-\mathbb{E}\left(D_{i} \mid z_{i}=0\right)}
+  \]
+\end{enumerate}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Wald Estimator }
+\KeywordTok{with}\NormalTok{(}
+\NormalTok{  toy\_data,}
+\NormalTok{  (}\KeywordTok{mean}\NormalTok{(y[Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]) }\OperatorTok{{-}}\StringTok{ }\KeywordTok{mean}\NormalTok{(y[Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{])) }\OperatorTok{/}\StringTok{ }\NormalTok{(}\KeywordTok{mean}\NormalTok{(D[Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]) }\OperatorTok{{-}}\StringTok{ }\KeywordTok{mean}\NormalTok{(D[Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{]))}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] -2
+\end{verbatim}
+
+Using matrix notation:
+
+\[
+\widehat{\boldsymbol{\beta}}_{I V}=\left[\mathbf{Z^\prime} \mathbf{X}\right]^{-1} [\mathbf{Z^\prime} y]
+\]
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# the [1, 1, 1,...]\textquotesingle{} is instrumented with itself}
+\KeywordTok{with}\NormalTok{(toy\_data, \{}
+\NormalTok{  constant \textless{}{-}}\StringTok{ }\KeywordTok{rep}\NormalTok{(}\DecValTok{1}\NormalTok{, }\KeywordTok{length}\NormalTok{(D))}
+\NormalTok{  Z.mat \textless{}{-}}\StringTok{ }\KeywordTok{cbind}\NormalTok{(constant, Z) }\CommentTok{\# Z.mat = [[1, 1,..., 1]\textquotesingle{}, Z]}
+\NormalTok{  D.mat \textless{}{-}}\StringTok{ }\KeywordTok{cbind}\NormalTok{(constant, D) }\CommentTok{\# [[1, 1,..., 1]\textquotesingle{}, D]}
+  \KeywordTok{solve}\NormalTok{(}\KeywordTok{t}\NormalTok{(Z.mat) }\OperatorTok{\%*\%}\StringTok{ }\NormalTok{D.mat) }\OperatorTok{\%*\%}\StringTok{ }\KeywordTok{t}\NormalTok{(Z.mat) }\OperatorTok{\%*\%}\StringTok{ }\NormalTok{y}
+\NormalTok{\})}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#>          [,1]
+#> constant    2
+#> D          -2
+\end{verbatim}
+
+The Wald estimand of \(\widehat{\boldsymbol{\beta}}_{I V}\) can be
+interpreted as the effect of smoking on those whose treatment status can
+be changed by the instrument. The effect of smoking on health of those
+who smoked because they were given packs of cigarettes, but would not
+otherwise have smoked. This obviously excludes voluntary smokers and
+those who did not, but it includes smokers for whom receiving the
+cigarettes was important.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Or using AER package}
+\KeywordTok{library}\NormalTok{(AER)}
+\KeywordTok{library}\NormalTok{(stargazer)}
+\NormalTok{model\_iv \textless{}{-}}\StringTok{ }\KeywordTok{ivreg}\NormalTok{(y }\OperatorTok{\textasciitilde{}}\StringTok{ }\NormalTok{D }\OperatorTok{|}\StringTok{ }\NormalTok{Z, }\DataTypeTok{data =}\NormalTok{ toy\_data)}
+\KeywordTok{stargazer}\NormalTok{(model\_iv, }\DataTypeTok{header =} \OtherTok{FALSE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{table}[!htbp] \centering 
+  \caption{} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{1}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-2} 
+\\[-1.8ex] & y \\ 
+\hline \\[-1.8ex] 
+ D & $-$2.000 \\ 
+  & (3.327) \\ 
+  & \\ 
+ Constant & 2.000 \\ 
+  & (1.434) \\ 
+  & \\ 
+\hline \\[-1.8ex] 
+Observations & 70 \\ 
+R$^{2}$ & $-$12.293 \\ 
+Adjusted R$^{2}$ & $-$12.489 \\ 
+Residual Std. Error & 1.257 (df = 68) \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{1}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Compliers}. The subpopulation with \(d_{1i} = 1\) and
+  \(d_{0i} = 0\):
+\item
+  \textbf{Always-takers}. The subpopulation with \(d_{1i} =d_{0i} = 1\):
+\item
+  \textbf{Never-takers}. The subpopulation with \(d_{1i} =d_{0i} = 0\):
+\end{itemize}
+
+Using the exclusion restriction, we can define potential outcomes
+indexed solely against treatment status using the single-index (
+\(\mathrm{Y}_{1 i}, \mathrm{Y}_{0 i}\) ) notation. In particular, \[
+\begin{aligned}
+\mathrm{Y}_{1 i} & \equiv \mathrm{Y}_{i}(1,1)=\mathrm{Y}_{i}(1,0) \\
+\mathrm{Y}_{0 i} & \equiv \mathrm{Y}_{i}(0,1)=\mathrm{Y}_{i}(0,0)
+\end{aligned}
+\] The observed outcome, \(\mathrm{Y}_{i},\) can therefore be written in
+terms of potential outcomes as: \[
+\begin{aligned}
+\mathrm{Y}_{i} &=\mathrm{Y}_{i}\left(0, \mathrm{Z}_{i}\right)+\left[\mathrm{Y}_{i}\left(1, \mathrm{Z}_{i}\right)-\mathrm{Y}_{i}\left(0, \mathrm{Z}_{i}\right)\right] \mathrm{D}_{i} \\
+&=\mathrm{Y}_{0 i}+\left(\mathrm{Y}_{1 i}-\mathrm{Y}_{0 i}\right) \mathrm{D}_{i}
+\end{aligned} \] A random-coefficients notation for this is \[
+\mathrm{Y}_{i}=\alpha_{0}+\rho_{i} \mathrm{D}_{i}+\eta_{i}
+\] with \(\alpha_{0} \equiv E\left[\mathrm{Y}_{0 i}\right]\) and
+\(\rho_{i} \equiv \mathrm{Y}_{1 i}-\mathrm{Y}_{0 i}\)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{always.takers \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }\KeywordTok{sum}\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{)) }\CommentTok{\# n(d,z): n11 + n10 {-}\textgreater{} 30}
+\NormalTok{never.takers \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }\KeywordTok{sum}\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{)) }\CommentTok{\# n00 + n01  {-}\textgreater{} 40}
+\NormalTok{compliers \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }
+                  \KeywordTok{sum}\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{0} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{) }\OperatorTok{+}\StringTok{ }
+\StringTok{                    }\KeywordTok{sum}\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{)) }\CommentTok{\# n11 + n00 {-}\textgreater{} 40}
+\NormalTok{defiers \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }
+                \KeywordTok{sum}\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{0} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{) }\OperatorTok{+}\StringTok{ }
+\StringTok{                  }\KeywordTok{sum}\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{)) }\CommentTok{\# n01 + n10 {-}\textgreater{} 30}
+
+\CommentTok{\# population average treatment effect}
+\KeywordTok{with}\NormalTok{(toy\_data, }\KeywordTok{mean}\NormalTok{(y[D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]) }\OperatorTok{{-}}\StringTok{ }\KeywordTok{mean}\NormalTok{(y[D }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] 0.45
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# The treatment effect on the treated}
+\NormalTok{(ATT \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(}\KeywordTok{subset}\NormalTok{(toy\_data, D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{), }
+             \KeywordTok{mean}\NormalTok{(y[Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]) }\OperatorTok{{-}}\StringTok{ }\KeywordTok{mean}\NormalTok{(y[Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{])))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] -0.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# TE on compliers}
+\KeywordTok{with}\NormalTok{(}\KeywordTok{subset}\NormalTok{(toy\_data, (D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{) }\OperatorTok{|}\StringTok{ }\NormalTok{(D }\OperatorTok{==}\StringTok{ }\DecValTok{0} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{)), }
+     \KeywordTok{mean}\NormalTok{(y[Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]) }\OperatorTok{{-}}\StringTok{ }\KeywordTok{mean}\NormalTok{(y[Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] 0.2
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# TE on always{-}takers}
+\KeywordTok{with}\NormalTok{(toy\_data, }\KeywordTok{mean}\NormalTok{(y[(D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{)]) }\OperatorTok{{-}}\StringTok{ }\KeywordTok{mean}\NormalTok{(y[(D }\OperatorTok{==}\StringTok{ }\DecValTok{1} \OperatorTok{\&}\StringTok{ }\NormalTok{Z }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{)]))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] -0.3
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# proportions of subpopulation }
+\NormalTok{props \textless{}{-}}\StringTok{ }\KeywordTok{with}\NormalTok{(toy\_data, }
+              \KeywordTok{c}\NormalTok{(}
+    \KeywordTok{sum}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{] }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{) }\OperatorTok{/}\StringTok{ }\KeywordTok{length}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]), }\CommentTok{\# D\_0i = 1 | D\_i = 1}
+    \KeywordTok{sum}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{] }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{) }\OperatorTok{/}\StringTok{ }\KeywordTok{length}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{]), }\CommentTok{\# D\_1i = 1 | D\_i = 1}
+    \KeywordTok{sum}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{] }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{) }\OperatorTok{/}\StringTok{ }\KeywordTok{length}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{]), }\CommentTok{\# D\_0i = 0 | D\_i = 0}
+    \KeywordTok{sum}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{] }\OperatorTok{==}\StringTok{ }\DecValTok{1}\NormalTok{) }\OperatorTok{/}\StringTok{ }\KeywordTok{length}\NormalTok{(Z[D }\OperatorTok{==}\StringTok{ }\DecValTok{0}\NormalTok{])  }\CommentTok{\# D\_1i = 0 | D\_i = 0}
+\NormalTok{  ))}
+\NormalTok{props}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+#> [1] 0.66667 0.33333 0.75000 0.25000
+\end{verbatim}
+
+\end{document}

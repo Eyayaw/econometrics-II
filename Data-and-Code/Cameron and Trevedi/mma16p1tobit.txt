@@ -1,0 +1,579 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma16p1tobit.txt
+  log type:  text
+ opened on:  19 May 2005, 13:00:31
+
+. 
+. ********** OVERVIEW OF MMA16P1TOBIT.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 16.2.1 pages 530-1 and 16.9.2 page 565
+. * Classic Tobit model with generated data
+. * Provides
+. *   (1) Graph of various conditional means Figure 16.1 (ch16condmeans.wmf) 
+. *   (2) Tobit model estimation: various estimators not reported in book
+. *   (3) Tobit model estimation: CLAD estimation mentioned on page 565 
+. * using generated data (see below)
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+.   
+. ********** GENERATE DATA **********
+. 
+. * Data generating process is 
+. * Regressor:           lnwage ~ N(2.75, 0.6^2)
+. * Error term:               e ~ N(0, 1000^2)
+. * Latent variable:      ystar = -2500 + 1000*lnwage + e
+. * Truncated variable:  ytrunc = 1(ystar>0)*ystar
+. * Censored variable:    ycens = 1(ystar<=0)*0 + 1(ystar>0)*ystar
+. * Censoring Indicator:     dy = 1(ycens>0) 
+.  
+. set seed 10101
+
+. set obs 200    
+obs was 0, now 200
+
+. gen e = 1000*invnorm(uniform( ))
+
+. gen lnwage = 2.75 + 0.6*invnorm(uniform( ))
+
+. gen ystar = -2500 + 1000*lnwage + e
+
+. gen ytrunc = ystar
+
+. replace ytrunc = . if (ystar < 0)
+(70 real changes made, 70 to missing)
+
+. gen ycens = ystar
+
+. replace ycens = 0 if (ystar < 0)
+(70 real changes made)
+
+. gen dy = ycens
+
+. replace dy = 1 if (ycens>0)
+(130 real changes made)
+
+. 
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           e |       200    76.96455    977.5598  -2906.972   2943.727
+      lnwage |       200    2.792559    .6249093   .9039821   4.373462
+       ystar |       200    369.5237    1163.722  -2852.944   3105.383
+      ytrunc |       130    1047.602    712.0859   17.88135   3105.383
+       ycens |       200    680.9414    761.3346          0   3105.383
+-------------+--------------------------------------------------------
+          dy |       200         .65    .4781665          0          1
+
+. 
+. * Save data as text (ascii) so that can use programs other than Stata
+. outfile e lnwage ystar ytrunc ycens dy using mma16p1tobit.asc, replace
+
+. 
+. ********** (1) PLOT THEORETICAL CONDITIONAL MEANS **********
+. 
+. * Here we use the true parameter values used in the dgp 
+. 
+. * Compute the censored and truncated means
+. gen xb = -2500 + 1000*lnwage
+
+. gen sigma = 1000
+
+. gen capphixb = normprob(xb/sigma)
+
+. gen phixb = normd(xb/sigma)
+
+. gen lamda = phixb/capphixb
+
+. gen eytrunc = xb + sigma*lamda
+
+. gen eycens = capphixb*eytrunc
+
+. 
+. * Descriptive Statistics
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           e |       200    76.96455    977.5598  -2906.972   2943.727
+      lnwage |       200    2.792559    .6249093   .9039821   4.373462
+       ystar |       200    369.5237    1163.722  -2852.944   3105.383
+      ytrunc |       130    1047.602    712.0859   17.88135   3105.383
+       ycens |       200    680.9414    761.3346          0   3105.383
+-------------+--------------------------------------------------------
+          dy |       200         .65    .4781665          0          1
+          xb |       200    292.5592    624.9093  -1596.018   1873.462
+       sigma |       200        1000           0       1000       1000
+    capphixb |       200    .5983181    .2092614   .0552424   .9694977
+       phixb |       200    .3271769    .0771531   .0689849   .3989196
+-------------+--------------------------------------------------------
+       lamda |       200    .6687834    .3533611   .0711553   2.020711
+     eytrunc |       200    961.3426    283.2587    424.693   1944.617
+      eycens |       200    631.3493    380.6074   23.46106   1885.302
+
+. 
+. * Plot Figure 16.1 on page 531
+. sort lnwage
+
+. graph twoway (scatter ystar lnwage, msize(small)) /* 
+>   */ (scatter eytrunc lnwage, c(l) msize(vtiny) clstyle(p3) clwidth(medthick)) /*
+>   */ (scatter eycens lnwage, c(l) msize(vtiny) clstyle(p2) clwidth(medthick)) /*
+>   */ (scatter xb lnwage, c(l) msize(vtiny) clstyle(p1) clwidth(medthick)), /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Tobit: Censored and Truncated Means") /*
+>   */ xtitle("Natural Logarithm of Wage", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Different Conditional Means", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(5) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Actual Latent Variable") label(2 "Truncated Mean") /*
+>   */        label(3 "Censored Mean") label(4 "Uncensored Mean"))
+
+. graph export ch16condmeans.wmf, replace
+(file c:\Imbook\bwebpage\Section4\ch16condmeans.wmf written in Windows Metafile format)
+
+. 
+. ********** (2) TOBIT MODEL ESTIMATION FOR THESE DATA **********
+. 
+. * These are computations not reported in the book.
+. 
+. * With only 200 observations the Heckman 2-step estimates given below 
+. * are very inefficient.  To verify that they are consistent 
+. * increase the sample size e.g. set obs 20000
+. 
+. * (2A) ESTIMATE THE VARIOUS MODELS
+. 
+. *** UNCENSORED OLS REGRESSION 
+. * Possible here since for these generated data we actually know ystar
+. * Yelds consistent estimate. Expect slope = 1000 approximately.
+. regress ystar lnwage, robust
+
+Regression with robust standard errors                 Number of obs =     200
+                                                       F(  1,   198) =   96.32
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.2944
+                                                       Root MSE      =     980
+
+------------------------------------------------------------------------------
+             |               Robust
+       ystar |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |    1010.39   102.9518     9.81   0.000     807.3673    1213.413
+       _cons |   -2452.05   303.2432    -8.09   0.000    -3050.051   -1854.049
+------------------------------------------------------------------------------
+
+. estimates store ols
+
+. predict ystarols
+(option xb assumed; fitted values)
+
+. 
+. *** CENSORED OLS REGRESSION
+. * Yields inconsistent estimates
+. * From subsection 16.3.6 for slope coefficient OLS converges to p times b
+. * where p is fraction of sample with positive values. Here 0.65*1000 = 650.
+. regress ycens lnwage, robust
+
+Regression with robust standard errors                 Number of obs =     200
+                                                       F(  1,   198) =   84.20
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.2522
+                                                       Root MSE      =  660.04
+
+------------------------------------------------------------------------------
+             |               Robust
+       ycens |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   611.8108   66.67493     9.18   0.000     480.3267    743.2949
+       _cons |  -1027.577   176.0776    -5.84   0.000    -1374.805   -680.3484
+------------------------------------------------------------------------------
+
+. estimates store censols
+
+. predict ycensols
+(option xb assumed; fitted values)
+
+. 
+. *** TRUNCATED OLS REGRESSION for POSITIVE WAGE
+. * Yields inconsistent estimates
+. * See subsection 16.3.6 for discussion.
+. regress ytrunc lnwage, robust
+
+Regression with robust standard errors                 Number of obs =     130
+                                                       F(  1,   128) =   22.05
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.1261
+                                                       Root MSE      =  668.28
+
+------------------------------------------------------------------------------
+             |               Robust
+      ytrunc |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   442.6319   94.26938     4.70   0.000     256.1038      629.16
+       _cons |  -282.4444   282.9091    -1.00   0.320    -842.2285    277.3396
+------------------------------------------------------------------------------
+
+. estimates store truncols
+
+. predict ytrunols
+(option xb assumed; fitted values)
+
+. 
+. *** CENSORED TOBIT MLE REGRESSION for HWAGE
+. * Yields consistent estimates
+. tobit ycens lnwage, ll(0)
+
+Tobit estimates                                   Number of obs   =        200
+                                                  LR chi2(1)      =      65.64
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1118.3857                       Pseudo R2       =     0.0285
+
+------------------------------------------------------------------------------
+       ycens |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   956.4877   116.8382     8.19   0.000     726.0879    1186.887
+       _cons |  -2244.567   346.8778    -6.47   0.000    -2928.595   -1560.539
+-------------+----------------------------------------------------------------
+         _se |   896.6811   59.14988           (Ancillary parameter)
+------------------------------------------------------------------------------
+
+  Obs. summary:         70  left-censored observations at ycens<=0
+                       130     uncensored observations
+
+. estimates store censtobit
+
+. predict ycenstob
+(option xb assumed; fitted values)
+
+. 
+. *** TRUNCATED TOBIT MLE REGRESSION for HWAGE
+. * If done propoerly yields consistent estimates
+. * Not sure how to do this in Stata 
+. * The obvious command is 
+. *    tobit ytrunc lnwage, ll(0)
+. * but this gives the same estimates as truncated OLS
+. 
+. *** PROBIT REGRESSION for HWAGE
+. * Yields consistent estimates for slope b/s = 1000/1000 = 1 
+. * but uses less information so expect less efficient than tobit
+. probit dy lnwage
+
+Iteration 0:   log likelihood = -129.48933
+Iteration 1:   log likelihood = -106.07902
+Iteration 2:   log likelihood = -105.30024
+Iteration 3:   log likelihood = -105.29672
+
+Probit estimates                                  Number of obs   =        200
+                                                  LR chi2(1)      =      48.39
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -105.29672                       Pseudo R2       =     0.1868
+
+------------------------------------------------------------------------------
+          dy |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   1.173851   .1870053     6.28   0.000     .8073277    1.540375
+       _cons |  -2.795715    .508104    -5.50   0.000     -3.79158   -1.799849
+------------------------------------------------------------------------------
+
+. estimates store probit
+
+. predict yprobit
+(option p assumed; Pr(dy))
+
+. 
+. *** HECKMAN 2-STEP ESTIMATOR DONE MANUALLY
+. * Yields consistent estimates but less efficient than censored tobit MLE
+. * The second stage standard errors will be incorrect
+. probit dy lnwage
+
+Iteration 0:   log likelihood = -129.48933
+Iteration 1:   log likelihood = -106.07902
+Iteration 2:   log likelihood = -105.30024
+Iteration 3:   log likelihood = -105.29672
+
+Probit estimates                                  Number of obs   =        200
+                                                  LR chi2(1)      =      48.39
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -105.29672                       Pseudo R2       =     0.1868
+
+------------------------------------------------------------------------------
+          dy |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   1.173851   .1870053     6.28   0.000     .8073277    1.540375
+       _cons |  -2.795715    .508104    -5.50   0.000     -3.79158   -1.799849
+------------------------------------------------------------------------------
+
+. predict probity, xb
+
+. gen invmills = normd(probity)/normprob(probity)
+
+. summarize dy probity invmills
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          dy |       200         .65    .4781665          0          1
+     probity |       200     .482335    .7335506  -1.734574    2.33808
+    invmills |       200    .5867037    .3823083   .0261866   2.140342
+
+. regress ytrunc lnwage invmills
+
+      Source |       SS       df       MS              Number of obs =     130
+-------------+------------------------------           F(  2,   127) =    9.41
+       Model |  8440402.78     2  4220201.39           Prob > F      =  0.0002
+    Residual |  56971158.9   127  448591.802           R-squared     =  0.1290
+-------------+------------------------------           Adj R-squared =  0.1153
+       Total |  65411561.6   129  507066.369           Root MSE      =  669.77
+
+------------------------------------------------------------------------------
+      ytrunc |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   176.6468   418.2392     0.42   0.673    -650.9731    1004.267
+    invmills |  -498.9958   760.3525    -0.66   0.513    -2003.596    1005.604
+       _cons |   745.3069   1597.558     0.47   0.642    -2415.972    3906.586
+------------------------------------------------------------------------------
+
+. estimates store heck2step
+
+. correlate lnwage invmills
+(obs=200)
+
+             |   lnwage invmills
+-------------+------------------
+      lnwage |   1.0000
+    invmills |  -0.9745   1.0000
+
+
+. * And more robust standard errors may be found by
+. regress ytrunc lnwage invmills, robust
+
+Regression with robust standard errors                 Number of obs =     130
+                                                       F(  2,   127) =   13.96
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.1290
+                                                       Root MSE      =  669.77
+
+------------------------------------------------------------------------------
+             |               Robust
+      ytrunc |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   176.6468   379.1739     0.47   0.642    -573.6699    926.9636
+    invmills |  -498.9958   635.4917    -0.79   0.434    -1756.519    758.5276
+       _cons |   745.3069   1431.149     0.52   0.603     -2086.68    3577.293
+------------------------------------------------------------------------------
+
+. estimates store heck2srobust
+
+. 
+. *** HECKMAN 2-STEP ESTIMATOR DONE USING BUILT-IN HECKMAN COMMAND
+. * Yields consistent estimates but less efficient than censored tobit MLE
+. heckman ytrunc lnwage, select(lnwage) twostep
+
+Heckman selection model -- two-step estimates   Number of obs      =       200
+(regression model with sample selection)        Censored obs       =        70
+                                                Uncensored obs     =       130
+
+                                                Wald chi2(2)       =     39.57
+                                                Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+ytrunc       |
+      lnwage |   176.6469   425.0025     0.42   0.678    -656.3428    1009.636
+       _cons |   745.3067   1617.583     0.46   0.645    -2425.098    3915.711
+-------------+----------------------------------------------------------------
+select       |
+      lnwage |   1.173851   .1870053     6.28   0.000     .8073277    1.540375
+       _cons |  -2.795715    .508104    -5.50   0.000     -3.79158   -1.799849
+-------------+----------------------------------------------------------------
+mills        |
+      lambda |  -498.9957   760.5005    -0.66   0.512    -1989.549    991.5578
+-------------+----------------------------------------------------------------
+         rho |   -0.67419
+       sigma |   740.1433
+      lambda | -498.99575   760.5005
+------------------------------------------------------------------------------
+
+. estimates store heckman
+
+. predict ystarhec, xb
+
+. predict ytrunhec, ycond
+
+. predict ycenshec, yexpected
+
+. predict yinvmill, mills
+
+. predict yprobsel, psel
+
+. correlate lnwage yinvmill
+(obs=200)
+
+             |   lnwage yinvmill
+-------------+------------------
+      lnwage |   1.0000
+    yinvmill |  -0.9745   1.0000
+
+
+. 
+. * (2B) DISPLAY COEFFICIENT ESTIMATES
+. 
+. * OLS estimates  True model is -2500 + 1000*lnwage
+. estimates table ols censols truncols, b(%10.2f) se(%10.2f) t stats(N ll) 
+
+-----------------------------------------------------
+    Variable |    ols        censols      truncols   
+-------------+---------------------------------------
+      lnwage |    1010.39       611.81       442.63  
+             |     102.95        66.67        94.27  
+             |       9.81         9.18         4.70  
+       _cons |   -2452.05     -1027.58      -282.44  
+             |     303.24       176.08       282.91  
+             |      -8.09        -5.84        -1.00  
+-------------+---------------------------------------
+           N |     200.00       200.00       130.00  
+          ll |   -1660.29     -1581.24     -1029.07  
+-----------------------------------------------------
+                                       legend: b/se/t
+
+. 
+. * Tobit estimates  True model is -2500 + 1000*lnwage
+. estimates table censtobit probit, b(%10.2f) se(%10.2f) t stats(N ll) 
+
+----------------------------------------
+    Variable | censtobit      probit    
+-------------+--------------------------
+      lnwage |     956.49         1.17  
+             |     116.84         0.19  
+             |       8.19         6.28  
+         _se |     896.68               
+             |      59.15               
+             |      15.16               
+       _cons |   -2244.57        -2.80  
+             |     346.88         0.51  
+             |      -6.47        -5.50  
+-------------+--------------------------
+           N |     200.00       200.00  
+          ll |   -1118.39      -105.30  
+----------------------------------------
+                          legend: b/se/t
+
+. 
+. * Tobit estimates using Heckman manual  True model is -2500 + 1000*lnwage
+. estimates table heck2step heck2srobust, b(%10.2f) se(%10.2f) t stats(N ll) 
+
+----------------------------------------
+    Variable | heck2step    heck2sro~t  
+-------------+--------------------------
+      lnwage |     176.65       176.65  
+             |     418.24       379.17  
+             |       0.42         0.47  
+    invmills |    -499.00      -499.00  
+             |     760.35       635.49  
+             |      -0.66        -0.79  
+       _cons |     745.31       745.31  
+             |    1597.56      1431.15  
+             |       0.47         0.52  
+-------------+--------------------------
+           N |     130.00       130.00  
+          ll |   -1028.85     -1028.85  
+----------------------------------------
+                          legend: b/se/t
+
+. 
+. * Tobit estimates using Heckman built-in True model is -2500 + 1000*lnwage
+. estimates table heckman, b(%10.2f) se(%10.2f) t stats(N ll)  
+
+---------------------------
+    Variable |  heckman    
+-------------+-------------
+ytrunc       |             
+      lnwage |     176.65  
+             |     425.00  
+             |       0.42  
+       _cons |     745.31  
+             |    1617.58  
+             |       0.46  
+-------------+-------------
+select       |             
+      lnwage |       1.17  
+             |       0.19  
+             |       6.28  
+       _cons |      -2.80  
+             |       0.51  
+             |      -5.50  
+-------------+-------------
+mills        |             
+      lambda |    -499.00  
+             |     760.50  
+             |      -0.66  
+-------------+-------------
+Statistics   |             
+           N |     200.00  
+          ll |             
+---------------------------
+             legend: b/se/t
+
+. 
+. ********** (3) CLAD ESTIMATION FOR THESE DATA page 565 **********
+. 
+. * Compare tobit MLE with censored least absolute deviations (CLAD) estimator
+. * Gives results at end of section 16.9.3 page 565
+. 
+. tobit ycens lnwage, ll(0)
+
+Tobit estimates                                   Number of obs   =        200
+                                                  LR chi2(1)      =      65.64
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1118.3857                       Pseudo R2       =     0.0285
+
+------------------------------------------------------------------------------
+       ycens |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnwage |   956.4877   116.8382     8.19   0.000     726.0879    1186.887
+       _cons |  -2244.567   346.8778    -6.47   0.000    -2928.595   -1560.539
+-------------+----------------------------------------------------------------
+         _se |   896.6811   59.14988           (Ancillary parameter)
+------------------------------------------------------------------------------
+
+  Obs. summary:         70  left-censored observations at ycens<=0
+                       130     uncensored observations
+
+. clad ycens lnwage, reps(100) ll(0)
+
+Initial sample size = 200
+Final sample size = 159
+Pseudo R2 = .12380382
+
+Bootstrap statistics
+
+Variable |   Reps   Observed       Bias   Std. Err.   [95% Conf. Interval]
+---------+-------------------------------------------------------------------
+  lnwage |    100   838.2366   59.09127   165.7476    509.3575  1167.116  (N)
+         |                                            666.9485  1298.217  (P)
+         |                                             664.528  1247.371 (BC)
+---------+-------------------------------------------------------------------
+   const |    100  -1897.847  -184.2656   529.6713    -2948.83 -846.8643  (N)
+         |                                           -3406.233 -1435.466  (P)
+         |                                           -3406.233 -1435.466 (BC)
+-----------------------------------------------------------------------------
+                              N = normal, P = percentile, BC = bias-corrected
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma16p1tobit.txt
+  log type:  text
+ closed on:  19 May 2005, 13:00:37
+----------------------------------------------------------------------------------------------------

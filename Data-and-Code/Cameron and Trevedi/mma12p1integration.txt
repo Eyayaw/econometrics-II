@@ -1,0 +1,178 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section3\mma12p1integration.txt
+  log type:  text
+ opened on:  18 May 2005, 21:17:14
+
+. 
+. ********** OVERVIEW OF MMA12P1INTEGRATION.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 12.3.3 pages 391-2
+. * Computes integral numerically and by simulation
+. * (1) Illustrate Midpoint Rule (page 392)
+. * (2) Illustrate Monte Carlo integral (Table 12.1 page 392)
+. * 
+. * for computing E[x] and E[exp(-exp(x))] for x ~ N[0,1] 
+. 
+. * No data need be read in.
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. 
+. ********** (1) NUMERICAL INTEGRATION USING MIDPOINT RULE **********
+. 
+. * Midpoint rule for n evaluation points between a and b is
+. *   Integral = Sum (j=1 to n) [(b-a)/n]*f(xbar_j)
+. * where xbar_j is midpoint between x_j-1 and x_j
+. 
+. program midpointrule, rclass
+  1.     version 8 
+  2.     /* define arguments. Here trueb2 = b2 in Phi(b1 + b2*x2) */ 
+.     args neval a b 
+  3.     drop _all
+  4.     scalar increment = (`b'-`a') / `neval'
+  5.     set obs `neval'
+  6.     /* Compute the function of interest */
+.     gen xbar = `a' - 0.5*increment + increment*_n
+  7.     gen density = exp(-xbar*xbar/2)/sqrt(2*_pi)
+  8.     * Following is contribution to E[x] when x ~ N[0,1] 
+.     gen f1xbar = xbar*density  
+  9.     * Following is contribution to E[exp(-exp(x))] when x ~ N[0,1]
+.     gen f2xbar = exp(-exp(x))*density
+ 10.     /* Compute the averages */
+.     quietly sum f1xbar
+ 11.     scalar Ex = r(sum)*increment
+ 12.     quietly sum f2xbar
+ 13.     scalar Eexpminexpx = r(sum)*increment
+ 14.     /* Print results */
+.     di "Evaluation points: " `neval' " over range: (" `a' "," `b' ")
+ 15.     di "Midpoint rule estimate of E[x] is:  " Ex
+ 16.     di "Midpoint rule estimate of E[exp(-exp(x))] is:  " Eexpminexpx
+ 17. end
+
+. 
+. midpointrule 20 -5 5 
+obs was 0, now 20
+Evaluation points: 20 over range: (-5,5)
+Midpoint rule estimate of E[x] is:  0
+Midpoint rule estimate of E[exp(-exp(x))] is:  .38175625
+
+. midpointrule 200 -5 5 
+obs was 0, now 200
+Evaluation points: 200 over range: (-5,5)
+Midpoint rule estimate of E[x] is:  0
+Midpoint rule estimate of E[exp(-exp(x))] is:  .38175618
+
+. midpointrule 2000 -5 5 
+obs was 0, now 2000
+Evaluation points: 2000 over range: (-5,5)
+Midpoint rule estimate of E[x] is:  0
+Midpoint rule estimate of E[exp(-exp(x))] is:  .38175618
+
+. 
+. ********** (2) MONTE CARLO INTEGRATION USING DRAWS FROM DENSITY OF X **********
+. 
+. * To get E[g(x)] 
+. * make draws from N[0,1], compute g(x), and average over draws 
+. 
+. program simintegration, rclass
+  1.     version 8 
+  2.     /* define arguments. Here trueb2 = b2 in Phi(b1 + b2*x2) */ 
+.     args nsims
+  3.     /* Generate the data: here x */ 
+.     drop _all
+  4.     set obs `nsims'
+  5.     set seed 10101
+  6.     gen x = invnorm(uniform()) 
+  7.     /* Compute the function of interest */
+.     gen f1x = x     /* For E[x] just need x */
+  8.     gen f2x = exp(-exp(x))   /* For E[exp(-exp(x))] */
+  9.     /* Compute the averages */
+.     quietly sum f1x
+ 10.     scalar Ex = r(mean)
+ 11.     quietly sum f2x
+ 12.     scalar Eexpminexpx = r(mean)
+ 13.     di "Number of simulations: " `nsims'
+ 14.     di "Monte Carlo estimate of E[x] is:  " Ex
+ 15.     di "Monte Carlo estimate of E[exp(-exp(x))] is:  " Eexpminexpx
+ 16. end
+
+. 
+. * Note a different program was used to obtain Table 12.1 on page 392
+. * So results will differ somewhat from text, except for very high number of simulations
+. 
+. simintegration 10
+obs was 0, now 10
+Number of simulations: 10
+Monte Carlo estimate of E[x] is:  -.10143571
+Monte Carlo estimate of E[exp(-exp(x))] is:  .42635197
+
+. simintegration 25
+obs was 0, now 25
+Number of simulations: 25
+Monte Carlo estimate of E[x] is:  .17496346
+Monte Carlo estimate of E[exp(-exp(x))] is:  .35703296
+
+. simintegration 50
+obs was 0, now 50
+Number of simulations: 50
+Monte Carlo estimate of E[x] is:  .0079132
+Monte Carlo estimate of E[exp(-exp(x))] is:  .37966293
+
+. simintegration 100
+obs was 0, now 100
+Number of simulations: 100
+Monte Carlo estimate of E[x] is:  .11238423
+Monte Carlo estimate of E[exp(-exp(x))] is:  .3524417
+
+. simintegration 500
+obs was 0, now 500
+Number of simulations: 500
+Monte Carlo estimate of E[x] is:  .06990338
+Monte Carlo estimate of E[exp(-exp(x))] is:  .36137551
+
+. simintegration 1000
+obs was 0, now 1000
+Number of simulations: 1000
+Monte Carlo estimate of E[x] is:  .04309113
+Monte Carlo estimate of E[exp(-exp(x))] is:  .36945581
+
+. simintegration 1000
+obs was 0, now 1000
+Number of simulations: 1000
+Monte Carlo estimate of E[x] is:  .04309113
+Monte Carlo estimate of E[exp(-exp(x))] is:  .36945581
+
+. simintegration 100000
+obs was 0, now 100000
+Number of simulations: 100000
+Monte Carlo estimate of E[x] is:  -.00405425
+Monte Carlo estimate of E[exp(-exp(x))] is:  .38284684
+
+. clear
+
+. set mem 20m
+(20480k)
+
+. simintegration 1000000
+obs was 0, now 1000000
+Number of simulations: 1000000
+Monte Carlo estimate of E[x] is:  -.00085186
+Monte Carlo estimate of E[exp(-exp(x))] is:  .38192861
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section3\mma12p1integration.txt
+  log type:  text
+ closed on:  18 May 2005, 21:17:16
+----------------------------------------------------------------------------------------------------

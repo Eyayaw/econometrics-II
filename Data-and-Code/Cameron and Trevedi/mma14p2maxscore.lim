@@ -1,0 +1,47 @@
+? MMA14P2MAXSCORE.LIM  March 2005 for Stata version 8.0
+
+OPEN; OUTPUT = mma14p2maxscore.out $
+
+? ********** OVERVIEW OF MMA14P2MAXSCORE.LIM **********
+
+? LIMDEP Program 
+? copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+? used for "Microeconometrics: Methods and Applications" 
+? by A. Colin Cameron and Pravin K. Trivedi (2005)
+? Cambridge University Press 
+
+? Chapter 14.7.5 (page 486)  Maximum score estimator for binary outcome.
+? Provides  
+?   (1) Logit and probit estimators for binary outcome (p.465).
+?   (1) Maximum score estimator for binary outcome (p.486).
+
+? To run this program you need data file
+?     mma14p1binary.asc
+? created by program mma14p1binary.do which explains the data
+
+? This estimates maximum score in LIMDEP version 8 but not version 7.0 
+
+? ********** READ IN DATA **********
+
+? Data set created by program mma14p1binary.do
+Read ; nobs=630 ; nvar = 2 ; file = mma14p1binary.asc ;
+names = charter,lnrelp  $
+
+? ********** ESTIMATE LOGIT AND PROBIT MODELS (p.465) **********
+
+probit ; Lhs = charter ; Rhs = ONE,lnrelp $
+
+logit ; Lhs = charter ; Rhs = ONE,lnrelp $
+
+? ********** ESTIMATE BY MAXIMUM SCORE (p.486) **********
+
+? Note that this did not work on Limdep 7.0
+? The output given in mma14p2maxscore.out was from Limdep version 8  
+
+MSCORE ; Lhs = charter ; Rhs = ONE,lnrelp; Nbt = 50 $
+
+********** CLOSE OUTPUT **********
+
+close; file = mma14p2maxscore.out $
+stop
+

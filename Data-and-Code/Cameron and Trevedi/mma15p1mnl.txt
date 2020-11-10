@@ -1,0 +1,1521 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma15p1mnl.txt
+  log type:  text
+ opened on:  19 May 2005, 12:16:20
+
+. 
+. ********** OVERVIEW OF MMA15P1MNL.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 15.2.1-3 pages 491-5
+. * Multinomial and conditional logit models analysis.
+. * It provides ....
+. *   (0)  Data summary (Table 15.1)
+. *   (1A) Multinomial Logit estimates (Table 15.1)
+. *   (1B) Multinomial Logit marginal effects (text page 494)
+. *   (2A) Conditional Logit estimates (Table 15.2)
+. *   (2B) Conditional Logit marginal effects (Table 15.3)
+. *   (3)  Multinomial estimates obtained using Cinditional Logit
+. *   (4)  "Mixed Model" estimates (Table 15.1)
+. 
+. * Related programs are 
+. *    mma15p2gev.do   estimates a nested logit model using Stata
+. *    mma15p3mnl.lim  estimates multinomial models using Limdep
+. *    mma15p4gev.lim  estimates conditional and nested logit models using Limdep
+. 
+. * To run this program you need data file
+. *    Nldata.asc 
+. 
+. /* Program summary:
+> 
+>   (1) Multinomial logit of mode on alternative-invariant regressor (income)
+>         mlogit mode income
+> 
+>    (2) Conditional logit of mode on alternative-specific regressor (price, catch rate)
+>        First reshape data so 4 observations per individual - one for each mode.
+>        clogit mode p q
+> 
+>    (3) Conditional logit of mode on alternative-invariant regressor (income)
+>        First reshape data so 4 observations per individual - one for each mode.
+>        Then create dummy variables for each mode d2 d3 d4
+>        clogit mode d2 d3 d4 d2y d3y d4y
+>        This gives same results as (1)
+>        
+>    (4) Conditional logit of mode on alternative-invariant regressor (income)
+>        and on alternative-sepcific regressor (price, catch rate) 
+>        First reshape data so 4 observations per individual - one for each mode.
+>        Then create dummy variables for each mode d2 d3 d4
+>        clogit mode d2 d3 d4 d2y d3y d4y p q
+> */  
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+.   
+. ********** DATA DESCRIPTION **********
+. 
+. * Data Set comes from :
+. * J. A. Herriges and C. L. Kling, 
+. * "Nonlinear Income Effects in Random Utility Models", 
+. * Review of Economics and Statistics, 81(1999): 62-72
+. 
+. * The data are given as a combined observation with data on all 4 choices.
+. * This will work for multinomial logit program.
+. * For conditional logit will need to make a new data set which has
+. * four separate entries for each observation as there are four alternatives. 
+. 
+. * Filename: NLDATA.ASC
+. * Format: Ascii
+. * Number of Observations: 1182
+. * Each observations appears over 3 lines with 4 variables per line 
+. * so 4 x 1182 = 4728 observations 
+. * Variable Number and Description
+. * 1     Recreation mode choice. = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. * 2     Price for chosen alternative
+. * 3     Catch rate for chosen alternative
+. * 4     = 1 if beach mode chosen; = 0 otherwise
+. * 5     = 1 if pier mode chosen; = 0 otherwise
+. * 6     = 1 if private boat mode chosen; = 0 otherwise
+. * 7     = 1 if charter boat mode chosen; = 0 otherwise
+. * 8     = price for beach mode
+. * 9     = price for pier mode
+. * 10    = price for private boat mode
+. * 11    = price for charter boat mode
+. * 12    = catch rate for beach mode
+. * 13    = catch rate for pier mode
+. * 14    = catch rate for private boat mode
+. * 15    = catch rate for charter boat mode
+. * 16    = monthly income
+. 
+. ********** READ IN DATA and SUMMARIZE (Table 15.1, p.492) **********
+. 
+. * Method to read in depends on model used
+. 
+. /* Data are on fishing mode: 1 beach, 2 pier, 3 private boat, 4 charter
+>    Data come as one observation having data for all 4 modes.
+>    Both alternative specific and alternative invariant regresssors.
+> */
+. 
+. infile mode price crate dbeach dpier dprivate dcharter pbeach ppier /*
+>    */ pprivate pcharter qbeach qpier qprivate qcharter income /*
+>    */ using nldata.asc
+(1182 observations read)
+
+. 
+. gen ydiv1000 = income/1000
+
+. 
+. * Look at data by alternative 
+. label define modetype 1 "beach" 2 "pier" 3 "private" 4 "charter"
+
+. label values mode modetype
+
+. 
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |      1182    3.005076    .9936162          1          4
+       price |      1182    52.08197    53.82997       1.29     666.11
+       crate |      1182    .3893684    .5605964      .0002     2.3101
+      dbeach |      1182    .1133672    .3171753          0          1
+       dpier |      1182    .1505922    .3578023          0          1
+-------------+--------------------------------------------------------
+    dprivate |      1182    .3536379    .4783008          0          1
+    dcharter |      1182    .3824027    .4861799          0          1
+      pbeach |      1182     103.422     103.641       1.29    843.186
+       ppier |      1182     103.422     103.641       1.29    843.186
+    pprivate |      1182    55.25657    62.71344       2.29     666.11
+-------------+--------------------------------------------------------
+    pcharter |      1182    84.37924    63.54465      27.29     691.11
+      qbeach |      1182    .2410113    .1907524      .0678      .5333
+       qpier |      1182    .1622237    .1603898      .0014      .4522
+    qprivate |      1182    .1712146    .2097885      .0002      .7369
+    qcharter |      1182    .6293679    .7061142      .0021     2.3101
+-------------+--------------------------------------------------------
+      income |      1182    4099.337    2461.964   416.6667      12500
+    ydiv1000 |      1182    4.099337    2.461964   .4166667       12.5
+
+. sort mode
+
+. by mode: summarize
+
+----------------------------------------------------------------------------------------------------
+-> mode = beach
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       134           1           0          1          1
+       price |       134    35.69949    43.09414       1.29     306.82
+       crate |       134    .2791948    .1938734      .0678      .5333
+      dbeach |       134           1           0          1          1
+       dpier |       134           0           0          0          0
+-------------+--------------------------------------------------------
+    dprivate |       134           0           0          0          0
+    dcharter |       134           0           0          0          0
+      pbeach |       134    35.69949    43.09414       1.29     306.82
+       ppier |       134    35.69949    43.09414       1.29     306.82
+    pprivate |       134    97.80913    75.43844       2.29    392.946
+-------------+--------------------------------------------------------
+    pcharter |       134    125.0032    78.37641      27.29    427.946
+      qbeach |       134    .2791948    .1938734      .0678      .5333
+       qpier |       134    .2190015    .1677117      .0025      .4522
+    qprivate |       134    .1593985    .0948855      .0008      .2601
+    qcharter |       134    .5176089    .3629096      .0027     1.0266
+-------------+--------------------------------------------------------
+      income |       134    4051.617     2505.42   416.6667      12500
+    ydiv1000 |       134    4.051617     2.50542   .4166667       12.5
+
+----------------------------------------------------------------------------------------------------
+-> mode = pier
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       178           2           0          2          2
+       price |       178    30.57133    35.58442       1.29    224.296
+       crate |       178    .2025348    .1702942      .0014      .4522
+      dbeach |       178           0           0          0          0
+       dpier |       178           1           0          1          1
+-------------+--------------------------------------------------------
+    dprivate |       178           0           0          0          0
+    dcharter |       178           0           0          0          0
+      pbeach |       178    30.57133    35.58442       1.29    224.296
+       ppier |       178    30.57133    35.58442       1.29    224.296
+    pprivate |       178    82.42908    69.30802       2.29    494.058
+-------------+--------------------------------------------------------
+    pcharter |       178    109.7633    72.37726      27.29    529.058
+      qbeach |       178    .2614444    .1949684      .0678      .5333
+       qpier |       178    .2025348    .1702942      .0014      .4522
+    qprivate |       178    .1501489    .0968393      .0014      .2601
+    qcharter |       178    .4980798    .3756255      .0029     1.0266
+-------------+--------------------------------------------------------
+      income |       178    3387.172    2340.324   416.6667      12500
+    ydiv1000 |       178    3.387172    2.340324   .4166667       12.5
+
+----------------------------------------------------------------------------------------------------
+-> mode = private
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       418           3           0          3          3
+       price |       418    41.60681    55.90806       2.29     666.11
+       crate |       418    .1775411    .2435798      .0002      .7369
+      dbeach |       418           0           0          0          0
+       dpier |       418           0           0          0          0
+-------------+--------------------------------------------------------
+    dprivate |       418           1           0          1          1
+    dcharter |       418           0           0          0          0
+      pbeach |       418    137.5271    115.3058       2.29    843.186
+       ppier |       418    137.5271    115.3058       2.29    843.186
+    pprivate |       418    41.60681    55.90806       2.29     666.11
+-------------+--------------------------------------------------------
+    pcharter |       418    70.58409    56.39575      27.29     691.11
+      qbeach |       418    .2082868    .1729351      .0678      .5333
+       qpier |       418    .1297646    .1368029      .0025      .4522
+    qprivate |       418    .1775411    .2435798      .0002      .7369
+    qcharter |       418    .6539167    .8064379      .0021     2.3101
+-------------+--------------------------------------------------------
+      income |       418    4654.107    2777.898   416.6667      12500
+    ydiv1000 |       418    4.654107    2.777898   .4166667       12.5
+
+----------------------------------------------------------------------------------------------------
+-> mode = charter
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       452           4           0          4          4
+       price |       452    75.09694    52.51942      27.29    387.208
+       crate |       452    .6914998    .7714728      .0029     2.3101
+      dbeach |       452           0           0          0          0
+       dpier |       452           0           0          0          0
+-------------+--------------------------------------------------------
+    dprivate |       452           0           0          0          0
+    dcharter |       452           1           0          1          1
+      pbeach |       452    120.6483    99.78664       4.29    578.048
+       ppier |       452    120.6483    99.78664       4.29    578.048
+    pprivate |       452    44.56376    52.23744       2.29    362.208
+-------------+--------------------------------------------------------
+    pcharter |       452    75.09694    52.51942      27.29    387.208
+      qbeach |       452    .2519077    .1997956      .0678      .5333
+       qpier |       452    .1595341    .1667353      .0014      .4522
+    qprivate |       452    .1771628    .2318749      .0014      .7369
+    qcharter |       452    .6914998    .7714728      .0029     2.3101
+-------------+--------------------------------------------------------
+      income |       452      3880.9    2050.028   416.6667      12500
+    ydiv1000 |       452      3.8809    2.050028   .4166667       12.5
+
+
+. 
+. * Following commands give Table 15.1, p.492
+. summarize ydiv100 pbeach ppier pprivate pcharter qbeach qpier /* 
+>     */ qprivate qcharter dbeach dpier dprivate dcharter
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ydiv1000 |      1182    4.099337    2.461964   .4166667       12.5
+      pbeach |      1182     103.422     103.641       1.29    843.186
+       ppier |      1182     103.422     103.641       1.29    843.186
+    pprivate |      1182    55.25657    62.71344       2.29     666.11
+    pcharter |      1182    84.37924    63.54465      27.29     691.11
+-------------+--------------------------------------------------------
+      qbeach |      1182    .2410113    .1907524      .0678      .5333
+       qpier |      1182    .1622237    .1603898      .0014      .4522
+    qprivate |      1182    .1712146    .2097885      .0002      .7369
+    qcharter |      1182    .6293679    .7061142      .0021     2.3101
+      dbeach |      1182    .1133672    .3171753          0          1
+-------------+--------------------------------------------------------
+       dpier |      1182    .1505922    .3578023          0          1
+    dprivate |      1182    .3536379    .4783008          0          1
+    dcharter |      1182    .3824027    .4861799          0          1
+
+. sort mode
+
+. by mode: summarize ydiv100 pbeach ppier pprivate pcharter qbeach qpier /* 
+>     */ qprivate qcharter dbeach dpier dprivate dcharter
+
+----------------------------------------------------------------------------------------------------
+-> mode = beach
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ydiv1000 |       134    4.051617     2.50542   .4166667       12.5
+      pbeach |       134    35.69949    43.09414       1.29     306.82
+       ppier |       134    35.69949    43.09414       1.29     306.82
+    pprivate |       134    97.80913    75.43844       2.29    392.946
+    pcharter |       134    125.0032    78.37641      27.29    427.946
+-------------+--------------------------------------------------------
+      qbeach |       134    .2791948    .1938734      .0678      .5333
+       qpier |       134    .2190015    .1677117      .0025      .4522
+    qprivate |       134    .1593985    .0948855      .0008      .2601
+    qcharter |       134    .5176089    .3629096      .0027     1.0266
+      dbeach |       134           1           0          1          1
+-------------+--------------------------------------------------------
+       dpier |       134           0           0          0          0
+    dprivate |       134           0           0          0          0
+    dcharter |       134           0           0          0          0
+
+----------------------------------------------------------------------------------------------------
+-> mode = pier
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ydiv1000 |       178    3.387172    2.340324   .4166667       12.5
+      pbeach |       178    30.57133    35.58442       1.29    224.296
+       ppier |       178    30.57133    35.58442       1.29    224.296
+    pprivate |       178    82.42908    69.30802       2.29    494.058
+    pcharter |       178    109.7633    72.37726      27.29    529.058
+-------------+--------------------------------------------------------
+      qbeach |       178    .2614444    .1949684      .0678      .5333
+       qpier |       178    .2025348    .1702942      .0014      .4522
+    qprivate |       178    .1501489    .0968393      .0014      .2601
+    qcharter |       178    .4980798    .3756255      .0029     1.0266
+      dbeach |       178           0           0          0          0
+-------------+--------------------------------------------------------
+       dpier |       178           1           0          1          1
+    dprivate |       178           0           0          0          0
+    dcharter |       178           0           0          0          0
+
+----------------------------------------------------------------------------------------------------
+-> mode = private
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ydiv1000 |       418    4.654107    2.777898   .4166667       12.5
+      pbeach |       418    137.5271    115.3058       2.29    843.186
+       ppier |       418    137.5271    115.3058       2.29    843.186
+    pprivate |       418    41.60681    55.90806       2.29     666.11
+    pcharter |       418    70.58409    56.39575      27.29     691.11
+-------------+--------------------------------------------------------
+      qbeach |       418    .2082868    .1729351      .0678      .5333
+       qpier |       418    .1297646    .1368029      .0025      .4522
+    qprivate |       418    .1775411    .2435798      .0002      .7369
+    qcharter |       418    .6539167    .8064379      .0021     2.3101
+      dbeach |       418           0           0          0          0
+-------------+--------------------------------------------------------
+       dpier |       418           0           0          0          0
+    dprivate |       418           1           0          1          1
+    dcharter |       418           0           0          0          0
+
+----------------------------------------------------------------------------------------------------
+-> mode = charter
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    ydiv1000 |       452      3.8809    2.050028   .4166667       12.5
+      pbeach |       452    120.6483    99.78664       4.29    578.048
+       ppier |       452    120.6483    99.78664       4.29    578.048
+    pprivate |       452    44.56376    52.23744       2.29    362.208
+    pcharter |       452    75.09694    52.51942      27.29    387.208
+-------------+--------------------------------------------------------
+      qbeach |       452    .2519077    .1997956      .0678      .5333
+       qpier |       452    .1595341    .1667353      .0014      .4522
+    qprivate |       452    .1771628    .2318749      .0014      .7369
+    qcharter |       452    .6914998    .7714728      .0029     2.3101
+      dbeach |       452           0           0          0          0
+-------------+--------------------------------------------------------
+       dpier |       452           0           0          0          0
+    dprivate |       452           0           0          0          0
+    dcharter |       452           1           0          1          1
+
+
+. 
+. ********** (1) MULTINOMIAL LOGIT: ALTERNATIVE-INVARIANT REGRESSOR *********
+. 
+. *** (1A) Estimate the model
+. 
+. * Data are already in form for mlogit
+. 
+. * The following gives MNL column of Table 15.2, p.493
+. mlogit mode ydiv1000, basecategory(1)
+
+Iteration 0:   log likelihood = -1497.7229
+Iteration 1:   log likelihood = -1477.5265
+Iteration 2:   log likelihood = -1477.1514
+Iteration 3:   log likelihood = -1477.1506
+
+Multinomial logistic regression                   Number of obs   =       1182
+                                                  LR chi2(3)      =      41.14
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1477.1506                       Pseudo R2       =     0.0137
+
+------------------------------------------------------------------------------
+        mode |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+pier         |
+    ydiv1000 |  -.1434029   .0532882    -2.69   0.007    -.2478459     -.03896
+       _cons |   .8141503   .2286316     3.56   0.000     .3660405     1.26226
+-------------+----------------------------------------------------------------
+private      |
+    ydiv1000 |   .0919064   .0406638     2.26   0.024     .0122069    .1716059
+       _cons |   .7389208   .1967309     3.76   0.000     .3533352    1.124506
+-------------+----------------------------------------------------------------
+charter      |
+    ydiv1000 |  -.0316399   .0418463    -0.76   0.450    -.1136571    .0503774
+       _cons |   1.341291   .1945167     6.90   0.000     .9600457    1.722537
+------------------------------------------------------------------------------
+(Outcome mode==beach is the comparison group)
+
+. 
+. *** (1B) Calculate the marginal effects
+. 
+. quietly mlogit mode ydiv1000, basecategory(1)
+
+. * Predict by default gives the probabilities
+. predict p1 p2 p3 p4
+(option p assumed; predicted probabilities)
+
+. 
+. * As check compare predicted to actual probabilities
+. summarize dbeach p1 dpier p2 dprivate p3 dcharter p4
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+      dbeach |      1182    .1133672    .3171753          0          1
+          p1 |      1182    .1133672    .0036716   .0947395   .1153659
+       dpier |      1182    .1505922    .3578023          0          1
+          p2 |      1182    .1505922    .0444575   .0356142   .2342903
+    dprivate |      1182    .3536379    .4783008          0          1
+-------------+--------------------------------------------------------
+          p3 |      1182    .3536379    .0797714   .2396973    .625706
+    dcharter |      1182    .3824027    .4861799          0          1
+          p4 |      1182    .3824027    .0346281   .2439403   .4158273
+
+. 
+. * Quick way to compute marginal effects (or semi-elasticities dp/dlnx or elasticities) 
+. * is to use built-in Stata function whcih evaluates at sample mean
+. * dydx, eyex, dwex or eydx
+. mfx compute, dydx predict(outcome(1))  
+
+Marginal effects after mlogit
+      y  = Pr(mode==1) (predict, outcome(1))
+         =  .11541492
+------------------------------------------------------------------------------
+variable |      dy/dx    Std. Err.     z    P>|z|  [    95% C.I.   ]      X
+---------+--------------------------------------------------------------------
+ydiv1000 |    .000075      .00393    0.02   0.985  -.007635  .007785   4.09934
+------------------------------------------------------------------------------
+
+. mfx compute, dydx predict(outcome(2))
+
+Marginal effects after mlogit
+      y  = Pr(mode==2) (predict, outcome(2))
+         =  .14472379
+------------------------------------------------------------------------------
+variable |      dy/dx    Std. Err.     z    P>|z|  [    95% C.I.   ]      X
+---------+--------------------------------------------------------------------
+ydiv1000 |  -.0206598      .00487   -4.24   0.000  -.030212 -.011108   4.09934
+------------------------------------------------------------------------------
+
+. mfx compute, dydx predict(outcome(3))
+
+Marginal effects after mlogit
+      y  = Pr(mode==3) (predict, outcome(3))
+         =  .35220366
+------------------------------------------------------------------------------
+variable |      dy/dx    Std. Err.     z    P>|z|  [    95% C.I.   ]      X
+---------+--------------------------------------------------------------------
+ydiv1000 |   .0325985      .00569    5.73   0.000   .021442  .043755   4.09934
+------------------------------------------------------------------------------
+
+. mfx compute, dydx predict(outcome(4))
+
+Marginal effects after mlogit
+      y  = Pr(mode==4) (predict, outcome(4))
+         =  .38765763
+------------------------------------------------------------------------------
+variable |      dy/dx    Std. Err.     z    P>|z|  [    95% C.I.   ]      X
+---------+--------------------------------------------------------------------
+ydiv1000 |  -.0120137      .00608   -1.98   0.048  -.023922 -.000106   4.09934
+------------------------------------------------------------------------------
+
+. 
+. * Better is to evaluate marginal effect for each observation and average
+. * The following calculates marginal effects using noncalculus methods 
+. * by comparing the predicted probability before and after change in x
+. * Here consider small change of 0.0001 - then multiply by 1000
+. * So should be similar to using calculus methods.
+. replace ydiv1000 = ydiv1000 + 0.0001
+(1182 real changes made)
+
+. predict p1new p2new p3new p4new
+(option p assumed; predicted probabilities)
+
+. gen dp1dy = 10000*(p1new - p1)
+
+. gen dp2dy = 10000*(p2new - p2)
+
+. gen dp3dy = 10000*(p3new - p3)
+
+. gen dp4dy = 10000*(p4new - p4)
+
+. 
+. * The computed marginal effects follow. 
+. * These are close to those given in text page 494 (which were calculated using Limdep)
+. sum dp1dy dp2dy dp3dy dp4dy 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       dp1dy |      1182    .0001549    .0015919  -.0042468   .0027567
+       dp2dy |      1182   -.0207849    .0046004  -.0278652  -.0067055
+       dp3dy |      1182    .0318045    .0014852   .0280142   .0336766
+       dp4dy |      1182   -.0111929    .0041308  -.0190735  -.0026822
+
+. 
+. * Note that here these are similar to the earlier values at means
+. * This is because little variation in predicted probability across individuals here
+. 
+. * ASIDE: Binary logit will differ a little from MNL
+. keep if mode == 1 | mode == 2
+(870 observations deleted)
+
+. mlogit mode ydiv1000
+
+Iteration 0:   log likelihood = -213.14899
+Iteration 1:   log likelihood = -210.28877
+Iteration 2:   log likelihood = -210.28833
+
+Multinomial logistic regression                   Number of obs   =        312
+                                                  LR chi2(1)      =       5.72
+                                                  Prob > chi2     =     0.0168
+Log likelihood = -210.28833                       Pseudo R2       =     0.0134
+
+------------------------------------------------------------------------------
+        mode |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+beach        |
+    ydiv1000 |   .1134757   .0481736     2.36   0.018     .0190571    .2078942
+       _cons |  -.7037127   .2125851    -3.31   0.001    -1.120372   -.2870535
+------------------------------------------------------------------------------
+(Outcome mode==pier is the comparison group)
+
+. 
+. ******* (2) CONDITIONAL LOGIT: ALTERNATIVE-SPECIFIC REGRESSOR *********
+. 
+. *** (2A) Estimate the model
+. 
+. * This requires reshaping the data
+. clear
+
+. infile mode price crate dbeach dpier dprivate dcharter pbeach ppier /*
+>    */ pprivate pcharter qbeach qpier qprivate qcharter income /*
+>    */ using nldata.asc
+(1182 observations read)
+
+. 
+. gen ydiv1000 = income/1000
+
+. 
+. * Data are one entry per individual
+. * Need to reshape to 4 observations per individual - one for each alternative
+. * Use reshape to do this which also creates variable (see below)
+. *   alternatv = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. gen id = _n
+
+. gen d1 = dbeach
+
+. gen p1 = pbeach
+
+. gen q1 = qbeach
+
+. gen d2 = dpier
+
+. gen p2 = ppier
+
+. gen q2 = qpier
+
+. gen d3 = dprivate
+
+. gen p3 = pprivate
+
+. gen q3 = qprivate
+
+. gen d4 = dcharter
+
+. gen p4 = pcharter
+
+. gen q4 = qcharter
+
+. describe
+
+Contains data
+  obs:         1,182                          
+ vars:            30                          
+ size:       146,568 (98.6% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+mode            float  %9.0g                  
+price           float  %9.0g                  
+crate           float  %9.0g                  
+dbeach          float  %9.0g                  
+dpier           float  %9.0g                  
+dprivate        float  %9.0g                  
+dcharter        float  %9.0g                  
+pbeach          float  %9.0g                  
+ppier           float  %9.0g                  
+pprivate        float  %9.0g                  
+pcharter        float  %9.0g                  
+qbeach          float  %9.0g                  
+qpier           float  %9.0g                  
+qprivate        float  %9.0g                  
+qcharter        float  %9.0g                  
+income          float  %9.0g                  
+ydiv1000        float  %9.0g                  
+id              float  %9.0g                  
+d1              float  %9.0g                  
+p1              float  %9.0g                  
+q1              float  %9.0g                  
+d2              float  %9.0g                  
+p2              float  %9.0g                  
+q2              float  %9.0g                  
+d3              float  %9.0g                  
+p3              float  %9.0g                  
+q3              float  %9.0g                  
+d4              float  %9.0g                  
+p4              float  %9.0g                  
+q4              float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |      1182    3.005076    .9936162          1          4
+       price |      1182    52.08197    53.82997       1.29     666.11
+       crate |      1182    .3893684    .5605964      .0002     2.3101
+      dbeach |      1182    .1133672    .3171753          0          1
+       dpier |      1182    .1505922    .3578023          0          1
+-------------+--------------------------------------------------------
+    dprivate |      1182    .3536379    .4783008          0          1
+    dcharter |      1182    .3824027    .4861799          0          1
+      pbeach |      1182     103.422     103.641       1.29    843.186
+       ppier |      1182     103.422     103.641       1.29    843.186
+    pprivate |      1182    55.25657    62.71344       2.29     666.11
+-------------+--------------------------------------------------------
+    pcharter |      1182    84.37924    63.54465      27.29     691.11
+      qbeach |      1182    .2410113    .1907524      .0678      .5333
+       qpier |      1182    .1622237    .1603898      .0014      .4522
+    qprivate |      1182    .1712146    .2097885      .0002      .7369
+    qcharter |      1182    .6293679    .7061142      .0021     2.3101
+-------------+--------------------------------------------------------
+      income |      1182    4099.337    2461.964   416.6667      12500
+    ydiv1000 |      1182    4.099337    2.461964   .4166667       12.5
+          id |      1182       591.5    341.3583          1       1182
+          d1 |      1182    .1133672    .3171753          0          1
+          p1 |      1182     103.422     103.641       1.29    843.186
+-------------+--------------------------------------------------------
+          q1 |      1182    .2410113    .1907524      .0678      .5333
+          d2 |      1182    .1505922    .3578023          0          1
+          p2 |      1182     103.422     103.641       1.29    843.186
+          q2 |      1182    .1622237    .1603898      .0014      .4522
+          d3 |      1182    .3536379    .4783008          0          1
+-------------+--------------------------------------------------------
+          p3 |      1182    55.25657    62.71344       2.29     666.11
+          q3 |      1182    .1712146    .2097885      .0002      .7369
+          d4 |      1182    .3824027    .4861799          0          1
+          p4 |      1182    84.37924    63.54465      27.29     691.11
+          q4 |      1182    .6293679    .7061142      .0021     2.3101
+
+. 
+. reshape long d p q, i(id) j(alterntv)
+(note: j = 1 2 3 4)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                     1182   ->    4728
+Number of variables                  30   ->      22
+j variable (4 values)                     ->   alterntv
+xij variables:
+                           d1 d2 ... d4   ->   d
+                           p1 p2 ... p4   ->   p
+                           q1 q2 ... q4   ->   q
+-----------------------------------------------------------------------------
+
+. * This automatically creates alterntv = 1 (beach), ... 4 (charter)
+. describe
+
+Contains data
+  obs:         4,728                          
+ vars:            22                          
+ size:       420,792 (95.9% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  
+alterntv        byte   %9.0g                  
+mode            float  %9.0g                  
+price           float  %9.0g                  
+crate           float  %9.0g                  
+dbeach          float  %9.0g                  
+dpier           float  %9.0g                  
+dprivate        float  %9.0g                  
+dcharter        float  %9.0g                  
+pbeach          float  %9.0g                  
+ppier           float  %9.0g                  
+pprivate        float  %9.0g                  
+pcharter        float  %9.0g                  
+qbeach          float  %9.0g                  
+qpier           float  %9.0g                  
+qprivate        float  %9.0g                  
+qcharter        float  %9.0g                  
+income          float  %9.0g                  
+ydiv1000        float  %9.0g                  
+d               float  %9.0g                  
+p               float  %9.0g                  
+q               float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  id  alterntv
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+           p |      4728    86.61996    88.01813       1.29    843.186
+           q |      4728    .3009544    .4335593      .0002     2.3101
+
+. 
+. clogit d q, group(id)
+
+Iteration 0:   log likelihood = -1627.3339
+Iteration 1:   log likelihood = -1604.8049
+Iteration 2:   log likelihood = -1604.6163
+Iteration 3:   log likelihood = -1604.6163
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(1)      =      67.97
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1604.6163                       Pseudo R2       =     0.0207
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           q |   .6307908   .0757624     8.33   0.000     .4822993    .7792823
+------------------------------------------------------------------------------
+
+. clogit d p, group(id)
+
+Iteration 0:   log likelihood = -1595.7652
+Iteration 1:   log likelihood = -1411.4335
+Iteration 2:   log likelihood = -1376.0224
+Iteration 3:   log likelihood = -1372.9619
+Iteration 4:   log likelihood = -1372.9332
+Iteration 5:   log likelihood = -1372.9332
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(1)      =     531.33
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1372.9332                       Pseudo R2       =     0.1621
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           p |  -.0179501   .0010694   -16.79   0.000    -.0200461   -.0158542
+------------------------------------------------------------------------------
+
+. 
+. * The following gives CL column of Table 15.2
+. clogit d p q, group(id)
+
+Iteration 0:   log likelihood = -1581.9099
+Iteration 1:   log likelihood = -1363.5718
+Iteration 2:   log likelihood = -1317.8453
+Iteration 3:   log likelihood = -1312.1013
+Iteration 4:   log likelihood = -1311.9797
+Iteration 5:   log likelihood = -1311.9796
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(2)      =     653.24
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1311.9796                       Pseudo R2       =     0.1993
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           p |  -.0204765   .0012231   -16.74   0.000    -.0228737   -.0180794
+           q |   .9530985   .0894134    10.66   0.000     .7778514    1.128346
+------------------------------------------------------------------------------
+
+. 
+. *** (2B) Calculate the marginal effects
+. 
+. quietly clogit d p q, group(id)
+
+. predict pinitial
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. 
+. * Now compute marginal effects
+. * Consider in turn a change in each price and catch rate 
+. * Change price by 1 unit and then multiply by 100 as in Table 15.2
+. * Change catch rate by 0.001 and then multiply by 1000
+. 
+. * Change p1: price beach
+. replace p = p + 1 if alterntv==1
+(1182 real changes made)
+
+. predict pnewp1 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen mep1 = 100*(pnewp1 - pinitial)
+
+. replace p = p - 1 if alterntv==1
+(1182 real changes made)
+
+. 
+. * Change p2: price pier
+. replace p = p + 1 if alterntv==2
+(1182 real changes made)
+
+. predict pnewp2 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen mep2 = 100*(pnewp2 - pinitial)
+
+. replace p = p - 1 if alterntv==2
+(1182 real changes made)
+
+. 
+. * Change p3: price private boat
+. replace p = p + 1 if alterntv==3
+(1182 real changes made)
+
+. predict pnewp3 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen mep3 = 100*(pnewp3 - pinitial)
+
+. replace p = p - 1 if alterntv==3
+(1182 real changes made)
+
+. 
+. * Change p4: price charter boat
+. replace p = p + 1 if alterntv==4
+(1182 real changes made)
+
+. predict pnewp4 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen mep4 = 100*(pnewp4 - pinitial)
+
+. replace p = p - 1 if alterntv==4
+(1182 real changes made)
+
+. 
+. * Change q1: catch rate beach
+. replace q = q + 0.001 if alterntv==1
+(1182 real changes made)
+
+. predict pnewq1 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen meq1 = 1000*(pnewq1 - pinitial)
+
+. replace q = q - 0.001 if alterntv==1
+(1182 real changes made)
+
+. 
+. * Change q2: catch rate pier
+. replace q = q + 0.001 if alterntv==2
+(1182 real changes made)
+
+. predict pnewq2 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen meq2 = 1000*(pnewq2 - pinitial)
+
+. replace q = q - 0.001 if alterntv==2
+(1182 real changes made)
+
+. 
+. * Change q1: catch rate private boat
+. replace q = q + 0.001 if alterntv==3
+(1182 real changes made)
+
+. predict pnewq3 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen meq3 = 1000*(pnewq3 - pinitial)
+
+. replace q = q - 0.001 if alterntv==3
+(1182 real changes made)
+
+. 
+. * Change q1: catch rate charter boat
+. replace q = q + 0.001 if alterntv==4
+(1182 real changes made)
+
+. predict pnewq4 
+(option pc1 assumed; conditional probability for single outcome within group)
+
+. gen meq4 = 1000*(pnewq4 - pinitial)
+
+. replace q = q + 0.001 if alterntv==4
+(1182 real changes made)
+
+. 
+. * Following gives Table 15.3 on page 493
+. sort alterntv
+
+. by alterntv: sum pinitial mep1 mep2 mep3 mep4 meq1 meq2 meq3 meq4 
+
+----------------------------------------------------------------------------------------------------
+-> alterntv = 1
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    pinitial |      1182    .1942074    .1545855   6.19e-08   .6159062
+        mep1 |      1182   -.2703818    .1753241  -.5119085  -1.26e-07
+        mep2 |      1182    .1183563    .1425011          0   .5107701
+        mep3 |      1182    .0846517    .0561764   6.24e-08   .1818448
+        mep4 |      1182    .0675326    .0398588   6.44e-08   .1960158
+-------------+--------------------------------------------------------
+        meq1 |      1182    .1264198    .0817316   5.91e-08   .2382994
+        meq2 |      1182   -.0552685    .0664207  -.2378225          0
+        meq3 |      1182   -.0395602    .0262581  -.0849366  -2.91e-08
+        meq4 |      1182   -.0315872    .0186528  -.0915527  -3.00e-08
+
+----------------------------------------------------------------------------------------------------
+-> alterntv = 2
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    pinitial |      1182    .1832872    .1456892   5.73e-08    .484103
+        mep1 |      1182    .1184102    .1425963          0   .5111754
+        mep2 |      1182   -.2618934    .1742628  -.5112112  -1.16e-07
+        mep3 |      1182    .0801368    .0543153   5.78e-08   .1729459
+        mep4 |      1182    .0636229    .0381182   5.96e-08   .1775354
+-------------+--------------------------------------------------------
+        meq1 |      1182   -.0552672    .0664175  -.2378225          0
+        meq2 |      1182    .1224849    .0812789   5.47e-08   .2380311
+        meq3 |      1182   -.0374514    .0253908  -.0807345  -2.69e-08
+        meq4 |      1182   -.0297604    .0178421  -.0829101  -2.78e-08
+
+----------------------------------------------------------------------------------------------------
+-> alterntv = 3
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    pinitial |      1182    .3298317     .173932   .0000756   .6739099
+        mep1 |      1182     .084509    .0561326          0   .1815647
+        mep2 |      1182    .0799891    .0542687          0    .172469
+        mep3 |      1182   -.3897785    .1364849  -.5119085  -.0001532
+        mep4 |      1182    .2248109    .1606873   1.24e-08   .5118489
+-------------+--------------------------------------------------------
+        meq1 |      1182   -.0395636      .02626  -.0849366          0
+        meq2 |      1182   -.0374553    .0253917  -.0807345          0
+        meq3 |      1182    .1818861    .0633881   .0000721   .2382994
+        meq4 |      1182    -.104879    .0748259  -.2382398  -7.28e-09
+
+----------------------------------------------------------------------------------------------------
+-> alterntv = 4
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    pinitial |      1182    .2926737    .1807255    .000078   .7322331
+        mep1 |      1182    .0674624    .0398696          0   .1958013
+        mep2 |      1182    .0635479    .0381287          0   .1772434
+        mep3 |      1182      .22499    .1608719   1.24e-08    .511682
+        mep4 |      1182   -.3559665    .1370352  -.5119085  -.0001582
+-------------+--------------------------------------------------------
+        meq1 |      1182   -.0315891     .018653  -.0915825          0
+        meq2 |      1182   -.0297618    .0178418  -.0829399          0
+        meq3 |      1182   -.1048757    .0748219  -.2382398  -7.28e-09
+        meq4 |      1182    .1662257    .0636901   .0000744   .2382994
+
+
+. 
+. ******* (3) CONDITIONAL LOGIT: ALTERNATIVE-INVARIANT REGRESSOR *********
+. 
+. * Here we get clogit to do something that is easier done by mlogit
+. 
+. clear
+
+. infile mode price crate dbeach dpier dprivate dcharter pbeach ppier /*
+>    */ pprivate pcharter qbeach qpier qprivate qcharter income /*
+>    */ using nldata.asc
+(1182 observations read)
+
+. 
+. gen ydiv1000 = income/1000
+
+. 
+. * Data are one entry per individual
+. * Need to reshape to 4 observations per individual - one for each alternative
+. * Use reshape to do this but first create variable
+. * Alternative = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. gen id = _n
+
+. gen d1 = dbeach
+
+. gen d2 = dpier
+
+. gen d3 = dprivate
+
+. gen d4 = dcharter
+
+. describe
+
+Contains data
+  obs:         1,182                          
+ vars:            22                          
+ size:       108,744 (98.9% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+mode            float  %9.0g                  
+price           float  %9.0g                  
+crate           float  %9.0g                  
+dbeach          float  %9.0g                  
+dpier           float  %9.0g                  
+dprivate        float  %9.0g                  
+dcharter        float  %9.0g                  
+pbeach          float  %9.0g                  
+ppier           float  %9.0g                  
+pprivate        float  %9.0g                  
+pcharter        float  %9.0g                  
+qbeach          float  %9.0g                  
+qpier           float  %9.0g                  
+qprivate        float  %9.0g                  
+qcharter        float  %9.0g                  
+income          float  %9.0g                  
+ydiv1000        float  %9.0g                  
+id              float  %9.0g                  
+d1              float  %9.0g                  
+d2              float  %9.0g                  
+d3              float  %9.0g                  
+d4              float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |      1182    3.005076    .9936162          1          4
+       price |      1182    52.08197    53.82997       1.29     666.11
+       crate |      1182    .3893684    .5605964      .0002     2.3101
+      dbeach |      1182    .1133672    .3171753          0          1
+       dpier |      1182    .1505922    .3578023          0          1
+-------------+--------------------------------------------------------
+    dprivate |      1182    .3536379    .4783008          0          1
+    dcharter |      1182    .3824027    .4861799          0          1
+      pbeach |      1182     103.422     103.641       1.29    843.186
+       ppier |      1182     103.422     103.641       1.29    843.186
+    pprivate |      1182    55.25657    62.71344       2.29     666.11
+-------------+--------------------------------------------------------
+    pcharter |      1182    84.37924    63.54465      27.29     691.11
+      qbeach |      1182    .2410113    .1907524      .0678      .5333
+       qpier |      1182    .1622237    .1603898      .0014      .4522
+    qprivate |      1182    .1712146    .2097885      .0002      .7369
+    qcharter |      1182    .6293679    .7061142      .0021     2.3101
+-------------+--------------------------------------------------------
+      income |      1182    4099.337    2461.964   416.6667      12500
+    ydiv1000 |      1182    4.099337    2.461964   .4166667       12.5
+          id |      1182       591.5    341.3583          1       1182
+          d1 |      1182    .1133672    .3171753          0          1
+          d2 |      1182    .1505922    .3578023          0          1
+-------------+--------------------------------------------------------
+          d3 |      1182    .3536379    .4783008          0          1
+          d4 |      1182    .3824027    .4861799          0          1
+
+. 
+. reshape long d, i(id) j(alterntv)
+(note: j = 1 2 3 4)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                     1182   ->    4728
+Number of variables                  22   ->      20
+j variable (4 values)                     ->   alterntv
+xij variables:
+                           d1 d2 ... d4   ->   d
+-----------------------------------------------------------------------------
+
+. describe
+
+Contains data
+  obs:         4,728                          
+ vars:            20                          
+ size:       382,968 (96.3% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  
+alterntv        byte   %9.0g                  
+mode            float  %9.0g                  
+price           float  %9.0g                  
+crate           float  %9.0g                  
+dbeach          float  %9.0g                  
+dpier           float  %9.0g                  
+dprivate        float  %9.0g                  
+dcharter        float  %9.0g                  
+pbeach          float  %9.0g                  
+ppier           float  %9.0g                  
+pprivate        float  %9.0g                  
+pcharter        float  %9.0g                  
+qbeach          float  %9.0g                  
+qpier           float  %9.0g                  
+qprivate        float  %9.0g                  
+qcharter        float  %9.0g                  
+income          float  %9.0g                  
+ydiv1000        float  %9.0g                  
+d               float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  id  alterntv
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+
+. 
+. gen obsnum=_n
+
+. gen d2 = 0
+
+. replace d2 = 1 if mod(obsnum,4)==2
+(1182 real changes made)
+
+. gen d3 = 0
+
+. replace d3 = 1 if mod(obsnum,4)==3
+(1182 real changes made)
+
+. gen d4 = 0
+
+. replace d4 = 1 if mod(obsnum,4)==0
+(1182 real changes made)
+
+. gen d2y = 0
+
+. replace d2y = d2*ydiv1000
+(1182 real changes made)
+
+. gen d3y = 0
+
+. replace d3y = d3*ydiv1000
+(1182 real changes made)
+
+. gen d4y = 0
+
+. replace d4y = d4*ydiv1000
+(1182 real changes made)
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+      obsnum |      4728      2364.5        1365          1       4728
+          d2 |      4728         .25    .4330585          0          1
+          d3 |      4728         .25    .4330585          0          1
+          d4 |      4728         .25    .4330585          0          1
+         d2y |      4728    1.024834    2.160064          0       12.5
+-------------+--------------------------------------------------------
+         d3y |      4728    1.024834    2.160064          0       12.5
+         d4y |      4728    1.024834    2.160064          0       12.5
+
+. 
+. * The following gives MNL column of Table 15.2, p.493, 
+. * which was more easily obtained using mlogit earlier
+. clogit d d2 d3 d4 d2y d3y d4y, group(id)
+
+Iteration 0:   log likelihood = -1570.1863
+Iteration 1:   log likelihood = -1479.3713
+Iteration 2:   log likelihood =  -1477.159
+Iteration 3:   log likelihood = -1477.1506
+Iteration 4:   log likelihood = -1477.1506
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(6)      =     322.90
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1477.1506                       Pseudo R2       =     0.0985
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          d2 |   .8141503    .228632     3.56   0.000     .3660399    1.262261
+          d3 |   .7389208   .1967309     3.76   0.000     .3533352    1.124506
+          d4 |   1.341291   .1945167     6.90   0.000     .9600457    1.722537
+         d2y |  -.1434029   .0532884    -2.69   0.007    -.2478463   -.0389595
+         d3y |   .0919064   .0406637     2.26   0.024     .0122069    .1716058
+         d4y |  -.0316399   .0418463    -0.76   0.450    -.1136571    .0503774
+------------------------------------------------------------------------------
+
+. 
+. ******* (4) "MIXED LOGIT" = CONDITIONAL LOGIT WITH BOTH 
+. *                           ALTERNATIVE-SPECIFIC REGRESSOR 
+. *                           AND ALTERNATIVE INVARIANT REGRESSOR *********
+. 
+. clear
+
+. infile mode price crate dbeach dpier dprivate dcharter pbeach ppier /*
+>    */ pprivate pcharter qbeach qpier qprivate qcharter income /*
+>    */ using nldata.asc
+(1182 observations read)
+
+. 
+. gen ydiv1000 = income/1000
+
+. 
+. * Data are one entry per individual
+. * Need to reshape to 4 observations per individual - one for each alternative
+. * Use reshape to do this but first create variable
+. * Alternative = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. gen id = _n
+
+. gen d1 = dbeach
+
+. gen p1 = pbeach
+
+. gen q1 = qbeach
+
+. gen d2 = dpier
+
+. gen p2 = ppier
+
+. gen q2 = qpier
+
+. gen d3 = dprivate
+
+. gen p3 = pprivate
+
+. gen q3 = qprivate
+
+. gen d4 = dcharter
+
+. gen p4 = pcharter
+
+. gen q4 = qcharter
+
+. 
+. reshape long d p q, i(id) j(alterntv)
+(note: j = 1 2 3 4)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                     1182   ->    4728
+Number of variables                  30   ->      22
+j variable (4 values)                     ->   alterntv
+xij variables:
+                           d1 d2 ... d4   ->   d
+                           p1 p2 ... p4   ->   p
+                           q1 q2 ... q4   ->   q
+-----------------------------------------------------------------------------
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+           p |      4728    86.61996    88.01813       1.29    843.186
+           q |      4728    .3009544    .4335593      .0002     2.3101
+
+. 
+. * Bring in alternative specific dummies
+. * Since d2-d4 already used instead call them dummy2 - dummy4
+. gen obsnum=_n
+
+. gen dummy1 = 0
+
+. replace dummy1 = 1 if mod(obsnum,4)==1
+(1182 real changes made)
+
+. gen dummy2 = 0
+
+. replace dummy2 = 1 if mod(obsnum,4)==2
+(1182 real changes made)
+
+. gen dummy3 = 0
+
+. replace dummy3 = 1 if mod(obsnum,4)==3
+(1182 real changes made)
+
+. gen dummy4 = 0
+
+. replace dummy4 = 1 if mod(obsnum,4)==0
+(1182 real changes made)
+
+. * And interact with income
+. gen d1y = 0
+
+. replace d1y = dummy1*ydiv1000
+(1182 real changes made)
+
+. gen d2y = 0
+
+. replace d2y = dummy2*ydiv1000
+(1182 real changes made)
+
+. gen d3y = 0
+
+. replace d3y = dummy3*ydiv1000
+(1182 real changes made)
+
+. gen d4y = 0
+
+. replace d4y = dummy4*ydiv1000
+(1182 real changes made)
+
+. 
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+           p |      4728    86.61996    88.01813       1.29    843.186
+           q |      4728    .3009544    .4335593      .0002     2.3101
+      obsnum |      4728      2364.5        1365          1       4728
+      dummy1 |      4728         .25    .4330585          0          1
+      dummy2 |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+      dummy3 |      4728         .25    .4330585          0          1
+      dummy4 |      4728         .25    .4330585          0          1
+         d1y |      4728    1.024834    2.160064          0       12.5
+         d2y |      4728    1.024834    2.160064          0       12.5
+         d3y |      4728    1.024834    2.160064          0       12.5
+-------------+--------------------------------------------------------
+         d4y |      4728    1.024834    2.160064          0       12.5
+
+. 
+. clogit d dummy2 dummy3 dummy4 p q, group(id)
+
+Iteration 0:   log likelihood = -1548.5161
+Iteration 1:   log likelihood = -1311.3761
+Iteration 2:   log likelihood = -1247.5777
+Iteration 3:   log likelihood = -1232.1412
+Iteration 4:   log likelihood = -1230.7975
+Iteration 5:   log likelihood = -1230.7838
+Iteration 6:   log likelihood = -1230.7838
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(5)      =     815.63
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1230.7838                       Pseudo R2       =     0.2489
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      dummy2 |   .3070552   .1145738     2.68   0.007     .0824947    .5316158
+      dummy3 |   .8713749   .1140428     7.64   0.000     .6478551    1.094895
+      dummy4 |   1.498888   .1329328    11.28   0.000     1.238345    1.759432
+           p |  -.0247896   .0017044   -14.54   0.000    -.0281301    -.021449
+           q |   .3771689   .1099707     3.43   0.001     .1616303    .5927074
+------------------------------------------------------------------------------
+
+. 
+. * The following gives Mixed column of Table 15.2, p.493
+. clogit d p q dummy2 dummy3 dummy4 d2y d3y d4y, group(id)
+
+Iteration 0:   log likelihood =  -1538.389
+Iteration 1:   log likelihood = -1297.4143
+Iteration 2:   log likelihood = -1233.5431
+Iteration 3:   log likelihood = -1216.8043
+Iteration 4:   log likelihood = -1215.1582
+Iteration 5:   log likelihood = -1215.1376
+Iteration 6:   log likelihood = -1215.1376
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(8)      =     846.92
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1215.1376                       Pseudo R2       =     0.2584
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           p |  -.0251166   .0017317   -14.50   0.000    -.0285106   -.0217225
+           q |    .357782   .1097733     3.26   0.001     .1426302    .5729337
+      dummy2 |   .7779594   .2204939     3.53   0.000     .3457992     1.21012
+      dummy3 |   .5272788   .2227927     2.37   0.018     .0906131    .9639444
+      dummy4 |   1.694366   .2240506     7.56   0.000     1.255235    2.133497
+         d2y |  -.1275771   .0506395    -2.52   0.012    -.2268288   -.0283255
+         d3y |   .0894398   .0500671     1.79   0.074    -.0086898    .1875695
+         d4y |  -.0332917   .0503409    -0.66   0.508     -.131958    .0653746
+------------------------------------------------------------------------------
+
+. 
+. * Output data file for Read into Limdep program mma15p4gev.lim
+. outfile id d p q ydiv1000 dummy2 dummy3 dummy4 d2y d3y d4y using mma15p4gev.asc, replace
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma15p1mnl.txt
+  log type:  text
+ closed on:  19 May 2005, 12:16:24
+----------------------------------------------------------------------------------------------------

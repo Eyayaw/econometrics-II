@@ -1,0 +1,385 @@
+1                                                          The SAS System                              08:50 Wednesday, May 25, 2005
+
+NOTE: Copyright (c) 2002-2003 by SAS Institute Inc., Cary, NC, USA. 
+NOTE: SAS (r) 9.1 (TS1M2)
+      Licensed to UNIV OF CA/DAVIS, Site 0029107010.
+NOTE: This session is executing on the SunOS 5.9 platform.
+
+
+
+You are running SAS 9. Some SAS 8 files will be automatically converted 
+by the V9 engine; others are incompatible.  Please see 
+http://support.sas.com/rnd/migration/planning/platform/64bit.html
+
+PROC MIGRATE will preserve current SAS file attributes and is 
+recommended for converting all your SAS libraries from any 
+SAS 8 release to SAS 9.  For details and examples, please see
+http://support.sas.com/rnd/migration/index.html
+
+
+This message is contained in the SAS news file, and is presented upon
+initialization.  Edit the file "news" in the "misc/base" directory to
+display site-specific news and information in the program log.
+The command line option "-nonews" will prevent this display.
+
+
+
+
+NOTE: SAS initialization used:
+      real time           0.11 seconds
+      cpu time            0.10 seconds
+      
+1          * MMA13P2BAYES.SAS  March 2005 for SAS version 8.2
+2          
+3          ********** OVERVIEW OF MMA13P2BAYES.SAS **********
+4          
+5          * SAS Program 
+6          * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+7          * used for "Microeconometrics: Methods and Applications" 
+8          * by A. Colin Cameron and Pravin K. Trivedi (2005)
+9          * Cambridge University Press
+10         
+11         * Chapter 13.6 p.452-4 
+12         * MCMC Example: Gibbs Sampler for 2 equation SUR 
+13         * Program creates the first column of Table 13.3 
+14         * (though differs somewhat due to use of different seed)
+15         
+16         * For different columns of Table 13.3 change
+17         *   nobs = Sample size N   (1000 or 10000)
+18         *   replics = Gibbs sample replications  (50000 or 100000)  
+19         *   tau = 1, 10 or 0.1
+20         * This program does first column: tau=10, nobs=1000, replics=50000
+21         
+22         * Note that the program does not exactly replicate Table 13.3
+23         * Table 13.3 used the computer clock for seed, 
+24         * with third argument zero in rannor(j( , ,0))
+25         * Here instead the seed is consecutively 10101, 20101, ... , 70101
+26         * so third argument is eg rannor(j( , ,10101))
+27         * to permit reproducability by other users
+28         
+29         * This programs creates 
+2                                                          The SAS System                              08:50 Wednesday, May 25, 2005
+
+30         *     MMA13P2BAYES.1ST    SAS Output with one column of Table 13.3
+31         *     MMA13P2BAYES.LOG    SAS log file
+32         
+33         * This program uses generated data - so no data set required
+34         * This program uses a lot of memory - 1 gigabyte should do
+35         * In Unix give command   sas -MEMSIZE 1G mma13p2bayesgibbs.sas
+36         
+37         *********************************************************************;
+38         *****   BIVARIATE NORMAL-BAYESIAN-ESTIMATION-BY-MCMC   **************;
+39         *********************************************************************;
+40         
+41         OPTIONS LS=75;
+42         options NOTES;
+43         
+44         PROC IML;
+NOTE: IML Ready
+45         start main;
+45       !            
+46         
+47         print "A. Colin Cameron and Pravin K. Trivedi (2005)";
+47       !                                                       
+48         print "Microeconometrics: Methods and Applications, CUP";
+48       !                                                          
+49         print  "MCMC Example: Gibbs Sampler for SUR";
+49       !                                              
+50         
+51         *************    GENERATING DATA: 2 EQUATION SUR
+51       ! ****************;
+52         
+53         nobs = 1000;
+53       !             
+54         replics = 50000;
+54       !                 
+55         burn = 5000;
+55       !             
+56         replics = replics + burn;
+56       !                          
+57         
+58         npar1 = 2;
+58       !           
+59         npar2 = 2;
+59       !           
+60         
+61         alpha1 ={1,1};
+61       !               
+62         alpha2 ={1,1};
+62       !               
+63         
+64         sigma = {1 -0.5,-0.5 1};
+64       !                          
+65         T = {0.15 2.18 0.725 0.45};
+65       !                            
+66         EPS = 1e-20;
+66       !             
+67         IC = (1/2.506628275);
+67       !                      
+68         
+69         R1 = j(nobs,1,1)||rannor(j(nobs,1,10101));
+3                             The SAS System  08:50 Wednesday, May 25, 2005
+
+69       !                                           
+70         R2 = j(nobs,1,1)||rannor(j(nobs,1,20101));
+70       !                                           
+71         
+72         e = rannor(j(nobs,2,30101))*root(sigma);
+72       !                                         
+73         e1 = e[,1];
+73       !            
+74         e2 = e[,2];
+74       !            
+75         
+76         Y1 = R1*alpha1 + e1;
+76       !                     
+77         Y2 = R2*alpha2 + e2;
+77       !                     
+78         
+79         *************      SPECIFY PRIOR DISTRIBUTIONS
+79       ! ******************;
+80         
+81         alpha01 = j(npar1,1,0);
+81       !                        
+82         alpha02 = j(npar2,1,0);
+82       !                        
+83         
+84         sigma = I(2);
+84       !              
+85         p = 3;
+85       !       
+86         df = 5;
+86       !        
+87         tau = 10;
+87       !          
+88         
+89         MUalpha = alpha01//alpha02;
+89       !                            
+90         OMalpha = tau*I(npar1+npar2);
+90       !                              
+91         OMphi = I(2);
+91       !              
+92         
+93         ************   ANALYSIS: GIBBS SAMLING BEGINS HERE
+93       ! ***************;
+94         
+95         do rep = 1 to replics;
+95       !                       
+96         
+97         *************      GENERATE ALPHA1 ALPHA2 RHO
+97       ! *******************;
+98         
+99         isigma = inv(sigma);
+99       !                     
+100        
+101        LL = ((isigma[1,1]*R1`*R1||isigma[1,2]*R1`*R2)//
+102        		    (isigma[2,1]*R2`*R1||isigma[2,2]*R2`*R2));
+102      !                                                 
+103        LisigY =  ((isigma[1,1]*R1`*Y1+isigma[1,2]*R1`*Y2)//
+104        		    (isigma[2,1]*R2`*Y1+isigma[2,2]*R2`*Y2));
+4                             The SAS System  08:50 Wednesday, May 25, 2005
+
+104      !                                                
+105        
+106        alpha = inv(inv(OMalpha)+ LL)*(LisigY + inv(OMalpha)*MUalpha) 
+107        	   + root(inv(inv(OMalpha)+
+107      ! LL))`*rannor(j(npar1+npar2,1,40101));
+108        
+109        alpha1 = alpha[1:npar1];
+109      !                         
+110        alpha2 = alpha[npar1+1:npar1+npar2];
+110      !                                     
+111        
+112        e1 = Y1 - R1*alpha1;
+112      !                     
+113        e2 = Y2 - R2*alpha2;
+113      !                     
+114        
+115        *************             GENERATE SIGMA
+115      ! *******************;
+116        
+117        mt = (sqrt((rannor(j(1,nobs+df,50101))##2)[,+])||0)//
+118             (rannor(j(1,1,60101))||sqrt((rannor(j(1,nobs+df-1,70101))##
+118      ! 2)[,+]));
+119        mv = mt*mt`;
+119      !             
+120        e=(e1||e2);
+120      !            
+121        ms = e`*e+inv(OMphi);
+121      !                      
+122        ml = root(inv(ms))`;
+122      !                     
+123        mg = ml*mv*ml`;
+123      !                
+124        sigma = inv(mg);
+124      !                 
+125        
+126        free mt mv e ml;
+126      !                 
+127        
+128        *************   WRITE TO OUTPUT FILE IF AFTER BURN-IN
+128      ! **************;
+129        
+130        if rep <= burn then goto point300;
+130      !                                   
+131        sigma3 = sigma[1,1]||sigma[1,2]||sigma[2,2];
+131      !                                             
+132        out1 = alpha1`||alpha2`||sigma3;
+132      !                                 
+133        
+134        output1=output1//out1;
+134      !                       
+135        
+136        point300:
+136      !          end;
+136      !              
+137        
+138        *************         END OF GIBBS SAMPLING
+138      ! **************; 
+5                             The SAS System  08:50 Wednesday, May 25, 2005
+
+139        
+140        
+141        ****************************************************************
+141      ! *****;
+142        *****   RESULTS: COMPARE LAST HALF WITH ALL (AFTER BURN-IN)
+142      ! *******;
+143        ****************************************************************
+143      ! *****;
+144        
+145        replics = replics-burn;
+145      !                        
+146        
+147        out1 = output1[replics/2+1:replics,];
+147      !                                      
+148        out = output1[1:replics,];
+148      !                           
+149        
+150        create exp from out1;
+150      !                      
+151        append from out1;
+151      !                  
+152        summary var _num_;
+152      !                   
+153        close exp;
+153      !           
+154        
+155        create exp from out;
+155      !                     
+156        append from out;
+156      !                 
+157        summary var _num_;
+157      !                   
+158        close exp;
+158      !           
+159        
+160        ****************************************************************
+160      ! *****;
+161        ******   RESULTS: POSTERIOR MEAN AND SD - TABLE 13.3 P.454
+161      ! ********;
+162        ****************************************************************
+162      ! *****;
+163        
+164        xnames1 = {"CONSTANT"} || {"R1"};
+164      !                                  
+165        xnames2 = {"CONSTANT"} || {"R2"};
+165      !                                  
+166        parnames = concat({"d1"}," ",xnames1)||concat({"d2"},"
+166      ! ",xnames2)||{"SIGMA11"}||{"SIGMA12"}||{"SIGMA22"};
+167        
+168        meanout = out[+,]/replics;
+168      !                           
+169        stderr  =
+169      ! sqrt(((out-j(replics,1,1)*meanout)##2)[+,]/(replics-1));
+170        parm = meanout;
+170      !                
+171        stderr = stderr`;
+171      !                  
+6                             The SAS System  08:50 Wednesday, May 25, 2005
+
+172        tnpar = npar1 + npar2 + 3;
+172      !                           
+173        
+174        tstat = parm`/ stderr;
+174      !                       
+175        coeff = parm` || stderr || tstat;
+175      !                                  
+176        info = tau // nobs // replics // burn // tnpar;
+176      !                                                
+177        rowinfo={'TAU' '# OBSERVATIONS' '# REPLICATIONS' '# BURN-IN' '#
+177      ! PARAMETERS'};
+178        estcol ={ 'ESTIMATE' 'STD ERR' 'T-STAT'};
+178      !                                          
+179        mattrib info rowname=rowinfo label={" "};
+179      !                                          
+180        mattrib coeff rowname=parnames colname=estcol label={" "};
+180      !                                                           
+181        print / "Results for Table 13.3 p.454";
+181      !                                        
+182        print info;
+182      !            
+183        print coeff;
+183      !             
+184        
+185        ****************************************************************
+185      ! *****;
+186        **********  RESULTS: CONVERGENCE CHECK: SEE P.454
+186      ! ***************;
+187        ****************************************************************
+187      ! *****;
+188        
+189        print / "Convergence check on p.454";
+189      !                                      
+190        
+191        corr = j(20,7,0);
+191      !                  
+192        
+193        do i = 1 to 7;
+193      !               
+194        cov = covlag(out[,i],20)`;
+194      !                           
+195        corr[,i] = cov/cov[1];
+195      !                       
+196        end;
+196      !     
+197        
+198        covd1 = j(20,2,0);
+198      !                   
+199        
+200        do k = 1 to 3;
+200      !               
+201        covd1 = corr[,2*k-1:2*k];
+201      !                          
+202        print covd1;
+202      !             
+203        end;
+203      !     
+7                             The SAS System  08:50 Wednesday, May 25, 2005
+
+204        
+205        covd1 = corr[,7];
+205      !                  
+206        print covd1;
+206      !             
+207        
+208        finish main;
+NOTE: Module MAIN defined.
+208      !             
+209        
+210        run main;
+NOTE: The data set WORK.EXP has 25000 observations and 7 variables.
+NOTE: The data set WORK.EXP has 50000 observations and 7 variables.
+210      !          
+NOTE: Exiting IML.
+NOTE: 65925 workspace compresses.
+NOTE: The PROCEDURE IML printed pages 1-6.
+NOTE: PROCEDURE IML used (Total process time):
+      real time           5:44.35
+      cpu time            5:44.04
+      
+
+NOTE: SAS Institute Inc., SAS Campus Drive, Cary, NC USA 27513-2414
+NOTE: The SAS System used:
+      real time           5:45.48
+      cpu time            5:45.15
+      

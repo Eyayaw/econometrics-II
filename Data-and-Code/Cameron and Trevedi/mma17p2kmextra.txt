@@ -1,0 +1,264 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma17p2kmextra.txt
+  log type:  text
+ opened on:  19 May 2005, 13:24:01
+
+. 
+. ********** OVERVIEW OF MMA17PP2KMEXTRA.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 17.5.1 pages 581-2
+. * Nonparametric Survival Analysis
+. * Provides  
+. *   (1) K-M Survivor Function and N_A Cum Hazard Estimates (Table 17.2)
+. * using artificial data
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+.   
+. ********** GENERATE DATA **********
+. 
+. * The time does not matter except for the hazard.
+. * Here arbitrarily let durations be 1, 4, 6, 11 and 20 (so irregularly spaced)
+. * 1. At t = 10 (time t1):  6 failures
+. * 2. At t = 15:            4 censored (lost) between t1 and t2
+. * 3. At t = 20 (time t2):  5 failures
+. * 4. At t = 25:            3 censored (lost) between t2 and t3  
+. * 3. At t = 30 (time t3):  2 failures 
+. * 4. At t = 35:            1 censored (lost) between t3 and t4  
+. * 3. At t = 40 (time t4):  1 failures 
+. * 4. At t = 45:            32 failures (lost) between t4 and t5                 
+. * 5. At t = 50 (time t5):  26 censored 
+. 
+. * Indicator failed = 1 if fail and 0 if censored
+. input duration failed
+
+      duration     failed
+  1.   10  1
+  2.   10  1
+  3.   10  1
+  4.   10  1
+  5.   10  1
+  6.   10  1
+  7.   15  0
+  8.   15  0
+  9.   15  0
+ 10.   15  0
+ 11.   20  1
+ 12.   20  1
+ 13.   20  1
+ 14.   20  1
+ 15.   20  1
+ 16.   25  0
+ 17.   25  0
+ 18.   25  0
+ 19.   30  1
+ 20.   30  1
+ 21.   35  0
+ 22.   40  1
+ 23.   45  0
+ 24.   45  0
+ 25.   45  0
+ 26.   45  0
+ 27.   45  0
+ 28.   45  0
+ 29.   45  0
+ 30.   45  0
+ 31.   45  0
+ 32.   45  0
+ 33.   45  0
+ 34.   45  0
+ 35.   45  0
+ 36.   45  0
+ 37.   45  0
+ 38.   45  0
+ 39.   45  0
+ 40.   45  0
+ 41.   45  0
+ 42.   45  0
+ 43.   45  0
+ 44.   45  0
+ 45.   45  0
+ 46.   45  0
+ 47.   45  0
+ 48.   45  0
+ 49.   45  0
+ 50.   45  0
+ 51.   45  0
+ 52.   45  0
+ 53.   45  0
+ 54.   45  0
+ 55.   50  1
+ 56.   50  1
+ 57.   50  1
+ 58.   50  1
+ 59.   50  1
+ 60.   50  1
+ 61.   50  1
+ 62.   50  1
+ 63.   50  1
+ 64.   50  1
+ 65.   50  1
+ 66.   50  1
+ 67.   50  1
+ 68.   50  1
+ 69.   50  1
+ 70.   50  1
+ 71.   50  1
+ 72.   50  1
+ 73.   50  1
+ 74.   50  1
+ 75.   50  1
+ 76.   50  1
+ 77.   50  1
+ 78.   50  1
+ 79.   50  1
+ 80.   50  1
+ 81. end
+
+. 
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    duration |        80      39.625    13.40166         10         50
+      failed |        80          .5    .5031546          0          1
+
+. 
+. ***** COMPUTATION USING STATA **********
+. 
+. * Stata st curves require defining the dependent variable
+. stset duration, fail(failed=1)
+
+     failure event:  failed == 1
+obs. time interval:  (0, duration]
+ exit on or before:  failure
+
+------------------------------------------------------------------------------
+       80  total obs.
+        0  exclusions
+------------------------------------------------------------------------------
+       80  obs. remaining, representing
+       40  failures in single record/single failure data
+     3170  total analysis time at risk, at risk from t =         0
+                             earliest observed entry t =         0
+                                  last observed exit t =        50
+
+. stsum
+
+         failure _d:  failed == 1
+   analysis time _t:  duration
+
+         |               incidence       no. of    |------ Survival time -----|
+         | time at risk     rate        subjects        25%       50%       75%
+---------+---------------------------------------------------------------------
+   total |         3170   .0126183            80         50        50        50
+
+. stdes
+
+         failure _d:  failed == 1
+   analysis time _t:  duration
+
+                                   |-------------- per subject --------------|
+Category                   total        mean         min     median        max
+------------------------------------------------------------------------------
+no. of subjects               80   
+no. of records                80           1           1          1          1
+
+(first) entry time                         0           0          0          0
+(final) exit time                     39.625          10         45         50
+
+subjects with gap              0   
+time on gap if gap             0   
+time at risk                3170      39.625          10         45         50
+
+failures                      40          .5           0         .5          1
+------------------------------------------------------------------------------
+
+. 
+. * K-M survival graph
+. * sts graph, gwood
+. 
+. * N-A Cumulative Hazard
+. * sts graph, cna
+. 
+. * Kaplan-Meier Survivor Function listed (last column Table 17.2)
+. sts list
+
+         failure _d:  failed == 1
+   analysis time _t:  duration
+
+           Beg.          Net            Survivor      Std.
+  Time    Total   Fail   Lost           Function     Error     [95% Conf. Int.]
+-------------------------------------------------------------------------------
+    10       80      6      0             0.9250    0.0294     0.8407    0.9656
+    15       74      0      4             0.9250    0.0294     0.8407    0.9656
+    20       70      5      0             0.8589    0.0395     0.7596    0.9193
+    25       65      0      3             0.8589    0.0395     0.7596    0.9193
+    30       62      2      0             0.8312    0.0428     0.7268    0.8984
+    35       60      0      1             0.8312    0.0428     0.7268    0.8984
+    40       59      1      0             0.8171    0.0443     0.7104    0.8875
+    45       58      0     32             0.8171    0.0443     0.7104    0.8875
+    50       26     26      0             0.0000         .          .         .
+-------------------------------------------------------------------------------
+
+. 
+. * Nelson-Aalen Cumulative Hazard Listed (second last column Table 17.2)
+. sts list, na
+
+         failure _d:  failed == 1
+   analysis time _t:  duration
+
+           Beg.          Net          Nelson-Aalen    Std.
+  Time    Total   Fail   Lost           Cum. Haz.    Error     [95% Conf. Int.]
+-------------------------------------------------------------------------------
+    10       80      6      0             0.0750    0.0306     0.0337    0.1669
+    15       74      0      4             0.0750    0.0306     0.0337    0.1669
+    20       70      5      0             0.1464    0.0442     0.0810    0.2648
+    25       65      0      3             0.1464    0.0442     0.0810    0.2648
+    30       62      2      0             0.1787    0.0498     0.1035    0.3085
+    35       60      0      1             0.1787    0.0498     0.1035    0.3085
+    40       59      1      0             0.1956    0.0526     0.1155    0.3313
+    45       58      0     32             0.1956    0.0526     0.1155    0.3313
+    50       26     26      0             1.1956    0.2030     0.8571    1.6678
+-------------------------------------------------------------------------------
+
+. 
+. ***** MANUAL COMPUTATION AS IN TABLE 17.2 (page 582) **********
+. 
+. scalar cumhaz1 = 6/80
+
+. scalar cumhaz2 = 6/80 + 5/70
+
+. scalar cumhaz3 = 6/80 + 5/70 + 2/62
+
+. scalar surv1 = 1-6/80
+
+. scalar surv2 = (1-6/80)*(1-5/70)
+
+. scalar surv3 = (1-6/80)*(1-5/70)*(1-2/62)
+
+. di "Cumulative hazard at   t1: " cumhaz1  " at t2: " cumhaz2 " at t3: " cumhaz3
+Cumulative hazard at   t1: .075 at t2: .14642857 at t3: .17868664
+
+. di "Survivor function at   t1: " surv1  "   at t2: " surv2 "   at t3: " surv3
+Survivor function at   t1: .925   at t2: .85892857   at t3: .8312212
+
+.  
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma17p2kmextra.txt
+  log type:  text
+ closed on:  19 May 2005, 13:24:01
+----------------------------------------------------------------------------------------------------

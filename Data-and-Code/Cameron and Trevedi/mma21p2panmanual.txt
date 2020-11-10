@@ -1,0 +1,1108 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section5\mma21p2panmanual.txt
+  log type:  text
+ opened on:  23 May 2005, 11:34:50
+
+. 
+. ********** OVERVIEW OF MMA21P2PANMANUAL.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press
+. 
+. * Chapter 21.3.1-3 pages 709-14 
+. * Program performs basic panel analysis and gets panel robust se's
+. * by first transforming model and then using REGRESS
+. * It also presents a valid Hausman test of FE versus RE model
+. 
+. * This program estimates 
+. *    (2) between estimator by regress y_bar on x_bar
+. *    (4) within estimator by regress (y - y_bar) on (x - x_bar)
+. *    (5) random effects gls by regress (y - rho*y_bar) on (x - rho*x_bar)
+. *    (6) random effects mle by regress (y - rho*y_bar) on (x - rho*x_bar)
+. *    (7) robust variant of the Hausman test
+. * and calculates 
+. *    - usual standard errors 
+. *        (which may differ from xtreg due to different degrees of freedom) 
+. *    - panel robust standard errors
+. *        (which for RE simplify by assuming lamda_hat is known not estimated)
+. *    - panel bootstrap standard errors 
+. *        (which should equal panel robust from ch21panel.do as #bootstrap reps --> infinity)
+. *    - heteroskedasticity robust standard errors
+. *        (which are wrong but included for comparison with others)
+. 
+. * The code is very limited:
+. *   - it considers only one regressor
+. *   - it assumes a balanced data set with exactly 10 years of data per obnservations
+. *   - it does not use loops for transformations which would generalize code
+. 
+. * NOTE: If have Stata Version 9 (rather than version 8) a simpler way to proceed is
+. * to directly use XTREG (see program mma21p1panfeandre.do) with option cluster(id)
+. 
+. * The four basic linear panel programs are
+. *   mma21p1panfeandre.do    Linear fixed and random effects using xtreg
+. *   mma21p2panfeandre.do    Linear fe and re using transformation and regress
+. *                           plus also has valid Hausman test
+. *   mma21p3panresiduals.do  Residual analysis after linear fe and re 
+. *   mma21p4panpangls.do     Pooled panel OLS and GLS
+. 
+. * To run this program you need data file
+. *    MOM.dat  
+. * in your directory
+. 
+. * To speed up this program reduce nreps, the number of bootstraps 
+. * used in the panel bootstrap. 
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. *  The original data is from 
+. *  Jim Ziliak (1997)
+. *  "Efficient Estimation With Panel Data when Instruments are Predetermined: 
+. * An Emprirical Comparison of Moment-Condition Estimators" 
+. * Journal of Business and Economic Statistics, 15, 419-431
+. 
+. * File MOM.dat has data on 532 men over 10 years (1979-1988) 
+. * Data are space-delimited ordered by person with separate line for each year
+. * So id 1 1979, id 1 1980, ..., id 1 1988, id 2 1979, 1d 2 1980, ...
+. * 8 variables: 
+. * lnhr lnwg kids ageh agesq disab id year
+. 
+. * File MOM.dat is the version of the data posted at the JBES website
+. * Note that in chapter 22 we instead use MOMprecise.dat
+. * which is the same data set but with more significant digits
+. 
+. ********** READ DATA **********
+. 
+. * The data are in ascii file MOM.dat
+. * There are 532 individuals with 10 lines (years) per individual
+. * Read in using Infile: FREE FORMAT WITHOUT DICTIONARY
+. infile lnhr lnwg kids ageh agesq disab id year using MOM.dat
+(5320 observations read)
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        lnhr |      5320     7.65743    .2855914       2.77       8.56
+        lnwg |      5320    2.609436    .4258924       -.26       4.69
+        kids |      5320    1.555827    1.195924          0          6
+        ageh |      5320    38.91823    8.450351         22         60
+       agesq |      5320    1586.024    689.7759        484       3600
+-------------+--------------------------------------------------------
+       disab |      5320    .0609023    .2391734          0          1
+          id |      5320       266.5    153.5893          1        532
+        year |      5320      1983.5    2.872551       1979       1988
+
+. 
+. ********** DEFINE GLOBALS **********
+. 
+. * Number of reps for the boostrap
+. * Table 21.1 used 500
+. global nreps 500
+
+. 
+. ******** RUN REGRESSIONS USING XTREG **********
+. 
+. * This is to verify alternative estimates later on
+. * And for random effects it saves lamda 
+. * used later on to construct transformed regression
+. * of (y - lamda*y_1) on (x - lamda*x_1)
+. 
+. xtreg lnhr lnwg, be i(id)
+
+Between regression (regression on group means)  Number of obs      =      5320
+Group variable (i): id                          Number of groups   =       532
+
+R-sq:  within  = 0.0162                         Obs per group: min =        10
+       between = 0.0213                                        avg =      10.0
+       overall = 0.0152                                        max =        10
+
+                                                F(1,530)           =     11.55
+sd(u_i + avg(e_i.))=  .1772555                  Prob > F           =    0.0007
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0668379   .0196635     3.40   0.001     .0282099    .1054658
+       _cons |   7.483021   .0518829   144.23   0.000       7.3811    7.584943
+------------------------------------------------------------------------------
+
+. estimates store bextreg
+
+. 
+. xtreg lnhr lnwg, fe i(id)
+
+Fixed-effects (within) regression               Number of obs      =      5320
+Group variable (i): id                          Number of groups   =       532
+
+R-sq:  within  = 0.0162                         Obs per group: min =        10
+       between = 0.0213                                        avg =      10.0
+       overall = 0.0152                                        max =        10
+
+                                                F(1,4787)          =     78.96
+corr(u_i, Xb)  = -0.1995                        Prob > F           =    0.0000
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .1676755     .01887     8.89   0.000     .1306816    .2046694
+       _cons |   7.219892   .0493434   146.32   0.000     7.123156    7.316628
+-------------+----------------------------------------------------------------
+     sigma_u |  .18142881
+     sigma_e |  .23278339
+         rho |  .37789558   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+F test that all u_i=0:     F(531, 4787) =     5.83           Prob > F = 0.0000
+
+. estimates store fextreg
+
+. 
+. xtreg lnhr lnwg, re i(id)
+
+Random-effects GLS regression                   Number of obs      =      5320
+Group variable (i): id                          Number of groups   =       532
+
+R-sq:  within  = 0.0162                         Obs per group: min =        10
+       between = 0.0213                                        avg =      10.0
+       overall = 0.0152                                        max =        10
+
+Random effects u_i ~ Gaussian                   Wald chi2(1)       =     76.64
+corr(u_i, X)       = 0 (assumed)                Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .1193322   .0136312     8.75   0.000     .0926155     .146049
+       _cons |   7.346041   .0363925   201.86   0.000     7.274713    7.417368
+-------------+----------------------------------------------------------------
+     sigma_u |  .16124733
+     sigma_e |  .23278339
+         rho |  .32424354   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+
+. estimates store reglsxtreg
+
+. scalar sesq = e(sigma_e)^2
+
+. scalar susq = e(sigma_u)^2
+
+. scalar lamdaregls = 1 - sqrt( sesq / (e(Tbar)*susq + sesq) )
+
+. di lamdaregls
+.58470925
+
+. 
+. xtreg lnhr lnwg, mle i(id)
+
+Fitting constant-only model:
+Iteration 0:   log likelihood = -305.19469
+Iteration 1:   log likelihood = -304.97993
+Iteration 2:   log likelihood = -304.97987
+
+Fitting full model:
+Iteration 0:   log likelihood = -270.51687
+Iteration 1:   log likelihood = -266.91794
+Iteration 2:   log likelihood = -266.91155
+
+Random-effects ML regression                    Number of obs      =      5320
+Group variable (i): id                          Number of groups   =       532
+
+Random effects u_i ~ Gaussian                   Obs per group: min =        10
+                                                               avg =      10.0
+                                                               max =        10
+
+                                                LR chi2(1)         =     76.14
+Log likelihood  = -266.91155                    Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .1195474   .0137484     8.70   0.000      .092601    .1464938
+       _cons |   7.345479   .0366973   200.16   0.000     7.273554    7.417404
+-------------+----------------------------------------------------------------
+    /sigma_u |    .162175   .0060469    26.82   0.000     .1503233    .1740266
+    /sigma_e |   .2329172   .0023819    97.79   0.000     .2282488    .2375856
+-------------+----------------------------------------------------------------
+         rho |   .3265097    .017266                      .2934209    .3610233
+------------------------------------------------------------------------------
+Likelihood-ratio test of sigma_u=0: chibar2(01)= 1147.08 Prob>=chibar2 = 0.000
+
+. estimates store remlextreg
+
+. scalar sesq2 = e(sigma_e)^2
+
+. scalar susq2 = e(sigma_u)^2
+
+. scalar lamdaremle = 1 - sqrt( sesq2 / (e(g_avg)*susq2 + sesq2) )
+
+. di lamdaremle
+.58648101
+
+. 
+. ******** ANALYSIS: FE, RE and FD ESTIMATORS CALCULATED MANUALLY **********
+. 
+. *** FIRST TRANSFORM DATA FROM LONG FORM TO WIDE FORM
+. 
+. * Here just do this for lnhr and lnwg
+. keep lnhr lnwg id year
+
+. reshape wide lnhr lnwg, i(id) j(year)
+(note: j = 1979 1980 1981 1982 1983 1984 1985 1986 1987 1988)
+
+Data                               long   ->   wide
+-----------------------------------------------------------------------------
+Number of obs.                     5320   ->     532
+Number of variables                   4   ->      21
+j variable (10 values)             year   ->   (dropped)
+xij variables:
+                                   lnhr   ->   lnhr1979 lnhr1980 ... lnhr1988
+                                   lnwg   ->   lnwg1979 lnwg1980 ... lnwg1988
+-----------------------------------------------------------------------------
+
+. 
+. * Since year is 1979 to 1988 this will create 
+. * lnhr1979 to lnhr1988 and lnwg1979 to lnwg1988 
+. 
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |       532       266.5    153.7194          1        532
+    lnhr1979 |       532    7.669342     .249361       5.89       8.54
+    lnwg1979 |       532    2.597763    .4188951        .52       4.62
+    lnhr1980 |       532    7.660094    .2691995       5.22       8.34
+    lnwg1980 |       532    2.602368    .3945963         .8       4.61
+-------------+--------------------------------------------------------
+    lnhr1981 |       532     7.66765    .2105797       6.36        8.4
+    lnwg1981 |       532    2.610959    .3870011       1.53       4.53
+    lnhr1982 |       532     7.64609    .2427195       5.38       8.31
+    lnwg1982 |       532     2.61468    .4014363       1.21       4.61
+    lnhr1983 |       532    7.613064     .382703       2.77       8.37
+-------------+--------------------------------------------------------
+    lnwg1983 |       532    2.610526    .4111869       1.08       4.62
+    lnhr1984 |       532    7.636523    .3316735       3.18       8.44
+    lnwg1984 |       532    2.600188    .4621549       -.26       4.65
+    lnhr1985 |       532    7.668365    .2597423       5.08       8.54
+    lnwg1985 |       532    2.614944    .4347554       1.33       4.69
+-------------+--------------------------------------------------------
+    lnhr1986 |       532    7.659286    .3330862       2.77       8.38
+    lnwg1986 |       532    2.602632    .4432807        .07       4.59
+    lnhr1987 |       532     7.67406    .2745015       4.38       8.56
+    lnwg1987 |       532    2.614699    .4300122       1.28       4.03
+    lnhr1988 |       532    7.679831    .2552894       4.79       8.53
+-------------+--------------------------------------------------------
+    lnwg1988 |       532    2.625602    .4701759       -.22        4.6
+
+. 
+. *** (1) POOLED OLS (OVERALL) REGRESSION
+. 
+. * Not relevant
+. 
+. *** (2) CREATE INDIVIDUAL AVERAGES AND DO BETWEEN REGRESSION
+. 
+. gen avelnhr = (lnhr1979+lnhr1980+lnhr1981+lnhr1982+lnhr1983+lnhr1984+ /*
+>               */  lnhr1985+lnhr1986+lnhr1987+lnhr1988) / 10
+
+. gen avelnwg = (lnwg1979+lnwg1980+lnwg1981+lnwg1982+lnwg1983+lnwg1984+ /*
+>               */  lnwg1985+lnwg1986+lnwg1987+lnwg1988) / 10
+
+. 
+. * Should replicate xtreg, be
+. regress avelnhr avelnwg
+
+      Source |       SS       df       MS              Number of obs =     532
+-------------+------------------------------           F(  1,   530) =   11.55
+       Model |  .363013807     1  .363013807           Prob > F      =  0.0007
+    Residual |  16.6523404   530   .03141951           R-squared     =  0.0213
+-------------+------------------------------           Adj R-squared =  0.0195
+       Total |  17.0153542   531  .032043982           Root MSE      =  .17726
+
+------------------------------------------------------------------------------
+     avelnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     avelnwg |   .0668379   .0196635     3.40   0.001     .0282099    .1054658
+       _cons |   7.483021   .0518829   144.23   0.000       7.3811    7.584943
+------------------------------------------------------------------------------
+
+. estimates store bebyols
+
+. 
+. * Better is the following as gives heteroskedastic robust standard errors
+. regress avelnhr avelnwg, robust
+
+Regression with robust standard errors                 Number of obs =     532
+                                                       F(  1,   530) =    7.55
+                                                       Prob > F      =  0.0062
+                                                       R-squared     =  0.0213
+                                                       Root MSE      =  .17726
+
+------------------------------------------------------------------------------
+             |               Robust
+     avelnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     avelnwg |   .0668379   .0243185     2.75   0.006     .0190654    .1146103
+       _cons |   7.483021   .0657699   113.78   0.000      7.35382    7.612223
+------------------------------------------------------------------------------
+
+. estimates store behet
+
+. 
+. * Or could bootstrap
+. bootstrap "regress avelnhr avelnwg" "_b[avelnwg] _b[_cons]", reps(200) level(95)
+
+command:      regress avelnhr avelnwg
+statistics:   _bs_1      = _b[avelnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =       532
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   200  .0668379 -.0010221  .0239486   .0196123   .1140634   (N)
+             |                                       .0233175   .1143305   (P)
+             |                                       .0266221   .1175503  (BC)
+       _bs_2 |   200  7.483021  .0029632  .0648396    7.35516   7.610882   (N)
+             |                                       7.362745   7.600107   (P)
+             |                                       7.358079   7.591704  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix bebootse = e(se)
+
+. 
+. *** (3) CREATE DIFFERENCED DATA FOR FE AND RE
+. 
+. * Continue with data already and then reshape
+. * Mean difference for FE and quasi for RE-GLS and RE-MLE
+. 
+. * Mean difference for FE
+. gen mdlnhr1979 = lnhr1979 - avelnhr
+
+. gen mdlnhr1980 = lnhr1980 - avelnhr
+
+. gen mdlnhr1981 = lnhr1981 - avelnhr
+
+. gen mdlnhr1982 = lnhr1982 - avelnhr
+
+. gen mdlnhr1983 = lnhr1983 - avelnhr
+
+. gen mdlnhr1984 = lnhr1984 - avelnhr
+
+. gen mdlnhr1985 = lnhr1985 - avelnhr
+
+. gen mdlnhr1986 = lnhr1986 - avelnhr
+
+. gen mdlnhr1987 = lnhr1987 - avelnhr
+
+. gen mdlnhr1988 = lnhr1988 - avelnhr
+
+. gen mdlnwg1979 = lnwg1979 - avelnwg
+
+. gen mdlnwg1980 = lnwg1980 - avelnwg
+
+. gen mdlnwg1981 = lnwg1981 - avelnwg
+
+. gen mdlnwg1982 = lnwg1982 - avelnwg
+
+. gen mdlnwg1983 = lnwg1983 - avelnwg
+
+. gen mdlnwg1984 = lnwg1984 - avelnwg
+
+. gen mdlnwg1985 = lnwg1985 - avelnwg
+
+. gen mdlnwg1986 = lnwg1986 - avelnwg
+
+. gen mdlnwg1987 = lnwg1987 - avelnwg
+
+. gen mdlnwg1988 = lnwg1988 - avelnwg
+
+. 
+. * Quasi difference for RE - GLS
+. gen reglsdlnhr1979 = lnhr1979 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1980 = lnhr1980 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1981 = lnhr1981 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1982 = lnhr1982 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1983 = lnhr1983 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1984 = lnhr1984 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1985 = lnhr1985 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1986 = lnhr1986 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1987 = lnhr1987 - lamdaregls*avelnhr
+
+. gen reglsdlnhr1988 = lnhr1988 - lamdaregls*avelnhr
+
+. gen reglsdlnwg1979 = lnwg1979 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1980 = lnwg1980 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1981 = lnwg1981 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1982 = lnwg1982 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1983 = lnwg1983 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1984 = lnwg1984 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1985 = lnwg1985 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1986 = lnwg1986 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1987 = lnwg1987 - lamdaregls*avelnwg
+
+. gen reglsdlnwg1988 = lnwg1988 - lamdaregls*avelnwg
+
+. 
+. * Quasi difference for RE - MLE
+. gen remledlnhr1979 = lnhr1979 - lamdaremle*avelnhr
+
+. gen remledlnhr1980 = lnhr1980 - lamdaremle*avelnhr
+
+. gen remledlnhr1981 = lnhr1981 - lamdaremle*avelnhr
+
+. gen remledlnhr1982 = lnhr1982 - lamdaremle*avelnhr
+
+. gen remledlnhr1983 = lnhr1983 - lamdaremle*avelnhr
+
+. gen remledlnhr1984 = lnhr1984 - lamdaremle*avelnhr
+
+. gen remledlnhr1985 = lnhr1985 - lamdaremle*avelnhr
+
+. gen remledlnhr1986 = lnhr1986 - lamdaremle*avelnhr
+
+. gen remledlnhr1987 = lnhr1987 - lamdaremle*avelnhr
+
+. gen remledlnhr1988 = lnhr1988 - lamdaremle*avelnhr
+
+. gen remledlnwg1979 = lnwg1979 - lamdaremle*avelnwg
+
+. gen remledlnwg1980 = lnwg1980 - lamdaremle*avelnwg
+
+. gen remledlnwg1981 = lnwg1981 - lamdaremle*avelnwg
+
+. gen remledlnwg1982 = lnwg1982 - lamdaremle*avelnwg
+
+. gen remledlnwg1983 = lnwg1983 - lamdaremle*avelnwg
+
+. gen remledlnwg1984 = lnwg1984 - lamdaremle*avelnwg
+
+. gen remledlnwg1985 = lnwg1985 - lamdaremle*avelnwg
+
+. gen remledlnwg1986 = lnwg1986 - lamdaremle*avelnwg
+
+. gen remledlnwg1987 = lnwg1987 - lamdaremle*avelnwg
+
+. gen remledlnwg1988 = lnwg1988 - lamdaremle*avelnwg
+
+. 
+. *** NOW BACK TO LONG FORM
+. 
+. * Then back to long form
+. reshape long lnhr lnwg mdlnhr mdlnwg reglsdlnhr reglsdlnwg remledlnhr remledlnwg, i(id) j(year)
+(note: j = 1979 1980 1981 1982 1983 1984 1985 1986 1987 1988)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                      532   ->    5320
+Number of variables                  85   ->      14
+j variable (10 values)                    ->   year
+xij variables:
+         lnhr1979 lnhr1980 ... lnhr1988   ->   lnhr
+         lnwg1979 lnwg1980 ... lnwg1988   ->   lnwg
+   mdlnhr1979 mdlnhr1980 ... mdlnhr1988   ->   mdlnhr
+   mdlnwg1979 mdlnwg1980 ... mdlnwg1988   ->   mdlnwg
+reglsdlnhr1979 reglsdlnhr1980 ... reglsdlnhr1988->reglsdlnhr
+reglsdlnwg1979 reglsdlnwg1980 ... reglsdlnwg1988->reglsdlnwg
+remledlnhr1979 remledlnhr1980 ... remledlnhr1988->remledlnhr
+remledlnwg1979 remledlnwg1980 ... remledlnwg1988->remledlnwg
+-----------------------------------------------------------------------------
+
+. 
+. describe
+
+Contains data
+  obs:         5,320                          
+ vars:            14                          
+ size:       276,640 (97.2% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  
+year            int    %9.0g                  
+lnhr            float  %9.0g                  
+lnwg            float  %9.0g                  
+avelnhr         float  %9.0g                  
+avelnwg         float  %9.0g                  
+_est_bebyols    byte   %8.0g                  esample() from estimates store
+_est_behet      byte   %8.0g                  esample() from estimates store
+mdlnhr          float  %9.0g                  
+mdlnwg          float  %9.0g                  
+reglsdlnhr      float  %9.0g                  
+reglsdlnwg      float  %9.0g                  
+remledlnhr      float  %9.0g                  
+remledlnwg      float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  id  year
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      5320       266.5    153.5893          1        532
+        year |      5320      1983.5    2.872551       1979       1988
+        lnhr |      5320     7.65743    .2855914       2.77       8.56
+        lnwg |      5320    2.609436    .4258924       -.26       4.69
+     avelnhr |      5320     7.65743    .1788568      6.416      8.242
+-------------+--------------------------------------------------------
+     avelnwg |      5320    2.609436    .3908626      1.346      4.543
+_est_bebyols |      5320           1           0          1          1
+  _est_behet |      5320           1           0          1          1
+      mdlnhr |      5320   -1.21e-09    .2226492     -3.988      1.344
+      mdlnwg |      5320   -9.86e-10    .1691472      -2.54      1.878
+-------------+--------------------------------------------------------
+  reglsdlnhr |      5320     3.18006    .2347122  -1.181465   4.008506
+  reglsdlnwg |      5320    1.083675    .2344336  -1.593137   2.966892
+  remledlnhr |      5320    3.166493    .2346121  -1.193439   3.997138
+  remledlnwg |      5320    1.079051    .2339546  -1.597177   2.962247
+
+. save MOM2, replace
+file MOM2.dta saved
+
+. 
+. *** (4) FIXED EFFECTS ESTIMATOR USING DIFFERENCED DATA
+. 
+. * This should replicate xtreg, fe
+. regress mdlnhr mdlnwg
+
+      Source |       SS       df       MS              Number of obs =    5320
+-------------+------------------------------           F(  1,  5318) =   87.72
+       Model |  4.27857391     1  4.27857391           Prob > F      =  0.0000
+    Residual |   259.39846  5318  .048777446           R-squared     =  0.0162
+-------------+------------------------------           Adj R-squared =  0.0160
+       Total |  263.677034  5319   .04957267           Root MSE      =  .22086
+
+------------------------------------------------------------------------------
+      mdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      mdlnwg |   .1676755   .0179032     9.37   0.000      .132578     .202773
+       _cons |  -1.04e-09    .003028    -0.00   1.000    -.0059361    .0059361
+------------------------------------------------------------------------------
+
+. estimates store febyols
+
+. 
+. * This gives panel corrected standard errors
+. regress mdlnhr mdlnwg, cluster(id)
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  1,   531) =    3.89
+                                                       Prob > F      =  0.0490
+                                                       R-squared     =  0.0162
+Number of clusters (id) = 532                          Root MSE      =  .22086
+
+------------------------------------------------------------------------------
+             |               Robust
+      mdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      mdlnwg |   .1676755   .0849706     1.97   0.049     .0007557    .3345953
+       _cons |  -1.04e-09   6.39e-09    -0.16   0.870    -1.36e-08    1.15e-08
+------------------------------------------------------------------------------
+
+. estimates store fepanel
+
+. 
+. * This gives panel bootstrap standard errors
+. * Similar to bootstrap applied to xtreg, fe
+. set seed 10001
+
+. bs "regress mdlnhr mdlnwg" "_b[mdlnwg] _b[_cons]", cluster(id) reps($nreps) level(95)
+
+command:      regress mdlnhr mdlnwg
+statistics:   _bs_1      = _b[mdlnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5320
+                                                  N of clusters    =       532
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .1676755 -.0055543  .0844631   .0017284   .3336226   (N)
+             |                                       .0213276   .3318829   (P)
+             |                                       .0300515   .3605573  (BC)
+       _bs_2 |   500 -1.04e-09  2.79e-10  6.50e-09  -1.38e-08   1.17e-08   (N)
+             |                                      -1.39e-08   1.28e-08   (P)
+             |                                      -1.41e-08   1.17e-08  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix febootse = e(se)
+
+. 
+. * This gives heteroskedasticity corrected standard errors that are not panel robust
+. regress mdlnhr mdlnwg, robust
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  1,  5318) =    7.79
+                                                       Prob > F      =  0.0053
+                                                       R-squared     =  0.0162
+                                                       Root MSE      =  .22086
+
+------------------------------------------------------------------------------
+             |               Robust
+      mdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      mdlnwg |   .1676755   .0600942     2.79   0.005     .0498662    .2854848
+       _cons |  -1.04e-09    .003028    -0.00   1.000    -.0059361    .0059361
+------------------------------------------------------------------------------
+
+. estimates store fehet
+
+. 
+. *** (5) RANDOM EFFECTS - GLS ESTIMATOR USING DIFFERENCED DATA
+. 
+. * Should give same coefficient estimates as xtreg
+. * May give different standard errors as treats lamda as known
+. * but in practice the differnece is not great as lamda precisely estimated
+. 
+. * This should replicate xtreg, re
+. regress reglsdlnhr reglsdlnwg
+
+      Source |       SS       df       MS              Number of obs =    5320
+-------------+------------------------------           F(  1,  5318) =   76.64
+       Model |  4.16279701     1  4.16279701           Prob > F      =  0.0000
+    Residual |  288.860014  5318  .054317415           R-squared     =  0.0142
+-------------+------------------------------           Adj R-squared =  0.0140
+       Total |  293.022811  5319  .055089831           Root MSE      =  .23306
+
+------------------------------------------------------------------------------
+  reglsdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  reglsdlnwg |   .1193323   .0136312     8.75   0.000     .0926095     .146055
+       _cons |   3.050743   .0151135   201.86   0.000     3.021114    3.080371
+------------------------------------------------------------------------------
+
+. estimates store reglsbyols
+
+. 
+. * This gives panel corrected standard errors
+. regress reglsdlnhr reglsdlnwg, cluster(id)
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  1,   531) =    5.39
+                                                       Prob > F      =  0.0206
+                                                       R-squared     =  0.0142
+Number of clusters (id) = 532                          Root MSE      =  .23306
+
+------------------------------------------------------------------------------
+             |               Robust
+  reglsdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  reglsdlnwg |   .1193323   .0514016     2.32   0.021     .0183568    .2203077
+       _cons |   3.050743   .0571367    53.39   0.000     2.938501    3.162984
+------------------------------------------------------------------------------
+
+. estimates store reglspanel
+
+. 
+. * This gives panel bootstrap standard errors
+. * Similar to bootstrap applied to xtreg, fe
+. set seed 10001
+
+. bs "regress reglsdlnhr reglsdlnwg" "_b[reglsdlnwg] _b[_cons]", cluster(id) reps($nreps) level(95)
+
+command:      regress reglsdlnhr reglsdlnwg
+statistics:   _bs_1      = _b[reglsdlnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5320
+                                                  N of clusters    =       532
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .1193323 -.0020689  .0516757   .0178035    .220861   (N)
+             |                                       .0300938   .2277364   (P)
+             |                                       .0339291    .236732  (BC)
+       _bs_2 |   500  3.050743  .0022622  .0571941   2.938372   3.163114   (N)
+             |                                        2.93212   3.148191   (P)
+             |                                       2.920954   3.143819  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix reglsbootse = e(se)
+
+. 
+. * This gives heteroskedasticity corrected standard errors that are not panel robust
+. regress reglsdlnhr reglsdlnwg, robust
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  1,  5318) =    7.81
+                                                       Prob > F      =  0.0052
+                                                       R-squared     =  0.0142
+                                                       Root MSE      =  .23306
+
+------------------------------------------------------------------------------
+             |               Robust
+  reglsdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  reglsdlnwg |   .1193323   .0426897     2.80   0.005      .035643    .2030215
+       _cons |   3.050743    .047821    63.80   0.000     2.956994    3.144491
+------------------------------------------------------------------------------
+
+. estimates store reglshet
+
+. 
+. *** (6) RANDOM EFFECTS - MLE ESTIMATOR USING DIFFERENCED DATA
+. 
+. * Should give same coefficient estimates as xtreg
+. * May give different standard errors as treats lamda as known
+. * but in practice the differnece is not great as lamda precisely estimated
+. 
+. * This should replicate xtreg, mle
+. regress remledlnhr remledlnwg
+
+      Source |       SS       df       MS              Number of obs =    5320
+-------------+------------------------------           F(  1,  5318) =   76.67
+       Model |  4.16076808     1  4.16076808           Prob > F      =  0.0000
+    Residual |  288.612179  5318  .054270812           R-squared     =  0.0142
+-------------+------------------------------           Adj R-squared =  0.0140
+       Total |  292.772947  5319  .055042855           Root MSE      =  .23296
+
+------------------------------------------------------------------------------
+  remledlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  remledlnwg |   .1195474   .0136533     8.76   0.000     .0927814    .1463134
+       _cons |   3.037495   .0150748   201.49   0.000     3.007942    3.067048
+------------------------------------------------------------------------------
+
+. estimates store remlebyols
+
+. 
+. * This gives panel corrected standard errors
+. regress remledlnhr remledlnwg, cluster(id)
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  1,   531) =    5.38
+                                                       Prob > F      =  0.0208
+                                                       R-squared     =  0.0142
+Number of clusters (id) = 532                          Root MSE      =  .23296
+
+------------------------------------------------------------------------------
+             |               Robust
+  remledlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  remledlnwg |   .1195474   .0515474     2.32   0.021     .0182855    .2208093
+       _cons |   3.037495   .0570501    53.24   0.000     2.925424    3.149567
+------------------------------------------------------------------------------
+
+. estimates store remlepanel
+
+. 
+. * This gives panel bootstrap standard errors
+. * Similar to bootstrap applied to xtreg, fe
+. set seed 10001
+
+. bs "regress remledlnhr remledlnwg" "_b[remledlnwg] _b[_cons]", cluster(id) reps($nreps) level(95)
+
+command:      regress remledlnhr remledlnwg
+statistics:   _bs_1      = _b[remledlnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5320
+                                                  N of clusters    =       532
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .1195474 -.0020813  .0518188   .0177375   .2213573   (N)
+             |                                       .0300552   .2282355   (P)
+             |                                       .0339668   .2372786  (BC)
+       _bs_2 |   500  3.037495  .0022658  .0571042   2.925301   3.149689   (N)
+             |                                       2.919076   3.134685   (P)
+             |                                       2.907989    3.13043  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix remlebootse = e(se)
+
+. 
+. * This gives heteroskedasticity corrected standard errors that are not panel robust
+. regress reglsdlnhr reglsdlnwg, robust
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  1,  5318) =    7.81
+                                                       Prob > F      =  0.0052
+                                                       R-squared     =  0.0142
+                                                       Root MSE      =  .23306
+
+------------------------------------------------------------------------------
+             |               Robust
+  reglsdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  reglsdlnwg |   .1193323   .0426897     2.80   0.005      .035643    .2030215
+       _cons |   3.050743    .047821    63.80   0.000     2.956994    3.144491
+------------------------------------------------------------------------------
+
+. estimates store remlehet
+
+. 
+. *** (7) ROBUST VARIANT OF HAUSMAN TEST
+. 
+. * From Section 21.4.3 pages 717-9 the usual implementation of the Hausman test
+. * is invalid if there is any intracluster correlation left in the RE model
+. * as then the RE estimator is no longer fully efficient
+. * so  Var[b_RE - b_FE] does not equal Var[b_FE] - V[b_RE]
+. 
+. * (7A) Nonrobust version of Hausman test by auxiliary regression
+. *      [will be similar to nonrobust version in mma21p1panfeandre.do]
+. regress reglsdlnhr reglsdlnwg mdlnwg
+
+      Source |       SS       df       MS              Number of obs =    5320
+-------------+------------------------------           F(  2,  5317) =   45.26
+       Model |  4.90465081     2  2.45232541           Prob > F      =  0.0000
+    Residual |   288.11816  5317  .054188106           R-squared     =  0.0167
+-------------+------------------------------           Adj R-squared =  0.0164
+       Total |  293.022811  5319  .055089831           Root MSE      =  .23278
+
+------------------------------------------------------------------------------
+  reglsdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  reglsdlnwg |   .0668379   .0196635     3.40   0.001     .0282893    .1053864
+      mdlnwg |   .1008376   .0272531     3.70   0.000     .0474104    .1542648
+       _cons |    3.10763   .0215465   144.23   0.000      3.06539     3.14987
+------------------------------------------------------------------------------
+
+. scalar Hnonrobust = (_b[mdlnwg]/_se[mdlnwg])^2
+
+. di Hnonrobust
+13.690344
+
+. 
+. * Perform preferred valid robust version of Hausman test
+. * This gives the results presented on p.719
+. regress reglsdlnhr reglsdlnwg mdlnwg, cluster(id)
+
+Regression with robust standard errors                 Number of obs =    5320
+                                                       F(  2,   531) =    4.24
+                                                       Prob > F      =  0.0149
+                                                       R-squared     =  0.0167
+Number of clusters (id) = 532                          Root MSE      =  .23278
+
+------------------------------------------------------------------------------
+             |               Robust
+  reglsdlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+  reglsdlnwg |   .0668379   .0243001     2.75   0.006     .0191016    .1145741
+      mdlnwg |   .1008376   .0785137     1.28   0.200     -.053398    .2550732
+       _cons |    3.10763    .027293   113.86   0.000     3.054014    3.161245
+------------------------------------------------------------------------------
+
+. scalar Hrobust = (_b[mdlnwg]/_se[mdlnwg])^2
+
+. di Hrobust
+1.6495074
+
+. 
+. ********* DISPLAY RESULTS - Table 21.2 on page 710 *********
+. 
+. * All estimates should be equal for a given estimator.
+. * The standard errors will vary. 
+. * The first and second assume iid errors and generally will be the same.
+. * The third assumes heteroskedastic errors, but are not panel robust.
+. * The fourth are panel robust and also allow for heteroskedasticity. 
+. estimates table bextreg bebyols behet, b(%10.3f) se /*
+>     */ stats(N ll r2 tss rss mss rmse df_r)
+
+-----------------------------------------------------
+    Variable |  bextreg      bebyols       behet     
+-------------+---------------------------------------
+        lnwg |      0.067                            
+             |      0.020                            
+     avelnwg |                   0.067        0.067  
+             |                   0.020        0.024  
+       _cons |      7.483        7.483        7.483  
+             |      0.052        0.052        0.066  
+-------------+---------------------------------------
+           N |   5320.000      532.000      532.000  
+          ll |    166.573      166.573      166.573  
+          r2 |      0.021        0.021        0.021  
+         tss |                                       
+         rss |     16.652       16.652       16.652  
+         mss |      0.363        0.363        0.363  
+        rmse |      0.177        0.177        0.177  
+        df_r |    530.000      530.000      530.000  
+-----------------------------------------------------
+                                         legend: b/se
+
+. estimates table fextreg febyols fehet fepanel, b(%10.3f) se /*
+>     */ stats(N ll r2 tss rss mss rmse df_r)
+
+------------------------------------------------------------------
+    Variable |  fextreg      febyols       fehet       fepanel    
+-------------+----------------------------------------------------
+        lnwg |      0.168                                         
+             |      0.019                                         
+      mdlnwg |                   0.168        0.168        0.168  
+             |                   0.018        0.060        0.085  
+       _cons |      7.220       -0.000       -0.000       -0.000  
+             |      0.049        0.003        0.003        0.000  
+-------------+----------------------------------------------------
+           N |   5320.000     5320.000     5320.000     5320.000  
+          ll |    486.743      486.743      486.743      486.743  
+          r2 |      0.016        0.016        0.016        0.016  
+         tss |    433.831                                         
+         rss |    259.398      259.398      259.398      259.398  
+         mss |      4.279        4.279        4.279        4.279  
+        rmse |      0.233        0.221        0.221        0.221  
+        df_r |   4787.000     5318.000     5318.000      531.000  
+------------------------------------------------------------------
+                                                      legend: b/se
+
+. estimates table reglsxtreg reglsbyols reglshet reglspanel, b(%10.3f) se /*
+>     */ stats(N ll r2 tss rss mss rmse df_r)
+
+------------------------------------------------------------------
+    Variable | reglsxtreg   reglsbyols    reglshet    reglspanel  
+-------------+----------------------------------------------------
+        lnwg |      0.119                                         
+             |      0.014                                         
+  reglsdlnwg |                   0.119        0.119        0.119  
+             |                   0.014        0.043        0.051  
+       _cons |      7.346        3.051        3.051        3.051  
+             |      0.036        0.015        0.048        0.057  
+-------------+----------------------------------------------------
+           N |   5320.000     5320.000     5320.000     5320.000  
+          ll |                 200.589      200.589      200.589  
+          r2 |                   0.014        0.014        0.014  
+         tss |                                                    
+         rss |                 288.860      288.860      288.860  
+         mss |                   4.163        4.163        4.163  
+        rmse |                   0.233        0.233        0.233  
+        df_r |                5318.000     5318.000      531.000  
+------------------------------------------------------------------
+                                                      legend: b/se
+
+. estimates table remlextreg remlebyols remlehet remlepanel, b(%10.3f) se /*
+>     */ stats(N ll r2 tss rss mss rmse df_r)
+
+------------------------------------------------------------------
+    Variable | remlextreg   remlebyols    remlehet    remlepanel  
+-------------+----------------------------------------------------
+lnhr         |                                                    
+        lnwg |      0.120                                         
+             |      0.014                                         
+       _cons |      7.345                                         
+             |      0.037                                         
+-------------+----------------------------------------------------
+sigma_u      |                                                    
+       _cons |      0.162                                         
+             |      0.006                                         
+-------------+----------------------------------------------------
+sigma_e      |                                                    
+       _cons |      0.233                                         
+             |      0.002                                         
+-------------+----------------------------------------------------
+_            |                                                    
+  remledlnwg |                   0.120                     0.120  
+             |                   0.014                     0.052  
+  reglsdlnwg |                                0.119               
+             |                                0.043               
+       _cons |                   3.037        3.051        3.037  
+             |                   0.015        0.048        0.057  
+-------------+----------------------------------------------------
+Statistics   |                                                    
+           N |   5320.000     5320.000     5320.000     5320.000  
+          ll |   -266.912      202.872      200.589      202.872  
+          r2 |                   0.014        0.014        0.014  
+         tss |                                                    
+         rss |                 288.612      288.860      288.612  
+         mss |                   4.161        4.163        4.161  
+        rmse |                   0.233        0.233        0.233  
+        df_r |                5318.000     5318.000      531.000  
+------------------------------------------------------------------
+                                                      legend: b/se
+
+. 
+. * The following are (panel) bootstrap standard errors
+. matrix list bebootse
+
+bebootse[1,2]
+        _bs_1      _bs_2
+se  .02394857  .06483965
+
+. matrix list febootse
+
+febootse[1,2]
+        _bs_1      _bs_2
+se  .08446309  6.497e-09
+
+. * Note that the following two differ from mma21p1panfeandre.do
+. * as here the same value of lamda is used throught the bootstraps
+. matrix list remlebootse
+
+remlebootse[1,2]
+        _bs_1      _bs_2
+se  .05181879  .05710419
+
+. matrix list reglsbootse
+
+reglsbootse[1,2]
+        _bs_1      _bs_2
+se  .05167569  .05719414
+
+. 
+. * For completeness give lamda
+. di lamdaregls
+.58470925
+
+. di lamdaremle
+.58648101
+
+. 
+. * Robust and nonrobust versions of Hausman test given on p.719
+. di Hnonrobust     /* Not valid if intracluster correlation */ 
+13.690344
+
+. di Hrobust        /* Valid if intracluster correlation */
+1.6495074
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section5\mma21p2panmanual.txt
+  log type:  text
+ closed on:  23 May 2005, 11:35:55
+----------------------------------------------------------------------------------------------------

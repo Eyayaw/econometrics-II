@@ -1,0 +1,129 @@
+? MMA15P4GEV.LIM March 2005 for LIMDEP version 7.0 and NLOGIT 2.0
+
+OPEN; OUTPUT = mma15p4gev.out $
+
+? ********** OVERVIEW OF MMA15P4GEV.LIM **********
+
+? Chapter 15.2.2 pages 491-5 and chapter 15.6.3 p.511
+? Conditional logit and nested logit analysis
+?   (2) Conditional Logit estimates (Table 15.2)
+?       and corresponding marginal effects (Table 15.3)
+?   (3)  Multinomial estimates obtained using Conditional Logit
+?   (4)  "Mixed Model" estimates (Table 15.2)
+?   (5)  Nested logit estimates (p.511)
+
+? Related programs are 
+?    mma15p1mnl.do   estimates multinomial and conditional logit models using Stata
+?    mma15p2gev.do   estimates a nested logit model using Stata
+?    mma15p3mnl.lim  estimates conditional and nested logit models using Limdep
+
+? To run this program you need data file
+?    mma15p4gev.asc
+? created by program mma15p1mnl.do
+? which is Nldata.asc reshaped to shape needed for conditional logit 
+
+? To run this program you need LIMDEP extra program
+?     NLOGIT 2.0  (sold separately)
+
+? ********** DATA DESCRIPTION **********
+
+/* Data Set Used in:
+   J. A. Herriges and C. L. Kling, 
+   "Nonlinear Income Effects in Random Utility Models", 
+   Review of Economics and Statistics, 81(1999): 62-72
+
+   Described in e.g. mma14p1mnl.do or mma14p3mnl.lim
+ 
+   Data then converted by mma14p1mnl.do from nldata.asc
+    Convert to long form 1 line per choice-person
+    So line 1 is beach, line 2 is pier, line 3 is private and line 4 is charter
+    id        person number 
+    d         is 1 for the chosen alternatv and 0 otherwise
+    y         1 if current alternatv chosen and 0 otherwise  
+    p         is price
+    q         is catch rate
+    d1 to d4   are dummies for each model
+    d1y to d4y are dummies for eacm model interacted with income
+*/
+
+? ********** READ IN DATA and SUMMARIZE **********
+
+Read ; nobs=4728 ; nvar = 11 ; file=mma15p4gev.asc;
+names = id,d,p,q,ydiv1000,dummy2,dummy3,dummy4,d2y,d3y,d4y $
+
+/* Choices are in order beach, pier, private, charter */
+
+dstat; rhs = id,d,p,q,ydiv1000,dummy2,dummy3,dummy4,d2y,d3y,d4y $
+
+? ********** CONDITIONAL AND MULTINOMIAL LOGIT USING NLOGIT *********
+
+? ** (2) Conditional logit
+
+? The following gives Table 15.2 p.493 column 1 estimates (CL)
+? and the marginal effects in Table 15.3 p.493
+
+Title; Conditional logit of d on p and q $
+Nlogit ; lhs=d
+       ; choices = beach,pier,private,charter 
+       ; rhs = p,q
+       ; effects: p [beach,pier,private,charter] / q [beach,pier,private,charter] $
+? [ ] for marginal effects and ( ) for elasticity
+
+? ** (3) Multinomial logit estimated using Nlogit not Logit
+
+? The following gives Table 15.2 p.493 column 2 estimates (MNL)
+ 
+Title; Conditional logit of d on intercept and income $
+Nlogit ; lhs=d
+       ; choices = beach,pier,private,charter 
+       ; rhs = dummy2,dummy3,dummy4,d2y,d3y,d4y $
+
+? ** (4) Mixed model estimates 
+
+? The following gives Table 15.2 p.493 column 3 estimates (Mixed)
+
+Title; Conditional logit of d on p, q, intercept and income $
+Nlogit ; lhs=d
+       ; choices = beach,pier,private,charter 
+       ; rhs = p,q,dummy2,dummy3,dummy4,d2y,d3y,d4y $
+
+? ********** NESTED LOGIT (section 15.6.3 p.511) *********
+
+? Nested logit with nesting structure 
+?             /     \
+?           /  \   /  \
+? In this case with parameter rho_j differing across alternatives
+? Stata 8 estimates the earlier variant of the nested logit model
+? rather than the preferred variant given in the text.
+? See the discussion at bottom of page 511 and also Train (2003, p.88)
+
+? For the top level we use regressors that do not vary at the lower level
+? So not p or q, but could be income or alternative dummy 
+? Here use income and alternative dummy
+create; dshore = 1 - (dummy3 + dummy4) $
+create; dshorey = 1 - (d3y + d4y) $
+
+? The following gives similar results to Stata program mma15p2gev.lim
+? These are the results on page 511
+
+Title; Nested Logit FIML of d on p and q $
+Nlogit ; lhs=d
+       ; start=logit
+       ; choices = beach,pier,private,charter
+       ; tree = fish[shore(beach,pier),boat(private,charter)]
+       ; rhs = p,q,dshore,dshorey
+       ; effects: p [beach,pier,private,charter] / q [beach,pier,private,charter] $
+
+? This restricts nested logit to be conditional logit
+? This is the model on page 511 with log-likelihood -1252
+
+Title; Conditional logit of d on intercept and income $
+Nlogit ; lhs=d
+       ; choices = beach,pier,private,charter 
+       ; rhs = p,q,dshore,dshorey $
+
+? ********** CLOSE OUTPUT **********
+
+close; file = mma15p4gev.out $
+stop $
+

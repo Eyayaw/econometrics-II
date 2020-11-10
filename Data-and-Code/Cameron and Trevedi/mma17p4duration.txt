@@ -1,0 +1,1135 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma17p4duration.txt
+  log type:  text
+ opened on:  19 May 2005, 15:25:00
+
+. 
+. ********** OVERVIEW OF MMA17P4DURATION.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 17.11 (pages 603-8)
+. * Duration regression with censored data example
+. * Provides  
+. *   (1) Data summary: Table 17.6 
+. *   (2) List of Survivor Function and Cumulative Hazard Estimates: Table 17.7
+. *   (3) Various graphs describing the data
+. *       (3A) K-M Survival Graph for all data (Figure 17.3: km_pt1.wmf) 
+. *       (3B) K-M Survival Graph by unemployment insurance (Figure 17.4: km_pt2.wmf) 
+. *       (3C) N-A Cumulative Hazard Graph for all data (Figure 17.5: na_pt1.wmf) 
+. *       (3D) N-A Cumulative Hazard Graph by unemployment insurance (Figure 17.6: na_pt2.wmf) 
+. *   (4) Coefficient Estimates of Some Parametric Models (Table 17.8)
+. *   (4) Hazard Rate Estimates of Some Parametric Models (Table 17.9)
+. 
+. * To run this program you need data file
+. *    ema1996.dta
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+. set matsize 100
+
+.   
+. ********** DATA DESCRIPTION **********
+. 
+. * The data is from 
+. * B.P. McCall (1996), "Unemployment Insurance Rules, Joblessness, 
+. *                      and Part-time Work," Econometrica, 64, 647-682.
+. 
+. * McCalls data set named ema_1996_pt_lastweek.dta 
+. * has name changed to ema1996.dta
+.  
+. * There are 3343 observations from the CPS Displaced Worker Surveys
+. * of 1986, 1988, 1990 and 1992 
+. * 1. spell  is length of spell in number of two-week intervals
+. * 2. CENSOR1 = 1 if re-employed at full-time job
+. * 3. CENSOR2 = 1 if re-employed at part-time job
+. * 4. CENSOR3 = 1 if re-employed but left job: pt-ft status unknown
+. * 5. CENSOR4 = 1 if still jobless
+. * 6. ui (UI) = 1 if filed UI claim
+. * 7. reprate (RR) = eligible replacement rate
+. * 8. disrate (DR) = eligible disregard rate
+. * 9. tenure (TENURE) = years tenure in lost job
+. * 10. logwage (LOGWAGE) = log weekly earnings in lost job (1985$)
+. * 11.-43. other variables listed in McCall (1986) table 2 p.657
+. 
+. ********** READ DATA **********
+.  
+. use ema1996.dta
+(Sample for 1996 EMA paper: part-time= worked part-time last week)
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       spell |      3343    6.247981    5.611271          1         28
+     censor1 |      3343    .3209692    .4669188          0          1
+     censor2 |      3343    .1014059    .3019106          0          1
+     censor3 |      3343    .1717021    .3771777          0          1
+     censor4 |      3343    .3754113    .4843014          0          1
+-------------+--------------------------------------------------------
+          ui |      3343    .5527969    .4972791          0          1
+     reprate |      3343    .4544717    .1137918       .066      2.059
+     logwage |      3343    5.692994    .5356591    2.70805   7.600402
+      tenure |      3343    4.114867    5.862322          0         40
+     disrate |      3343    .1094376    .0735274       .002       1.02
+-------------+--------------------------------------------------------
+       slack |      3343    .4884834    .4999421          0          1
+     abolpos |      3343    .1456775    .3528354          0          1
+     explose |      3343    .5025426    .5000683          0          1
+     stateur |      3343      6.5516    1.803825        2.5         13
+    houshead |      3343    .6120251    .4873617          0          1
+-------------+--------------------------------------------------------
+     married |      3343    .5860006    .4926221          0          1
+      female |      3343    .3478911    .4763725          0          1
+       child |      3343    .4501944    .4975876          0          1
+      ychild |      3343    .1956327    .3967463          0          1
+    nonwhite |      3343    .1390966    .3460991          0          1
+-------------+--------------------------------------------------------
+         age |      3343    35.44331     10.6402         20         61
+     schlt12 |      3343    .2811846    .4496446          0          1
+     schgt12 |      3343    .3356267    .4722797          0          1
+        smsa |      3343    .7241998    .4469835          0          1
+    bluecoll |      3343    .6036494     .489212          0          1
+-------------+--------------------------------------------------------
+      mining |      3343     .029315    .1687132          0          1
+      constr |      3343    .1480706    .3552231          0          1
+      transp |      3343    .0646126    .2458778          0          1
+       trade |      3343    .1848639    .3882452          0          1
+        fire |      3343    .0514508    .2209484          0          1
+-------------+--------------------------------------------------------
+    services |      3343    .1699073    .3756075          0          1
+    pubadmin |      3343    .0095722     .097383          0          1
+      year85 |      3343    .2677236     .442839          0          1
+      year87 |      3343    .2174693    .4125862          0          1
+      year89 |      3343    .1998205    .3999251          0          1
+-------------+--------------------------------------------------------
+      midatl |      3343    .1088842    .3115405          0          1
+       encen |      3343    .1429853    .3501103          0          1
+       wncen |      3343    .0643135    .2453472          0          1
+    southatl |      3343    .2375112    .4256217          0          1
+       escen |      3343    .0532456    .2245564          0          1
+-------------+--------------------------------------------------------
+       wscen |      3343    .1441819    .3513266          0          1
+    mountain |      3343    .1079868    .3104102          0          1
+     pacific |      3343    .0260245     .159232          0          1
+
+. 
+. * The following gives variables in same order as Table 2 p.657 of McCall (1996) 
+. * which gives fuller names for the variables
+. sum spell censor1 censor2 censor3 censor4 age /*
+>  */ ui reprate disrate logwage tenure slack abolpos explose bluecoll /*
+>  */ houshead married child ychild female schlt12 schgt12 nonwhite smsa /*
+>  */ midatl encen wncen southatl escen wscen mountain pacific /*
+>  */ mining constr transp trade fire services pubadmin /*
+>  */ year85 year87 year89 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       spell |      3343    6.247981    5.611271          1         28
+     censor1 |      3343    .3209692    .4669188          0          1
+     censor2 |      3343    .1014059    .3019106          0          1
+     censor3 |      3343    .1717021    .3771777          0          1
+     censor4 |      3343    .3754113    .4843014          0          1
+-------------+--------------------------------------------------------
+         age |      3343    35.44331     10.6402         20         61
+          ui |      3343    .5527969    .4972791          0          1
+     reprate |      3343    .4544717    .1137918       .066      2.059
+     disrate |      3343    .1094376    .0735274       .002       1.02
+     logwage |      3343    5.692994    .5356591    2.70805   7.600402
+-------------+--------------------------------------------------------
+      tenure |      3343    4.114867    5.862322          0         40
+       slack |      3343    .4884834    .4999421          0          1
+     abolpos |      3343    .1456775    .3528354          0          1
+     explose |      3343    .5025426    .5000683          0          1
+    bluecoll |      3343    .6036494     .489212          0          1
+-------------+--------------------------------------------------------
+    houshead |      3343    .6120251    .4873617          0          1
+     married |      3343    .5860006    .4926221          0          1
+       child |      3343    .4501944    .4975876          0          1
+      ychild |      3343    .1956327    .3967463          0          1
+      female |      3343    .3478911    .4763725          0          1
+-------------+--------------------------------------------------------
+     schlt12 |      3343    .2811846    .4496446          0          1
+     schgt12 |      3343    .3356267    .4722797          0          1
+    nonwhite |      3343    .1390966    .3460991          0          1
+        smsa |      3343    .7241998    .4469835          0          1
+      midatl |      3343    .1088842    .3115405          0          1
+-------------+--------------------------------------------------------
+       encen |      3343    .1429853    .3501103          0          1
+       wncen |      3343    .0643135    .2453472          0          1
+    southatl |      3343    .2375112    .4256217          0          1
+       escen |      3343    .0532456    .2245564          0          1
+       wscen |      3343    .1441819    .3513266          0          1
+-------------+--------------------------------------------------------
+    mountain |      3343    .1079868    .3104102          0          1
+     pacific |      3343    .0260245     .159232          0          1
+      mining |      3343     .029315    .1687132          0          1
+      constr |      3343    .1480706    .3552231          0          1
+      transp |      3343    .0646126    .2458778          0          1
+-------------+--------------------------------------------------------
+       trade |      3343    .1848639    .3882452          0          1
+        fire |      3343    .0514508    .2209484          0          1
+    services |      3343    .1699073    .3756075          0          1
+    pubadmin |      3343    .0095722     .097383          0          1
+      year85 |      3343    .2677236     .442839          0          1
+-------------+--------------------------------------------------------
+      year87 |      3343    .2174693    .4125862          0          1
+      year89 |      3343    .1998205    .3999251          0          1
+
+. 
+. * The following creates a space-delimited data set with 
+. * variables in same order as Table 2 p.657 of McCall (1996) 
+. * Permits use by programs other than Stata
+. * Note that order has been changed a little from the original Stata data set
+. 
+. outfile spell censor1 censor2 censor3 censor4 age /*
+>  */ ui reprate disrate logwage tenure slack abolpos explose bluecoll /*
+>  */ houshead married child ychild female schlt12 schgt12 nonwhite smsa /*
+>  */ midatl encen wncen southatl escen wscen mountain pacific /*
+>  */ mining constr transp trade fire services pubadmin /*
+>  */ year85 year87 year89 using ema1996.asc, replace
+
+.  
+. ********* ANALYSIS: UNEMPLOYMENT DURATION ********** 
+. 
+. * Stata st curves require defining the dependent variable
+. * and the censoring variable if there is one
+. stset spell, fail(censor1=1)
+
+     failure event:  censor1 == 1
+obs. time interval:  (0, spell]
+ exit on or before:  failure
+
+------------------------------------------------------------------------------
+     3343  total obs.
+        0  exclusions
+------------------------------------------------------------------------------
+     3343  obs. remaining, representing
+     1073  failures in single record/single failure data
+    20887  total analysis time at risk, at risk from t =         0
+                             earliest observed entry t =         0
+                                  last observed exit t =        28
+
+. stdes
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+                                   |-------------- per subject --------------|
+Category                   total        mean         min     median        max
+------------------------------------------------------------------------------
+no. of subjects             3343   
+no. of records              3343           1           1          1          1
+
+(first) entry time                         0           0          0          0
+(final) exit time                   6.247981           1          5         28
+
+subjects with gap              0   
+time on gap if gap             0   
+time at risk               20887    6.247981           1          5         28
+
+failures                    1073    .3209692           0          0          1
+------------------------------------------------------------------------------
+
+. 
+. * (1) SUMMARIZE KEY VARIABLES (Table 17.6, p.603) 
+. 
+. sum spell censor1 censor2 censor3 censor4 ui reprate disrate tenure logwage 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       spell |      3343    6.247981    5.611271          1         28
+     censor1 |      3343    .3209692    .4669188          0          1
+     censor2 |      3343    .1014059    .3019106          0          1
+     censor3 |      3343    .1717021    .3771777          0          1
+     censor4 |      3343    .3754113    .4843014          0          1
+-------------+--------------------------------------------------------
+          ui |      3343    .5527969    .4972791          0          1
+     reprate |      3343    .4544717    .1137918       .066      2.059
+     disrate |      3343    .1094376    .0735274       .002       1.02
+      tenure |      3343    4.114867    5.862322          0         40
+     logwage |      3343    5.692994    .5356591    2.70805   7.600402
+
+. 
+. * (2) LIST SURVIVAL CURVE AND CUMULATIVE HAZARD ESTIMATES (Table 17.7, p.605) 
+. 
+. * Kaplan-Meier Estimates of Survival Function
+. sts list
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+           Beg.          Net            Survivor      Std.
+  Time    Total   Fail   Lost           Function     Error     [95% Conf. Int.]
+-------------------------------------------------------------------------------
+     1     3343    294    246             0.9121    0.0049     0.9019    0.9212
+     2     2803    178    304             0.8541    0.0062     0.8415    0.8659
+     3     2321    119    305             0.8103    0.0071     0.7960    0.8238
+     4     1897     56    165             0.7864    0.0076     0.7712    0.8008
+     5     1676    104    233             0.7376    0.0085     0.7206    0.7538
+     6     1339     32    111             0.7200    0.0088     0.7023    0.7369
+     7     1196     85    178             0.6688    0.0098     0.6492    0.6876
+     8      933     15     70             0.6581    0.0100     0.6380    0.6773
+     9      848     33     98             0.6325    0.0106     0.6113    0.6528
+    10      717      3     55             0.6298    0.0106     0.6086    0.6503
+    11      659     26     77             0.6050    0.0113     0.5825    0.6267
+    12      556      7     40             0.5974    0.0115     0.5744    0.6195
+    13      509     25     69             0.5680    0.0123     0.5434    0.5918
+    14      415     30     74             0.5270    0.0135     0.5001    0.5531
+    15      311     19     40             0.4948    0.0146     0.4658    0.5230
+    16      252     10     41             0.4751    0.0153     0.4449    0.5047
+    17      201      8     24             0.4562    0.0161     0.4245    0.4874
+    18      169      7     13             0.4373    0.0169     0.4040    0.4702
+    19      149      4     15             0.4256    0.0174     0.3912    0.4595
+    20      130      3     18             0.4158    0.0179     0.3804    0.4507
+    21      109      4     23             0.4005    0.0188     0.3635    0.4372
+    22       82      4      9             0.3810    0.0203     0.3412    0.4206
+    23       69      0      9             0.3810    0.0203     0.3412    0.4206
+    24       60      0      2             0.3810    0.0203     0.3412    0.4206
+    25       58      0     10             0.3810    0.0203     0.3412    0.4206
+    26       48      2     13             0.3651    0.0223     0.3214    0.4088
+    27       33      5     24             0.3098    0.0296     0.2528    0.3684
+    28        4      0      4             0.3098    0.0296     0.2528    0.3684
+-------------------------------------------------------------------------------
+
+. 
+. * Nelson-Aalen Estimates of Cumulative Hazard
+. sts list, na
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+           Beg.          Net          Nelson-Aalen    Std.
+  Time    Total   Fail   Lost           Cum. Haz.    Error     [95% Conf. Int.]
+-------------------------------------------------------------------------------
+     1     3343    294    246             0.0879    0.0051     0.0784    0.0986
+     2     2803    178    304             0.1514    0.0070     0.1383    0.1658
+     3     2321    119    305             0.2027    0.0084     0.1869    0.2199
+     4     1897     56    165             0.2322    0.0093     0.2147    0.2512
+     5     1676    104    233             0.2943    0.0111     0.2733    0.3169
+     6     1339     32    111             0.3182    0.0119     0.2957    0.3424
+     7     1196     85    178             0.3893    0.0142     0.3624    0.4181
+     8      933     15     70             0.4053    0.0148     0.3774    0.4353
+     9      848     33     98             0.4443    0.0162     0.4135    0.4773
+    10      717      3     55             0.4484    0.0164     0.4174    0.4818
+    11      659     26     77             0.4879    0.0182     0.4536    0.5248
+    12      556      7     40             0.5005    0.0188     0.4650    0.5387
+    13      509     25     69             0.5496    0.0212     0.5096    0.5927
+    14      415     30     74             0.6219    0.0250     0.5748    0.6728
+    15      311     19     40             0.6830    0.0286     0.6291    0.7415
+    16      252     10     41             0.7227    0.0313     0.6639    0.7866
+    17      201      8     24             0.7625    0.0343     0.6982    0.8327
+    18      169      7     13             0.8039    0.0377     0.7333    0.8812
+    19      149      4     15             0.8307    0.0400     0.7559    0.9130
+    20      130      3     18             0.8538    0.0422     0.7750    0.9406
+    21      109      4     23             0.8905    0.0460     0.8048    0.9853
+    22       82      4      9             0.9393    0.0521     0.8426    1.0470
+    23       69      0      9             0.9393    0.0521     0.8426    1.0470
+    24       60      0      2             0.9393    0.0521     0.8426    1.0470
+    25       58      0     10             0.9393    0.0521     0.8426    1.0470
+    26       48      2     13             0.9809    0.0598     0.8705    1.1055
+    27       33      5     24             1.1325    0.0904     0.9685    1.3242
+    28        4      0      4             1.1325    0.0904     0.9685    1.3242
+-------------------------------------------------------------------------------
+
+. 
+. * (3) VARIOUS GRAPHS (Figures 17.3-17.6) 
+. 
+. * (3A) Figure 17.3: Overall Survival Function (page 604) 
+. * sts graph, gwood 
+. * Nicer graphs and also confidence bands are bolder and easier to read
+. sts gen surv = s
+
+. sts gen lbsurv = lb(s)
+
+. sts gen ubsurv = ub(s)
+
+. sort spell
+
+. graph twoway (line ubsurv spell, msize(vtiny) mstyle(p2) c(J) clstyle(p1) clcolor(gs10)) /* 
+>   */ (line surv spell, msize(vtiny) mstyle(p1) c(J) clstyle(p1)) /* 
+>   */ (line lbsurv spell, msize(vtiny) mstyle(p2) c(J) clstyle(p1) clcolor(gs10)), /*
+>   */ scale(1.2) plotregion(style(none)) /*
+>   */ title("Overall Survival Function Estimate") /*
+>   */ xtitle("Unemployment Duration in 2-week intervals", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Survival Probability", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ ylabel(0.00(0.25)1.00,grid)/*
+>   */ legend(pos(1) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Upper 95% confidence band") label(2 "Survival Estimate") /*
+>   */         label(3 "Lower 95% confidence band") )
+
+. graph export km_pt1.wmf, replace
+(file c:\Imbook\bwebpage\Section4\km_pt1.wmf written in Windows Metafile format)
+
+. 
+. * (3B) Figure 17.4: Survival Function by Treatment (here ui) (p.605)
+. * sts graph, by(ui) 
+. sts graph, by(ui) /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Survival Function Estimates by UI Status") /*
+>   */ xtitle("Unemployment Duration in 2-week intervals", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Survival Probability", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(1) ring(0) col(1)) legend(size(small)) /*
+>   */ legend(label(1 "No UI (UI = 0)") label(2 "Received UI (UI = 1)") ) 
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+. graph export km_pt2.wmf, replace
+(file c:\Imbook\bwebpage\Section4\km_pt2.wmf written in Windows Metafile format)
+
+. 
+. * (3C) Figure 17.5: Overall Cumulative Hazard Function (p.606)
+. * sts graph, cna 
+. * Nicer graphs and also confidence bands are bolder and easier to read
+. sts gen cumhaz = na
+
+. sts gen lbcumhaz = lb(na)
+
+. sts gen ubcumhaz = ub(na)
+
+. sort spell
+
+. graph twoway (line ubcumhaz spell, msize(vtiny) mstyle(p2) c(J) clstyle(p1) clcolor(gs10)) /* 
+>   */ (line cumhaz spell, msize(vtiny) mstyle(p1) c(J) clstyle(p1)) /* 
+>   */ (line lbcumhaz spell, msize(vtiny) mstyle(p2) c(J) clstyle(p1) clcolor(gs10)), /*
+>   */ scale(1.2) plotregion(style(none)) /*
+>   */ title("Overall Cumulative Hazard Estimate") /*
+>   */ xtitle("Unemployment Duration in 2-week intervals", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Cumulative Hazard", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ ylabel(0.00(0.50)1.50,grid)/*
+>   */ legend(pos(11) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Upper 95% confidence band") label(2 "Cumulative Hazard Estimate") /*
+>   */         label(3 "Lower 95% confidence band") )
+
+. graph export na_pt1.wmf, replace
+(file c:\Imbook\bwebpage\Section4\na_pt1.wmf written in Windows Metafile format)
+
+. 
+. * (3D) Figure 17.6: Cumulative Hazard Function by Treatment (here ui) (p.606)
+. * sts graph, na by(ui) 
+. sts graph, na by(ui) /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Cumulative Hazard Estimates by UI Status") /*
+>   */ xtitle("Unemployment Duration in 2-week intervals", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Cumulative Hazard", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(1) ring(0) col(1)) legend(size(small)) /*
+>   */ legend(label(1 "No UI (UI = 0)") label(2 "Received UI (UI = 1)") ) 
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+. graph export na_pt2.wmf, replace
+(file c:\Imbook\bwebpage\Section4\na_pt2.wmf written in Windows Metafile format)
+
+. 
+. * (4) VARIOUS PARAMETRIC MODELS: COEFFICIENTS (Table 17.8)
+. 
+. * streg default is to report hazard rates ratehr than coeffcients
+. * streg with nohr option reports coefficients
+. 
+. * Create regressors
+. gen RR = reprate
+
+. gen DR = disrate
+
+. gen UI = ui
+
+. gen RRUI = RR*UI
+
+. gen DRUI = DR*UI
+
+. gen LOGWAGE = logwage
+
+. 
+. * Define $xlist = list of regressors used in subsequent regressions
+. global xlist RR DR UI RRUI DRUI LOGWAGE /*
+> */ tenure slack abolpos explose stateur houshead married /*
+> */ female child ychild nonwhite age schlt12 schgt12 smsa bluecoll /*
+> */ mining constr transp trade fire services pubadmin /*
+> */ year85 year87 year89 midatl /*
+> */ encen wncen southatl escen wscen mountain pacific
+
+. 
+. * Exponential regression
+. streg $xlist, nohr robust dist(exponential)
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Iteration 0:   log pseudo-likelihood = -3012.4909  
+Iteration 1:   log pseudo-likelihood = -2810.3791  
+Iteration 2:   log pseudo-likelihood = -2701.8024  
+Iteration 3:   log pseudo-likelihood = -2700.6911  
+Iteration 4:   log pseudo-likelihood = -2700.6903  
+Iteration 5:   log pseudo-likelihood = -2700.6903  
+
+Exponential regression -- log relative-hazard form 
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    565.24
+Log pseudo-likelihood =   -2700.6903               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |   .4720235   .6005534     0.79   0.432    -.7050396    1.649087
+          DR |  -.5756396   .7624489    -0.75   0.450    -2.070012    .9187327
+          UI |  -1.424561   .2493917    -5.71   0.000     -1.91336   -.9357622
+        RRUI |   .9655904   .6118408     1.58   0.115    -.2335956    2.164776
+        DRUI |  -.1990635   1.019118    -0.20   0.845    -2.196498    1.798371
+     LOGWAGE |   .3508005    .115598     3.03   0.002     .1242327    .5773684
+      tenure |  -.0001462   .0064637    -0.02   0.982    -.0128147    .0125224
+       slack |  -.2593666   .0759363    -3.42   0.001    -.4081991   -.1105342
+     abolpos |  -.1550897   .0953306    -1.63   0.104    -.3419342    .0317549
+     explose |    .198458   .0648354     3.06   0.002      .071383    .3255331
+     stateur |   -.064626   .0229903    -2.81   0.005    -.1096862   -.0195659
+    houshead |   .3812208   .0836602     4.56   0.000     .2172499    .5451918
+     married |    .369552   .0786145     4.70   0.000     .2154705    .5236335
+      female |   .1164067   .0852986     1.36   0.172    -.0507754    .2835888
+       child |  -.0333008   .0794577    -0.42   0.675    -.1890352    .1224335
+      ychild |  -.1449722   .1022781    -1.42   0.156    -.3454336    .0554892
+    nonwhite |  -.6692066   .1188272    -5.63   0.000    -.9021037   -.4363095
+         age |  -.0220821   .0039256    -5.63   0.000    -.0297762   -.0143879
+     schlt12 |  -.1231414   .0966102    -1.27   0.202    -.3124939     .066211
+     schgt12 |   .1114395    .082945     1.34   0.179    -.0511297    .2740087
+        smsa |   .1922291   .0799904     2.40   0.016     .0354508    .3490075
+    bluecoll |  -.2033718    .085129    -2.39   0.017    -.3702215    -.036522
+      mining |  -.1205818   .1973575    -0.61   0.541    -.5073955    .2662319
+      constr |    -.04475   .1081519    -0.41   0.679    -.2567237    .1672238
+      transp |  -.1786694    .156034    -1.15   0.252    -.4844906    .1271517
+       trade |  -.0345159   .1019152    -0.34   0.735     -.234266    .1652341
+        fire |   .1120549   .1386716     0.81   0.419    -.1597365    .3838462
+    services |   .1840002   .0983911     1.87   0.061    -.0088428    .3768432
+    pubadmin |   .1090606   .2954211     0.37   0.712    -.4699541    .6880752
+      year85 |   .2147661   .0888664     2.42   0.016     .0405911     .388941
+      year87 |   .3541162   .0948499     3.73   0.000     .1682139    .5400186
+      year89 |    .467082   .1104355     4.23   0.000     .2506325    .6835316
+      midatl |   .0264112   .1465647     0.18   0.857    -.2608503    .3136727
+       encen |   .0043916   .1502813     0.03   0.977    -.2901544    .2989375
+       wncen |   .1724311   .1607689     1.07   0.283    -.1426703    .4875324
+    southatl |   .2638807   .1183726     2.23   0.026     .0318747    .4958867
+       escen |     .35414     .19317     1.83   0.067    -.0244664    .7327463
+       wscen |   .3385896   .1433308     2.36   0.018     .0576664    .6195128
+    mountain |   .0063693   .1538821     0.04   0.967    -.2952341    .3079727
+     pacific |   .0770202   .2393505     0.32   0.748    -.3920982    .5461385
+       _cons |  -4.079107   .8767097    -4.65   0.000    -5.797426   -2.360788
+------------------------------------------------------------------------------
+
+. estimates store bexponential
+
+. 
+. * Weibull regression
+. streg $xlist, nohr robust dist(weibull)
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Fitting constant-only model:
+
+Iteration 0:   log pseudo-likelihood = -3012.4909
+Iteration 1:   log pseudo-likelihood = -3012.3543
+Iteration 2:   log pseudo-likelihood = -3012.3543
+
+Fitting full model:
+
+Iteration 0:   log pseudo-likelihood = -3012.3543  
+Iteration 1:   log pseudo-likelihood = -2799.9064  
+Iteration 2:   log pseudo-likelihood = -2688.7377  
+Iteration 3:   log pseudo-likelihood = -2687.6004  
+Iteration 4:   log pseudo-likelihood = -2687.5995  
+Iteration 5:   log pseudo-likelihood = -2687.5995  
+
+Weibull regression -- log relative-hazard form 
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    501.65
+Log pseudo-likelihood =   -2687.5995               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |   .4481156   .6381895     0.70   0.483    -.8027127    1.698944
+          DR |  -.4269187   .8086983    -0.53   0.598    -2.011938    1.158101
+          UI |  -1.496066   .2639679    -5.67   0.000    -2.013434   -.9786984
+        RRUI |   1.015226   .6455611     1.57   0.116    -.2500501    2.280503
+        DRUI |  -.2988417   1.065384    -0.28   0.779    -2.386956    1.789272
+     LOGWAGE |   .3655253     .12212     2.99   0.003     .1261745    .6048761
+      tenure |  -.0011127   .0068716    -0.16   0.871    -.0145809    .0123554
+       slack |  -.2652154   .0803214    -3.30   0.001    -.4226424   -.1077883
+     abolpos |  -.1604227   .1012942    -1.58   0.113    -.3589557    .0381103
+     explose |   .2075085   .0684715     3.03   0.002     .0733068    .3417103
+     stateur |  -.0708745   .0242117    -2.93   0.003    -.1183286   -.0234204
+    houshead |   .3976626   .0887192     4.48   0.000     .2237762     .571549
+     married |   .3786057   .0830317     4.56   0.000     .2158665     .541345
+      female |   .1260829   .0896987     1.41   0.160    -.0497233     .301889
+       child |  -.0336778   .0839956    -0.40   0.688    -.1983061    .1309505
+      ychild |  -.1613066    .108947    -1.48   0.139    -.3748389    .0522256
+    nonwhite |  -.7025504     .12426    -5.65   0.000    -.9460956   -.4590052
+         age |  -.0235823   .0041922    -5.63   0.000    -.0317989   -.0153658
+     schlt12 |  -.1226759   .1022762    -1.20   0.230    -.3231335    .0777816
+     schgt12 |   .1162848   .0880692     1.32   0.187    -.0563278    .2888973
+        smsa |   .1999567   .0841129     2.38   0.017     .0350985    .3648149
+    bluecoll |  -.1994925   .0899354    -2.22   0.027    -.3757626   -.0232223
+      mining |  -.1015676   .2036644    -0.50   0.618    -.5007425    .2976073
+      constr |  -.0253737   .1135609    -0.22   0.823     -.247949    .1972016
+      transp |  -.1981522   .1672141    -1.19   0.236    -.5258858    .1295814
+       trade |  -.0311361   .1079502    -0.29   0.773    -.2427146    .1804423
+        fire |   .1262153   .1492527     0.85   0.398    -.1663145    .4187452
+    services |   .2031673   .1038945     1.96   0.051    -.0004622    .4067968
+    pubadmin |   .1117728   .3087374     0.36   0.717    -.4933415     .716887
+      year85 |   .2374972    .093387     2.54   0.011      .054462    .4205325
+      year87 |   .3787397   .1011782     3.74   0.000     .1804341    .5770454
+      year89 |   .4920278   .1180472     4.17   0.000     .2606596    .7233959
+      midatl |     .02465   .1542139     0.16   0.873    -.2776037    .3269036
+       encen |  -.0014111   .1579065    -0.01   0.993    -.3109023      .30808
+       wncen |   .1844363   .1694444     1.09   0.276    -.1476687    .5165413
+    southatl |   .2740974   .1250481     2.19   0.028     .0290076    .5191872
+       escen |    .367742   .2024771     1.82   0.069    -.0291058    .7645899
+       wscen |   .3440005   .1527804     2.25   0.024     .0445563    .6434446
+    mountain |   .0159627   .1620188     0.10   0.922    -.3015883    .3335136
+     pacific |   .0849532   .2504077     0.34   0.734    -.4058368    .5757432
+       _cons |  -4.357886   .9196792    -4.74   0.000    -6.160424   -2.555347
+-------------+----------------------------------------------------------------
+       /ln_p |   .1215314   .0194374     6.25   0.000     .0834348    .1596281
+-------------+----------------------------------------------------------------
+           p |   1.129225   .0219492                      1.087014    1.173075
+         1/p |   .8855632   .0172131                      .8524608    .9199511
+------------------------------------------------------------------------------
+
+. estimates store bweibull
+
+. 
+. * Gompertz regression
+. streg $xlist, nohr robust dist(gompertz)
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Fitting constant-only model:
+
+Iteration 0:   log pseudo-likelihood = -3012.4909  
+Iteration 1:   log pseudo-likelihood = -3002.0916  
+Iteration 2:   log pseudo-likelihood =  -3002.026  
+Iteration 3:   log pseudo-likelihood =  -3002.026  
+
+Fitting full model:
+
+Iteration 0:   log pseudo-likelihood =  -3002.026  
+Iteration 1:   log pseudo-likelihood = -2796.0001  
+Iteration 2:   log pseudo-likelihood = -2701.6693  
+Iteration 3:   log pseudo-likelihood = -2700.6057  
+Iteration 4:   log pseudo-likelihood =  -2700.605  
+Iteration 5:   log pseudo-likelihood =  -2700.605  
+
+Gompertz regression -- log relative-hazard form 
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    529.75
+Log pseudo-likelihood =    -2700.605               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |    .472405   .6033813     0.78   0.434    -.7102005    1.655011
+          DR |  -.5627894   .7646131    -0.74   0.462    -2.061404    .9358247
+          UI |  -1.428355   .2508349    -5.69   0.000    -1.919982   -.9367272
+        RRUI |   .9689413   .6144464     1.58   0.115    -.2353514    2.173234
+        DRUI |  -.2112495   1.021112    -0.21   0.836    -2.212593    1.790094
+     LOGWAGE |   .3524722   .1162698     3.03   0.002     .1245876    .5803567
+      tenure |  -.0002233   .0065002    -0.03   0.973    -.0129635    .0125168
+       slack |  -.2593933   .0762829    -3.40   0.001    -.4089051   -.1098815
+     abolpos |  -.1552595   .0958002    -1.62   0.105    -.3430244    .0325053
+     explose |   .1991286   .0650876     3.06   0.002     .0715592     .326698
+     stateur |   -.065244   .0231645    -2.82   0.005    -.1106456   -.0198424
+    houshead |   .3822818   .0841671     4.54   0.000     .2173173    .5472464
+     married |   .3700141   .0789107     4.69   0.000      .215352    .5246762
+      female |   .1170987   .0856236     1.37   0.171    -.0507206    .2849179
+       child |  -.0331425   .0798246    -0.42   0.678    -.1895958    .1233108
+      ychild |  -.1466596    .102884    -1.43   0.154    -.3483085    .0549893
+    nonwhite |  -.6720521   .1197092    -5.61   0.000    -.9066778   -.4374264
+         age |  -.0222175   .0039787    -5.58   0.000    -.0300157   -.0144193
+     schlt12 |  -.1228615    .097015    -1.27   0.205    -.3130075    .0672845
+     schgt12 |   .1121295   .0831976     1.35   0.178    -.0509348    .2751938
+        smsa |   .1925807   .0803478     2.40   0.017     .0351019    .3500596
+    bluecoll |   -.203405   .0854986    -2.38   0.017    -.3709791   -.0358309
+      mining |  -.1183683   .1976441    -0.60   0.549    -.5057435     .269007
+      constr |  -.0423947   .1082891    -0.39   0.695    -.2546375     .169848
+      transp |  -.1799724   .1570001    -1.15   0.252     -.487687    .1277422
+       trade |  -.0341793   .1023611    -0.33   0.738    -.2348034    .1664447
+        fire |   .1143611   .1398161     0.82   0.413    -.1596734    .3883955
+    services |   .1854033   .0987923     1.88   0.061    -.0082261    .3790327
+    pubadmin |   .1089298   .2965867     0.37   0.713    -.4723694     .690229
+      year85 |   .2172389   .0890506     2.44   0.015     .0427028    .3917749
+      year87 |   .3564181    .095298     3.74   0.000     .1696374    .5431988
+      year89 |   .4690752   .1114266     4.21   0.000      .250683    .6874674
+      midatl |    .026766   .1471298     0.18   0.856    -.2616031    .3151351
+       encen |   .0043808     .15089     0.03   0.977    -.2913581    .3001198
+       wncen |   .1735986   .1614007     1.08   0.282     -.142741    .4899382
+    southatl |   .2647448   .1188746     2.23   0.026      .031755    .4977347
+       escen |   .3560917   .1938142     1.84   0.066    -.0237772    .7359606
+       wscen |   .3393956   .1442438     2.35   0.019     .0566829    .6221082
+    mountain |   .0076507   .1545162     0.05   0.961    -.2951954    .3104969
+     pacific |   .0778885   .2400495     0.32   0.746    -.3925999    .5483769
+       _cons |   -4.09733   .8802997    -4.65   0.000    -5.822686   -2.371975
+-------------+----------------------------------------------------------------
+       gamma |    .002658   .0067759     0.39   0.695    -.0106225    .0159386
+------------------------------------------------------------------------------
+
+. estimates store bgompertz
+
+. 
+. * Weibull regression
+. stcox $xlist, nohr robust 
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Iteration 0:   log pseudo-likelihood = -7981.9304
+Iteration 1:   log pseudo-likelihood = -7731.2822
+Iteration 2:   log pseudo-likelihood = -7717.3198
+Iteration 3:   log pseudo-likelihood = -7717.2334
+Iteration 4:   log pseudo-likelihood = -7717.2334
+Refining estimates:
+Iteration 0:   log pseudo-likelihood = -7717.2334
+
+Cox regression -- Breslow method for ties
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    540.98
+Log pseudo-likelihood =   -7717.2334               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |   .5222796   .5711698     0.91   0.361    -.5971926    1.641752
+          DR |   -.752507     .72175    -1.04   0.297    -2.167111    .6620971
+          UI |  -1.317719   .2372893    -5.55   0.000    -1.782798   -.8526409
+        RRUI |   .8822462    .582115     1.52   0.130    -.2586783    2.023171
+        DRUI |  -.0951357    .977774    -0.10   0.922    -2.011538    1.821266
+     LOGWAGE |   .3352639   .1106483     3.03   0.002     .1183972    .5521306
+      tenure |   .0008278   .0061286     0.14   0.893    -.0111841    .0128396
+       slack |   -.247863   .0721173    -3.44   0.001    -.3892103   -.1065158
+     abolpos |  -.1511638   .0905035    -1.67   0.095    -.3285475    .0262198
+     explose |   .1865068   .0615742     3.03   0.002     .0658236      .30719
+     stateur |  -.0590475    .022085    -2.67   0.008    -.1023334   -.0157616
+    houshead |   .3601866   .0794827     4.53   0.000     .2044035    .5159698
+     married |    .358819   .0746355     4.81   0.000     .2125362    .5051019
+      female |   .1002758   .0813277     1.23   0.218    -.0591236    .2596753
+       child |  -.0396054   .0755365    -0.52   0.600    -.1876542    .1084435
+      ychild |  -.1276638   .0967856    -1.32   0.187    -.3173602    .0620325
+    nonwhite |  -.6394475   .1151332    -5.55   0.000    -.8651043   -.4137906
+         age |  -.0204623   .0037593    -5.44   0.000    -.0278305   -.0130942
+     schlt12 |  -.1220585   .0920073    -1.33   0.185    -.3023895    .0582726
+     schgt12 |   .1104817   .0783542     1.41   0.159    -.0430897    .2640531
+        smsa |   .1864841   .0766075     2.43   0.015     .0363361    .3366321
+    bluecoll |  -.2108023    .080867    -2.61   0.009    -.3692986    -.052306
+      mining |  -.1238251   .1906352    -0.65   0.516    -.4974632     .249813
+      constr |   -.054455   .1029488    -0.53   0.597     -.256231    .1473209
+      transp |  -.1551657   .1466515    -1.06   0.290    -.4425973    .1322659
+       trade |  -.0383252   .0968106    -0.40   0.692    -.2280706    .1514201
+        fire |   .1097585   .1300779     0.84   0.399    -.1451895    .3647065
+    services |   .1666262   .0939507     1.77   0.076    -.0175138    .3507662
+    pubadmin |   .1022002   .2829817     0.36   0.718    -.4524336    .6568341
+      year85 |    .204162    .084908     2.40   0.016     .0377454    .3705786
+      year87 |   .3384229   .0899115     3.76   0.000     .1621997    .5146462
+      year89 |   .4486559    .104937     4.28   0.000     .2429832    .6543286
+      midatl |   .0342238    .140515     0.24   0.808    -.2411805    .3096282
+       encen |   .0174597   .1438862     0.12   0.903    -.2645521    .2994716
+       wncen |   .1650967   .1532559     1.08   0.281    -.1352795    .4654728
+    southatl |   .2518023   .1127138     2.23   0.025     .0308874    .4727172
+       escen |   .3450422   .1839818     1.88   0.061    -.0155554    .7056398
+       wscen |   .3316752   .1359801     2.44   0.015     .0651591    .5981914
+    mountain |    .009484   .1468626     0.06   0.949    -.2783613    .2973293
+     pacific |   .0720292   .2263339     0.32   0.750    -.3715771    .5156355
+------------------------------------------------------------------------------
+
+. estimates store bcox
+
+. 
+. * Display Results for Table 17.8 (page 607)
+. estimates table bexponential bweibull bgompertz, t stats(N ll) b(%8.3f) /*
+>  */ keep(RR DR UI RRUI DRUI LOGWAGE _cons) 
+
+-----------------------------------------------
+    Variable | bexpon~l   bweibull   bgompe~z  
+-------------+---------------------------------
+          RR |    0.472      0.448      0.472  
+             |     0.79       0.70       0.78  
+          DR |   -0.576     -0.427     -0.563  
+             |    -0.75      -0.53      -0.74  
+          UI |   -1.425     -1.496     -1.428  
+             |    -5.71      -5.67      -5.69  
+        RRUI |    0.966      1.015      0.969  
+             |     1.58       1.57       1.58  
+        DRUI |   -0.199     -0.299     -0.211  
+             |    -0.20      -0.28      -0.21  
+     LOGWAGE |    0.351      0.366      0.352  
+             |     3.03       2.99       3.03  
+       _cons |   -4.079     -4.358     -4.097  
+             |    -4.65      -4.74      -4.65  
+-------------+---------------------------------
+           N | 3343.000   3343.000   3343.000  
+          ll | -2.7e+03   -2.7e+03   -2.7e+03  
+-----------------------------------------------
+                                    legend: b/t
+
+. estimates table bcox, t stats(N ll) b(%8.3f) keep(RR DR UI RRUI DRUI LOGWAGE) 
+
+-------------------------
+    Variable |   bcox    
+-------------+-----------
+          RR |    0.522  
+             |     0.91  
+          DR |   -0.753  
+             |    -1.04  
+          UI |   -1.318  
+             |    -5.55  
+        RRUI |    0.882  
+             |     1.52  
+        DRUI |   -0.095  
+             |    -0.10  
+     LOGWAGE |    0.335  
+             |     3.03  
+-------------+-----------
+           N | 3343.000  
+          ll | -7.7e+03  
+-------------------------
+              legend: b/t
+
+. 
+. * (5) VARIOUS PARAMETRIC MODELS: HAZARD RATIOS (Table 17.9, page 608))
+. 
+. * streg default is to report hazard rates rather than coeffcients
+. * streg with nohr option reports coefficients
+. 
+. * Exponential regression
+. streg $xlist, robust dist(exponential)
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Iteration 0:   log pseudo-likelihood = -3012.4909  
+Iteration 1:   log pseudo-likelihood = -2810.3791  
+Iteration 2:   log pseudo-likelihood = -2701.8024  
+Iteration 3:   log pseudo-likelihood = -2700.6911  
+Iteration 4:   log pseudo-likelihood = -2700.6903  
+Iteration 5:   log pseudo-likelihood = -2700.6903  
+
+Exponential regression -- log relative-hazard form 
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    565.24
+Log pseudo-likelihood =   -2700.6903               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. Ratio   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |   1.603235   .9628283     0.79   0.432      .494089    5.202226
+          DR |   .5623451   .4287594    -0.75   0.450     .1261843    2.506112
+          UI |   .2406141   .0600072    -5.71   0.000     .1475837    .3922867
+        RRUI |   2.626338   1.606901     1.58   0.115     .7916819    8.712654
+        DRUI |   .8194978   .8351649    -0.20   0.845     .1111919    6.039799
+     LOGWAGE |   1.420204   .1641727     3.03   0.002     1.132279    1.781344
+      tenure |   .9998539   .0064627    -0.02   0.982     .9872671    1.012601
+       slack |   .7715401   .0585879    -3.42   0.001     .6648465    .8953557
+     abolpos |   .8563384   .0816353    -1.63   0.104     .7103949    1.032264
+     explose |   1.219521   .0790681     3.06   0.002     1.073992    1.384769
+     stateur |    .937418   .0215515    -2.81   0.005     .8961153    .9806243
+    houshead |   1.464071   .1224844     4.56   0.000     1.242655    1.724939
+     married |   1.447086   .1137619     4.70   0.000     1.240445     1.68815
+      female |   1.123453   .0958289     1.36   0.172     .9504921    1.327887
+       child |   .9672475   .0768553    -0.42   0.675     .8277574    1.130244
+      ychild |   .8650463   .0884753    -1.42   0.156     .7079133    1.057058
+    nonwhite |   .5121147   .0608532    -5.63   0.000     .4057153    .6464176
+         age |   .9781599   .0038399    -5.63   0.000     .9706627    .9857151
+     schlt12 |   .8841386   .0854168    -1.27   0.202     .7316201    1.068452
+     schgt12 |   1.117886   .0927231     1.34   0.179     .9501554    1.315226
+        smsa |   1.211948   .0969443     2.40   0.016     1.036087     1.41766
+    bluecoll |   .8159748   .0694631    -2.39   0.017     .6905813    .9641369
+      mining |   .8864046   .1749386    -0.61   0.541     .6020616    1.305038
+      constr |   .9562365   .1034188    -0.41   0.679     .7735819    1.182019
+      transp |   .8363823   .1305041    -1.15   0.252     .6160109    1.135589
+       trade |    .966073   .0984575    -0.34   0.735     .7911514    1.179669
+        fire |   1.118574   .1551145     0.81   0.419     .8523684     1.46792
+    services |   1.202016   .1182677     1.87   0.061     .9911962    1.457676
+    pubadmin |    1.11523   .3294624     0.37   0.712      .625031    1.989882
+      year85 |   1.239572   .1101563     2.42   0.016     1.041426    1.475418
+      year87 |   1.424921   .1351536     3.73   0.000      1.18319    1.716039
+      year89 |   1.595332   .1761812     4.23   0.000     1.284838    1.980861
+      midatl |   1.026763   .1504872     0.18   0.857     .7703962    1.368442
+       encen |   1.004401   .1509427     0.03   0.977     .7481481    1.348425
+       wncen |    1.18819    .191024     1.07   0.283     .8670399    1.628293
+    southatl |   1.301973   .1541179     2.23   0.026     1.032388    1.641953
+       escen |   1.424955   .2752586     1.83   0.067     .9758305    2.080787
+       wscen |   1.402967   .2010884     2.36   0.018     1.059362    1.858023
+    mountain |    1.00639   .1548654     0.04   0.967     .7443573    1.360664
+     pacific |   1.080064   .2585138     0.32   0.748     .6756378    1.726573
+------------------------------------------------------------------------------
+
+. 
+. * Weibull regression
+. streg $xlist, robust dist(weibull)
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Fitting constant-only model:
+
+Iteration 0:   log pseudo-likelihood = -3012.4909
+Iteration 1:   log pseudo-likelihood = -3012.3543
+Iteration 2:   log pseudo-likelihood = -3012.3543
+
+Fitting full model:
+
+Iteration 0:   log pseudo-likelihood = -3012.3543  
+Iteration 1:   log pseudo-likelihood = -2799.9064  
+Iteration 2:   log pseudo-likelihood = -2688.7377  
+Iteration 3:   log pseudo-likelihood = -2687.6004  
+Iteration 4:   log pseudo-likelihood = -2687.5995  
+Iteration 5:   log pseudo-likelihood = -2687.5995  
+
+Weibull regression -- log relative-hazard form 
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    501.65
+Log pseudo-likelihood =   -2687.5995               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. Ratio   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |    1.56536    .998996     0.70   0.483     .4481117     5.46817
+          DR |   .6525166    .527689    -0.53   0.598     .1337292    3.183881
+          UI |   .2240097   .0591314    -5.67   0.000     .1335294    .3757999
+        RRUI |   2.759988   1.781741     1.57   0.116     .7787618    9.781599
+        DRUI |   .7416768   .7901705    -0.28   0.779     .0919091    5.985096
+     LOGWAGE |   1.441271    .176008     2.99   0.003      1.13448    1.831025
+      tenure |   .9988879    .006864    -0.16   0.871     .9855249    1.012432
+       slack |   .7670407   .0616098    -3.30   0.001     .6553129    .8978176
+     abolpos |   .8517837   .0862808    -1.58   0.113     .6984053    1.038846
+     explose |   1.230608   .0842616     3.03   0.002     1.076061    1.407352
+     stateur |   .9315788   .0225551    -2.93   0.003     .8884041    .9768517
+    houshead |   1.488342   .1320445     4.48   0.000     1.250791    1.771008
+     married |   1.460247   .1212469     4.56   0.000     1.240937    1.718316
+      female |   1.134376    .101752     1.41   0.160     .9514927    1.352411
+       child |    .966883   .0812139    -0.40   0.688     .8201188    1.139911
+      ychild |   .8510311   .0927173    -1.48   0.139        .6874    1.053613
+    nonwhite |   .4953204   .0615485    -5.65   0.000      .388254    .6319119
+         age |   .9766936   .0040945    -5.63   0.000     .9687014    .9847517
+     schlt12 |   .8845503   .0904684    -1.20   0.230     .7238772    1.080887
+     schgt12 |   1.123316   .0989295     1.32   0.187     .9452293    1.334955
+        smsa |    1.22135   .1027313     2.38   0.017     1.035722    1.440247
+    bluecoll |   .8191464   .0736702    -2.22   0.027     .6867654    .9770452
+      mining |   .9034201   .1839945    -0.50   0.618     .6060805    1.346633
+      constr |   .9749455   .1107157    -0.22   0.823     .7803997     1.21799
+      transp |    .820245   .1371565    -1.19   0.236     .5910316    1.138352
+       trade |   .9693436   .1046408    -0.29   0.773     .7844954    1.197747
+        fire |   1.134526   .1693311     0.85   0.398     .8467799    1.520053
+    services |   1.225277   .1272996     1.96   0.051     .9995379    1.501999
+    pubadmin |   1.118259   .3452483     0.36   0.717     .6105827    2.048048
+      year85 |   1.268072   .1184214     2.54   0.011     1.055972    1.522772
+      year87 |   1.460443    .147765     3.74   0.000     1.197737    1.780769
+      year89 |    1.63563   .1930814     4.17   0.000     1.297786    2.061422
+      midatl |   1.024956   .1580625     0.16   0.873      .757597    1.386668
+       encen |   .9985899   .1576839    -0.01   0.993     .7327855     1.36081
+       wncen |    1.20254   .2037638     1.09   0.276     .8627169     1.67622
+    southatl |   1.315343   .1644812     2.19   0.028     1.029432    1.680661
+       escen |   1.444469    .292472     1.82   0.069     .9713137    2.148113
+       wscen |   1.410579   .2155089     2.25   0.024     1.045564    1.903025
+    mountain |   1.016091   .1646258     0.10   0.922     .7396425    1.395864
+     pacific |   1.088666   .2726104     0.34   0.734     .6664189    1.778452
+-------------+----------------------------------------------------------------
+       /ln_p |   .1215314   .0194374     6.25   0.000     .0834348    .1596281
+-------------+----------------------------------------------------------------
+           p |   1.129225   .0219492                      1.087014    1.173075
+         1/p |   .8855632   .0172131                      .8524608    .9199511
+------------------------------------------------------------------------------
+
+. 
+. * Gompertz regression
+. streg $xlist, robust dist(gompertz)
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Fitting constant-only model:
+
+Iteration 0:   log pseudo-likelihood = -3012.4909  
+Iteration 1:   log pseudo-likelihood = -3002.0916  
+Iteration 2:   log pseudo-likelihood =  -3002.026  
+Iteration 3:   log pseudo-likelihood =  -3002.026  
+
+Fitting full model:
+
+Iteration 0:   log pseudo-likelihood =  -3002.026  
+Iteration 1:   log pseudo-likelihood = -2796.0001  
+Iteration 2:   log pseudo-likelihood = -2701.6693  
+Iteration 3:   log pseudo-likelihood = -2700.6057  
+Iteration 4:   log pseudo-likelihood =  -2700.605  
+Iteration 5:   log pseudo-likelihood =  -2700.605  
+
+Gompertz regression -- log relative-hazard form 
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    529.75
+Log pseudo-likelihood =    -2700.605               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. Ratio   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |   1.603847   .9677311     0.78   0.434     .4915456    5.233135
+          DR |   .5696179   .4355373    -0.74   0.462     .1272752    2.549315
+          UI |    .239703   .0601259    -5.69   0.000     .1466096    .3919084
+        RRUI |   2.635153    1.61916     1.58   0.115     .7902931    8.786655
+        DRUI |    .809572   .8266639    -0.21   0.836     .1094166    5.990014
+     LOGWAGE |    1.42258    .165403     3.03   0.002     1.132681    1.786676
+      tenure |   .9997767   .0064987    -0.03   0.973     .9871202    1.012595
+       slack |   .7715195   .0588538    -3.40   0.001     .6643773    .8959403
+     abolpos |    .856193   .0820234    -1.62   0.105     .7096209    1.033039
+     explose |   1.220339    .079429     3.06   0.002     1.074182    1.386383
+     stateur |   .9368388   .0217014    -2.82   0.005      .895256    .9803531
+    houshead |   1.465625   .1233575     4.54   0.000     1.242738    1.728487
+     married |   1.447755   .1142433     4.69   0.000     1.240298    1.689912
+      female |    1.12423   .0962607     1.37   0.171     .9505442    1.329653
+       child |   .9674007   .0772224    -0.42   0.678     .8272934    1.131236
+      ychild |   .8635879   .0888493    -1.43   0.154     .7058811    1.056529
+    nonwhite |   .5106596   .0611307    -5.61   0.000     .4038637    .6456961
+         age |   .9780275   .0038913    -5.58   0.000     .9704303    .9856841
+     schlt12 |   .8843861   .0857988    -1.27   0.205     .7312444      1.0696
+     schgt12 |   1.118658   .0930697     1.35   0.178     .9503406    1.316786
+        smsa |   1.212374   .0974117     2.40   0.017     1.035725    1.419152
+    bluecoll |   .8159478   .0697624    -2.38   0.017     .6900584    .9648035
+      mining |   .8883688   .1755808    -0.60   0.549      .603057    1.308664
+      constr |   .9584913   .1037942    -0.39   0.695     .7751974    1.185125
+      transp |   .8352933   .1311411    -1.15   0.252      .614045     1.13626
+       trade |   .9663982   .0989216    -0.33   0.738     .7907263    1.181098
+        fire |   1.121157   .1567557     0.82   0.413     .8524222    1.474613
+    services |   1.203704   .1189167     1.88   0.061     .9918076    1.460871
+    pubadmin |   1.115084   .3307191     0.37   0.713     .6235232    1.994172
+      year85 |   1.242641    .110658     2.44   0.015     1.043628    1.479605
+      year87 |   1.428205   .1361051     3.74   0.000     1.184875    1.721505
+      year89 |   1.598515   .1781172     4.21   0.000     1.284903    1.988673
+      midatl |   1.027127   .1511211     0.18   0.856     .7698165    1.370444
+       encen |    1.00439   .1515525     0.03   0.977      .747248     1.35002
+       wncen |   1.189578   .1919987     1.08   0.282     .8669786    1.632215
+    southatl |   1.303098   .1549053     2.23   0.026     1.032265    1.644991
+       escen |   1.427739    .276716     1.84   0.066     .9765033    2.087486
+       wscen |   1.404099   .2025325     2.35   0.019      1.05832    1.862851
+    mountain |    1.00768   .1557029     0.05   0.961     .7443861    1.364103
+     pacific |   1.081002   .2594941     0.32   0.746     .6752989    1.730442
+-------------+----------------------------------------------------------------
+       gamma |    .002658   .0067759     0.39   0.695    -.0106225    .0159386
+------------------------------------------------------------------------------
+
+. 
+. * Cox regression
+. stcox $xlist, robust 
+
+         failure _d:  censor1 == 1
+   analysis time _t:  spell
+
+Iteration 0:   log pseudo-likelihood = -7981.9304
+Iteration 1:   log pseudo-likelihood = -7731.2822
+Iteration 2:   log pseudo-likelihood = -7717.3198
+Iteration 3:   log pseudo-likelihood = -7717.2334
+Iteration 4:   log pseudo-likelihood = -7717.2334
+Refining estimates:
+Iteration 0:   log pseudo-likelihood = -7717.2334
+
+Cox regression -- Breslow method for ties
+
+No. of subjects       =         3343               Number of obs   =      3343
+No. of failures       =         1073
+Time at risk          =        20887
+                                                   Wald chi2(40)   =    540.98
+Log pseudo-likelihood =   -7717.2334               Prob > chi2     =    0.0000
+
+------------------------------------------------------------------------------
+             |               Robust
+          _t | Haz. Ratio   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          RR |   1.685866    .962916     0.91   0.361     .5503545    5.164209
+          DR |   .4711838   .3400769    -1.04   0.297     .1145079    1.938854
+          UI |   .2677452   .0635331    -5.55   0.000      .168167    .4262877
+        RRUI |   2.416321   1.406577     1.52   0.130     .7720714    7.562264
+        DRUI |   .9092495   .8890406    -0.10   0.922     .1337828    6.179678
+     LOGWAGE |   1.398309   .1547206     3.03   0.002     1.125691     1.73695
+      tenure |   1.000828   .0061337     0.14   0.893     .9888782    1.012922
+       slack |   .7804668   .0562851    -3.44   0.001     .6775918    .8989608
+     abolpos |   .8597068   .0778065    -1.67   0.095     .7199688    1.026567
+     explose |   1.205033   .0741989     3.03   0.002     1.068038    1.359599
+     stateur |    .942662   .0208187    -2.67   0.008     .9027285    .9843619
+    houshead |   1.433597   .1139461     4.53   0.000     1.226793    1.675262
+     married |   1.431638    .106851     4.81   0.000     1.236811    1.657154
+      female |   1.105476   .0899059     1.23   0.218     .9425903    1.296509
+       child |   .9611687   .0726033    -0.52   0.600     .8289013    1.114542
+      ychild |   .8801492   .0851858    -1.32   0.187     .7280685    1.063997
+    nonwhite |   .5275839   .0607424    -5.55   0.000     .4210076    .6611394
+         age |   .9797456   .0036832    -5.44   0.000     .9725532    .9869912
+     schlt12 |   .8850966   .0814354    -1.33   0.185     .7390501    1.060004
+     schgt12 |   1.116816   .0875072     1.41   0.159     .9578255    1.302197
+        smsa |   1.205005   .0923125     2.43   0.015     1.037004    1.400224
+    bluecoll |   .8099341   .0654969    -2.61   0.009     .6912189    .9490384
+      mining |   .8835344   .1684327    -0.65   0.516     .6080713    1.283785
+      constr |   .9470011   .0974926    -0.53   0.597     .7739632    1.158726
+      transp |   .8562733   .1255737    -1.06   0.290     .6423659    1.141412
+       trade |   .9623999   .0931706    -0.40   0.692      .796068    1.163485
+        fire |   1.116009   .1451681     0.84   0.399     .8648584    1.440091
+    services |   1.181313   .1109851     1.77   0.076     .9826387    1.420155
+    pubadmin |   1.107605    .313432     0.36   0.718     .6360783    1.928677
+      year85 |   1.226497   .1041394     2.40   0.016     1.038467    1.448572
+      year87 |   1.402734   .1261218     3.76   0.000     1.176095    1.673046
+      year89 |   1.566206   .1643529     4.28   0.000     1.275047     1.92385
+      midatl |   1.034816   .1454072     0.24   0.808     .7856998    1.362918
+       encen |   1.017613   .1464205     0.12   0.903     .7675496    1.349146
+       wncen |   1.179507   .1807665     1.08   0.281     .8734718    1.592767
+    southatl |   1.286342   .1449884     2.23   0.025     1.031369    1.604348
+       escen |    1.41205   .2597913     1.88   0.061      .984565    2.025142
+       wscen |     1.3933   .1894611     2.44   0.015     1.067329    1.818826
+    mountain |   1.009529    .148262     0.06   0.949     .7570232    1.346259
+     pacific |   1.074687    .243238     0.32   0.750     .6896459    1.674702
+------------------------------------------------------------------------------
+
+. 
+. * Display results for Table 17.9 page 608
+. * Not possible here as estimates table gives coefficients not hazard rates
+. * Instead need to use output for each model 
+. * Not sure why t-statistics differ somewhat from those in Table 17.9
+.  
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma17p4duration.txt
+  log type:  text
+ closed on:  19 May 2005, 15:25:17
+----------------------------------------------------------------------------------------------------

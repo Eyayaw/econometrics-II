@@ -1,0 +1,146 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma09p3kernels.txt
+  log type:  text
+ opened on:  18 May 2005, 21:31:55
+
+. 
+. ********** OVERVIEW OF MMA09P3KERNELS.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * This program plots different kernel regression functions
+. * This is not included in the book
+. * There is no data 
+. 
+. * Results: 
+. *   Epanstata is similar to Gaussian kernel. Less peaked than Epanechnikov.
+. *   Triangular, Quartic, Triweight and Tricubic are similar, 
+. *   and are more peaked than Epanechnikov
+. *   The fourth oreder Kernels can take negative values.
+. 
+. * NOTE: For kernel density Stata uses an alternative formulation of Epanechnikov
+. *       To follow book and e.g. Hardle (1990) use epan2 
+. *       (available in Stata version 8.2) rather than epan 
+. 
+. ********** SETUP **********
+. 
+. di "mma09p3kernels.do Cameron and Trivedi: Stata Kernel Functions"
+mma09p3kernels.do Cameron and Trivedi: Stata Kernel Functions
+
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+.   
+. ********** GENERATE DATA  **********
+. 
+. * Graphs will be for z = -2.5 to 2.5 in increments of 0.02
+. set obs 251
+obs was 0, now 251
+
+. gen z = -2.52 + 0.02*_n
+
+. 
+. ********** CALCULATE THE KERNELS **********
+. 
+. * Indicator for |z| < 1
+. gen abszltone = 1
+
+. replace abszltone = 0 if abs(z)>=1
+(152 real changes made)
+
+. 
+. gen kuniform = 0.5*abszltone
+
+. 
+. gen ktriangular = (1 - abs(z))*abszltone
+
+. 
+. * Stata calls the usual Epanechnikov kernel epan2
+. gen kepanechnikov = (3/4)*(1 - z^2)*abszltone
+
+. 
+. * Stata uses alternative epanechnikov
+. gen abszltsqrtfive = 1
+
+. replace abszltsqrtfive = 0 if abs(z)>=sqrt(5)
+(28 real changes made)
+
+. gen kepanstata = (3/4)*(1 - (z^2)/5)/sqrt(5)*abszltsqrtfive
+
+. 
+. gen kquartic = (15/16)*((1 - z^2)^2)*abszltone
+
+. 
+. gen ktriweight = (35/32)*((1 - z^2)^3)*abszltone
+
+. 
+. gen ktricubic = (70/81)*((1 - (abs(z))^3)^3)*abszltone
+
+. 
+. gen kgaussian = normden(z)
+
+. 
+. gen k4thordergauss = (1/2)*(3-(z^2))*normden(z)
+
+. 
+. * This is the optimal 4th order - Pagan and Ullah p.57
+. gen k4thorderquartic = (15/32)*(3 - 10*z^2 + 7*z^4)*abszltone
+
+. 
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           z |       251           0    1.452033       -2.5        2.5
+   abszltone |       251    .3944223    .4897027          0          1
+    kuniform |       251    .1972112    .2448514          0         .5
+ ktriangular |       251    .1992032    .3058094          0          1
+kepanechni~v |       251    .1991833    .2831384          0        .75
+-------------+--------------------------------------------------------
+abszltsqrt~e |       251    .8884462    .3154457          0          1
+  kepanstata |       251     .199203    .1175801          0   .3354102
+    kquartic |       251    .1992032    .3209618          0      .9375
+  ktriweight |       251    .1992032     .351183          0    1.09375
+   ktricubic |       251    .1992032    .3191548          0   .8641976
+-------------+--------------------------------------------------------
+   kgaussian |       251    .1967985    .1323354   .0175283   .3989423
+k4thorderg~s |       251    .2053453    .2297148  -.0327459   .5984134
+k4thorderq~c |       251     .199253    .4584096  -.2676096    1.40625
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile z abszltone kuniform ktriangular kepanechnikov abszltsqrtfive /*
+>   */ kepanstata kquartic ktriweight ktricubic kgaussian /* 
+>   */ k4thordergauss k4thorderquartic using mma09p3kernels.asc, replace
+
+. 
+. ********** PLOT THE KERNEL FUNCTIONS **********
+. 
+. * Epanstata is similar to Gaussian kernel. Less peaked than Epanechnikov
+. graph twoway (line kuniform z) (line kepanechnikov z) (line kepanstata z) /*
+>     */ (line kgaussian z), title("Four standard kernel functions")
+
+. 
+. * Triangular, Quartic, Triweight and Tricubic are similar 
+. * and are more peaked than Epanechnikov
+. graph twoway (line ktriangular z) (line kquartic z) (line ktriweight z) /*
+>     */ (line ktricubic z), title("Four similar kernel functions")
+
+. 
+. graph twoway (line k4thordergauss z) (line k4thorderquartic z), /*
+>     */ title("Two fourth order kernel functions")
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma09p3kernels.txt
+  log type:  text
+ closed on:  18 May 2005, 21:32:00
+----------------------------------------------------------------------------------------------------

@@ -1,0 +1,476 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma14p1binary.txt
+  log type:  text
+ opened on:  19 May 2005, 09:01:28
+
+. 
+. ********** OVERVIEW OF MMA14P1BINARY.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 14.2 (pages 464-6)  Logit and probit models.
+. * Provides  
+. *   (1) Table 14.1:  Data summary
+. *   (2) Table 14.2:  Logit, Probit and OLS slope estimates
+. *   (3) Figure 14.1: Plot of Logit Probit and OLS predicted probabilities
+. 
+. * To run this program you need data file
+. *    Nldata.asc 
+. 
+. ********** SETUP
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+.   
+. ********** DATA DESCRIPTION
+. 
+. * Data Set comes from :
+. * J. A. Herriges and C. L. Kling, 
+. * "Nonlinear Income Effects in Random Utility Models", 
+. * Review of Economics and Statistics, 81(1999): 62-72
+. 
+. * The data are given as a combined observation with data on all 4 choices.
+. * This will work for multinomial logit program.
+. * For conditional logit will need to make a new data set which has
+. * four separate entries for each observation as there are four alternatives. 
+. 
+. * Filename: NLDATA.ASC
+. * Format: Ascii
+. * Number of Observations: 1182
+. * Each observations appears over 3 lines with 4 variables per line 
+. * so 4 x 1182 = 4728 observations 
+. * Variable Number and Description
+. * 1     Recreation mode choice. = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. * 2     Price for chosen alternative
+. * 3     Catch rate for chosen alternative
+. * 4     = 1 if beach mode chosen; = 0 otherwise
+. * 5     = 1 if pier mode chosen; = 0 otherwise
+. * 6     = 1 if private boat mode chosen; = 0 otherwise
+. * 7     = 1 if charter boat mode chosen; = 0 otherwise
+. * 8     = price for beach mode
+. * 9     = price for pier mode
+. * 10    = price for private boat mode
+. * 11    = price for charter boat mode
+. * 12    = catch rate for beach mode
+. * 13    = catch rate for pier mode
+. * 14    = catch rate for private boat mode
+. * 15    = catch rate for charter boat mode
+. * 16    = monthly income
+. 
+. ********** READ IN DATA **********
+. 
+. infile mode price crate dbeach dpier dprivate dcharter pbeach ppier /*
+>    */ pprivate pcharter qbeach qpier qprivate qcharter income /*
+>    */ using nldata.asc
+(1182 observations read)
+
+. 
+. * Divide income by 1000 so that results are easy to read 
+. gen ydiv1000 = income/1000
+
+. 
+. label define modetype 1 "beach" 2 "pier" 3 "private" 4 "charter"
+
+. label values mode modetype
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |      1182    3.005076    .9936162          1          4
+       price |      1182    52.08197    53.82997       1.29     666.11
+       crate |      1182    .3893684    .5605964      .0002     2.3101
+      dbeach |      1182    .1133672    .3171753          0          1
+       dpier |      1182    .1505922    .3578023          0          1
+-------------+--------------------------------------------------------
+    dprivate |      1182    .3536379    .4783008          0          1
+    dcharter |      1182    .3824027    .4861799          0          1
+      pbeach |      1182     103.422     103.641       1.29    843.186
+       ppier |      1182     103.422     103.641       1.29    843.186
+    pprivate |      1182    55.25657    62.71344       2.29     666.11
+-------------+--------------------------------------------------------
+    pcharter |      1182    84.37924    63.54465      27.29     691.11
+      qbeach |      1182    .2410113    .1907524      .0678      .5333
+       qpier |      1182    .1622237    .1603898      .0014      .4522
+    qprivate |      1182    .1712146    .2097885      .0002      .7369
+    qcharter |      1182    .6293679    .7061142      .0021     2.3101
+-------------+--------------------------------------------------------
+      income |      1182    4099.337    2461.964   416.6667      12500
+    ydiv1000 |      1182    4.099337    2.461964   .4166667       12.5
+
+. 
+. ********** CREATE BINARY DATA: CHARTER vs PIER **********
+. 
+. * Binary logit of charter (mode = 2) versus pier (mode = 4)
+. keep if mode == 2 | mode == 4
+(552 observations deleted)
+
+. * charter is 1 if fish from charter boat and 0 if fish from pier
+. gen charter = 0
+
+. replace charter = 1 if mode == 4
+(452 real changes made)
+
+. 
+. gen pratio = 100*ln(pcharter/ppier)
+
+. gen lnrelp = ln(pchart/ppier)
+
+. 
+. * Overall summary
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       630    3.434921    .9011843          2          4
+       price |       630    62.51669    52.31219       1.29    387.208
+       crate |       630    .5533478    .6953035      .0014     2.3101
+      dbeach |       630           0           0          0          0
+       dpier |       630    .2825397    .4505921          0          1
+-------------+--------------------------------------------------------
+    dprivate |       630           0           0          0          0
+    dcharter |       630    .7174603    .4505921          0          1
+      pbeach |       630    95.19802    95.62037       1.29    578.048
+       ppier |       630    95.19802    95.62037       1.29    578.048
+    pprivate |       630    55.26221    59.99482       2.29    494.058
+-------------+--------------------------------------------------------
+    pcharter |       630    84.89158    60.79327      27.29    529.058
+      qbeach |       630    .2546022    .1983357      .0678      .5333
+       qpier |       630    .1716835    .1687288      .0014      .4522
+    qprivate |       630    .1695303    .2033172      .0014      .7369
+    qcharter |       630    .6368509     .688508      .0029     2.3101
+-------------+--------------------------------------------------------
+      income |       630    3741.402     2145.71   416.6667      12500
+    ydiv1000 |       630    3.741402     2.14571   .4166667       12.5
+     charter |       630    .7174603    .4505921          0          1
+      pratio |       630    27.45581    126.2598  -215.3976   406.2712
+      lnrelp |       630    .2745581    1.262598  -2.153976   4.062713
+
+. * Summary by charter or by pier
+. sort mode
+
+. by mode: summarize
+
+----------------------------------------------------------------------------------------------------
+-> mode = pier
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       178           2           0          2          2
+       price |       178    30.57133    35.58442       1.29    224.296
+       crate |       178    .2025348    .1702942      .0014      .4522
+      dbeach |       178           0           0          0          0
+       dpier |       178           1           0          1          1
+-------------+--------------------------------------------------------
+    dprivate |       178           0           0          0          0
+    dcharter |       178           0           0          0          0
+      pbeach |       178    30.57133    35.58442       1.29    224.296
+       ppier |       178    30.57133    35.58442       1.29    224.296
+    pprivate |       178    82.42908    69.30802       2.29    494.058
+-------------+--------------------------------------------------------
+    pcharter |       178    109.7633    72.37726      27.29    529.058
+      qbeach |       178    .2614444    .1949684      .0678      .5333
+       qpier |       178    .2025348    .1702942      .0014      .4522
+    qprivate |       178    .1501489    .0968393      .0014      .2601
+    qcharter |       178    .4980798    .3756255      .0029     1.0266
+-------------+--------------------------------------------------------
+      income |       178    3387.172    2340.324   416.6667      12500
+    ydiv1000 |       178    3.387172    2.340324   .4166667       12.5
+     charter |       178           0           0          0          0
+      pratio |       178    164.2956    104.3052  -79.13918   406.2712
+      lnrelp |       178    1.642956    1.043052  -.7913917   4.062713
+
+----------------------------------------------------------------------------------------------------
+-> mode = charter
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |       452           4           0          4          4
+       price |       452    75.09694    52.51942      27.29    387.208
+       crate |       452    .6914998    .7714728      .0029     2.3101
+      dbeach |       452           0           0          0          0
+       dpier |       452           0           0          0          0
+-------------+--------------------------------------------------------
+    dprivate |       452           0           0          0          0
+    dcharter |       452           1           0          1          1
+      pbeach |       452    120.6483    99.78664       4.29    578.048
+       ppier |       452    120.6483    99.78664       4.29    578.048
+    pprivate |       452    44.56376    52.23744       2.29    362.208
+-------------+--------------------------------------------------------
+    pcharter |       452    75.09694    52.51942      27.29    387.208
+      qbeach |       452    .2519077    .1997956      .0678      .5333
+       qpier |       452    .1595341    .1667353      .0014      .4522
+    qprivate |       452    .1771628    .2318749      .0014      .7369
+    qcharter |       452    .6914998    .7714728      .0029     2.3101
+-------------+--------------------------------------------------------
+      income |       452      3880.9    2050.028   416.6667      12500
+    ydiv1000 |       452      3.8809    2.050028   .4166667       12.5
+     charter |       452           1           0          1          1
+      pratio |       452   -26.43243    87.53686  -215.3976   235.8242
+      lnrelp |       452   -.2643243    .8753686  -2.153976   2.358242
+
+
+. 
+. * Write final data to a text (ascii) file so can use with programs other than Stata
+. outfile charter lnrelp using mma14p1binary.asc, replace
+
+. 
+. ********** TABLE 14.1 - DATA SUMMARY BY OUTCOME AND OVERALL **********
+. 
+. * Following gives Table 14.1 page 464
+. summarize charter pcharter ppier lnrelp
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     charter |       630    .7174603    .4505921          0          1
+    pcharter |       630    84.89158    60.79327      27.29    529.058
+       ppier |       630    95.19802    95.62037       1.29    578.048
+      lnrelp |       630    .2745581    1.262598  -2.153976   4.062713
+
+. sort mode
+
+. by mode: summarize charter pcharter ppier lnrelp
+
+----------------------------------------------------------------------------------------------------
+-> mode = pier
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     charter |       178           0           0          0          0
+    pcharter |       178    109.7633    72.37726      27.29    529.058
+       ppier |       178    30.57133    35.58442       1.29    224.296
+      lnrelp |       178    1.642956    1.043052  -.7913917   4.062713
+
+----------------------------------------------------------------------------------------------------
+-> mode = charter
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     charter |       452           1           0          1          1
+    pcharter |       452    75.09694    52.51942      27.29    387.208
+       ppier |       452    120.6483    99.78664       4.29    578.048
+      lnrelp |       452   -.2643243    .8753686  -2.153976   2.358242
+
+
+. 
+. ********** TABLE 14.2 - ESTIMATE LOGIT, PROBIT AND OLS MODELS
+. 
+. logit charter lnrelp
+
+Iteration 0:   log likelihood = -375.06167
+Iteration 1:   log likelihood = -223.44527
+Iteration 2:   log likelihood = -208.29369
+Iteration 3:   log likelihood = -206.84942
+Iteration 4:   log likelihood = -206.82698
+Iteration 5:   log likelihood = -206.82697
+
+Logit estimates                                   Number of obs   =        630
+                                                  LR chi2(1)      =     336.47
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -206.82697                       Pseudo R2       =     0.4486
+
+------------------------------------------------------------------------------
+     charter |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnrelp |   -1.82253   .1445681   -12.61   0.000    -2.105879   -1.539182
+       _cons |   2.053125   .1689307    12.15   0.000     1.722027    2.384223
+------------------------------------------------------------------------------
+
+. estimates store blogit
+
+. 
+. probit charter lnrelp
+
+Iteration 0:   log likelihood = -375.06167
+Iteration 1:   log likelihood = -221.55989
+Iteration 2:   log likelihood = -205.42312
+Iteration 3:   log likelihood = -204.41773
+Iteration 4:   log likelihood = -204.41087
+
+Probit estimates                                  Number of obs   =        630
+                                                  LR chi2(1)      =     341.30
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -204.41087                       Pseudo R2       =     0.4550
+
+------------------------------------------------------------------------------
+     charter |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnrelp |  -1.055515   .0761117   -13.87   0.000    -1.204691   -.9063383
+       _cons |    1.19436    .089504    13.34   0.000     1.018936    1.369785
+------------------------------------------------------------------------------
+
+. estimates store bprobit
+
+. 
+. regress charter lnrelp
+
+      Source |       SS       df       MS              Number of obs =     630
+-------------+------------------------------           F(  1,   628) =  542.12
+       Model |  59.1676598     1  59.1676598           Prob > F      =  0.0000
+    Residual |  68.5402767   628  .109140568           R-squared     =  0.4633
+-------------+------------------------------           Adj R-squared =  0.4624
+       Total |  127.707937   629  .203033285           Root MSE      =  .33036
+
+------------------------------------------------------------------------------
+     charter |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnrelp |  -.2429137   .0104328   -23.28   0.000    -.2634011   -.2224262
+       _cons |   .7841542   .0134701    58.21   0.000     .7577023    .8106061
+------------------------------------------------------------------------------
+
+. estimates store bOLS
+
+. 
+. * Heteroskedastic robust standard errors only needed for OLS 
+. * but given for other models for completeness
+. 
+. logit charter lnrelp, robust
+
+Iteration 0:   log pseudo-likelihood = -375.06167
+Iteration 1:   log pseudo-likelihood = -223.44527
+Iteration 2:   log pseudo-likelihood = -208.29369
+Iteration 3:   log pseudo-likelihood = -206.84942
+Iteration 4:   log pseudo-likelihood = -206.82698
+Iteration 5:   log pseudo-likelihood = -206.82697
+
+Logit estimates                                   Number of obs   =        630
+                                                  Wald chi2(1)    =     194.28
+                                                  Prob > chi2     =     0.0000
+Log pseudo-likelihood = -206.82697                Pseudo R2       =     0.4486
+
+------------------------------------------------------------------------------
+             |               Robust
+     charter |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnrelp |   -1.82253   .1307556   -13.94   0.000    -2.078807   -1.566254
+       _cons |   2.053125   .1473477    13.93   0.000     1.764329    2.341921
+------------------------------------------------------------------------------
+
+. estimates store bloghet
+
+. 
+. probit charter lnrelp, robust
+
+Iteration 0:   log pseudo-likelihood = -375.06167
+Iteration 1:   log pseudo-likelihood = -221.55989
+Iteration 2:   log pseudo-likelihood = -205.42312
+Iteration 3:   log pseudo-likelihood = -204.41773
+Iteration 4:   log pseudo-likelihood = -204.41087
+
+Probit estimates                                  Number of obs   =        630
+                                                  Wald chi2(1)    =     232.07
+                                                  Prob > chi2     =     0.0000
+Log pseudo-likelihood = -204.41087                Pseudo R2       =     0.4550
+
+------------------------------------------------------------------------------
+             |               Robust
+     charter |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnrelp |  -1.055515   .0692881   -15.23   0.000    -1.191317   -.9197122
+       _cons |    1.19436   .0794429    15.03   0.000     1.038655    1.350066
+------------------------------------------------------------------------------
+
+. estimates store bprobhet
+
+. 
+. regress charter lnrelp, robust
+
+Regression with robust standard errors                 Number of obs =     630
+                                                       F(  1,   628) =  792.44
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.4633
+                                                       Root MSE      =  .33036
+
+------------------------------------------------------------------------------
+             |               Robust
+     charter |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      lnrelp |  -.2429137   .0086292   -28.15   0.000    -.2598592   -.2259681
+       _cons |   .7841542   .0119566    65.58   0.000     .7606744    .8076341
+------------------------------------------------------------------------------
+
+. estimates store bOLShet
+
+. 
+. * Following gives Table 14.2 page 465
+. estimates table blogit bprobit bOLS bloghet bprobhet bOLShet, /*
+>    */ t stats(N ll r2 r2_p) b(%8.3f) keep(_cons lnrelp)
+
+--------------------------------------------------------------------------------
+    Variable |  blogit    bprobit      bOLS     bloghet    bprobhet   bOLShet   
+-------------+------------------------------------------------------------------
+       _cons |    2.053      1.194      0.784      2.053      1.194      0.784  
+             |    12.15      13.34      58.21      13.93      15.03      65.58  
+      lnrelp |   -1.823     -1.056     -0.243     -1.823     -1.056     -0.243  
+             |   -12.61     -13.87     -23.28     -13.94     -15.23     -28.15  
+-------------+------------------------------------------------------------------
+           N |  630.000    630.000    630.000    630.000    630.000    630.000  
+          ll | -206.827   -204.411   -195.167   -206.827   -204.411   -195.167  
+          r2 |                          0.463                            0.463  
+        r2_p |    0.449      0.455                 0.449      0.455             
+--------------------------------------------------------------------------------
+                                                                     legend: b/t
+
+. 
+. ********** FIGURE 14.1 - PLOT PREDICTED PROBABILITY AGAINST X FOR MODELS
+. 
+. quietly logit charter lnrelp
+
+. predict plogit, p
+
+. 
+. quietly probit charter lnrelp
+
+. predict pprobit, p
+
+. 
+. quietly regress charter lnrelp
+
+. predict pOLS
+(option xb assumed; fitted values)
+
+. 
+. sum charter plogit pprobit pOLS
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     charter |       630    .7174603    .4505921          0          1
+      plogit |       630    .7174603    .3193077   .0047196   .9974746
+     pprobit |       630      .72019    .3196164   .0009877   .9997377
+        pOLS |       630    .7174603    .3067022  -.2027341   1.307384
+
+. 
+. sort lnrelp
+
+. 
+. * Following gives Figure 14.1 page 466
+. graph twoway (scatter charter lnrelp, msize(vsmall) jitter(3)) /*
+>   */ (line plogit lnrelp, clstyle(p1)) /*
+>   */ (line pprobit lnrelp, clstyle(p2)) /*
+>   */ (line pOLS lnrelp, clstyle(p3)), /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Predicted Probabilities Across Models") /*
+>   */ xtitle("Log relative price (lnrelp)", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Predicted probability", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(1) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Actual Data (jittered)") label(2 "Logit") /*
+>   */         label(3 "Probit") label(4 "OLS"))
+
+. graph export ch14binary.wmf, replace
+(file c:\Imbook\bwebpage\Section4\ch14binary.wmf written in Windows Metafile format)
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma14p1binary.txt
+  log type:  text
+ closed on:  19 May 2005, 09:01:31
+----------------------------------------------------------------------------------------------------

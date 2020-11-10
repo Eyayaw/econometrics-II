@@ -1,0 +1,932 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma07p1mltests.txt
+  log type:  text
+ opened on:  17 May 2005, 13:59:20
+
+. 
+. ********** OVERVIEW OF MMA07P1MLTESTS.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 7.4 pp.241-3
+. * Likelihood-based hypothesis tests
+. 
+. * Implements the three likelihood-based tests presented in Table 7.1:
+. *    Wald test
+. *    LR test
+. *    LM test direct
+. *    LM test via auxiliary regression
+. * for a Poisson model with simulated data (see below).
+. 
+. * NOTE: To implement this program requires:
+. *       the free Stata add-on rndpoix
+. * To obtain this, in Stata give command: search rndpoix
+. * If you don't want to do this, instead use the data set 
+. 
+. ********** SETUP ***********
+. 
+. version 8
+
+. set more off
+
+.   
+. ********** GENERATE DATA ***********
+. 
+. * Model is
+. *   y ~ Poisson[exp(b1 + b2*x2 + b3*x3 + b4*x4]
+. * where 
+. *    x2, x3 and x4 are iid ~ N[0,1]
+. * and b1=0, b2=0.1, b3=0.1 and b4=0.1
+. 
+. set seed 10001
+
+. set obs 200
+obs was 0, now 200
+
+. scalar b1 = 0
+
+. scalar b2 = 0.1
+
+. scalar b3 = 0.1
+
+. scalar b4 = 0.1
+
+. 
+. * Generate regressors
+. gen x2 = invnorm(uniform())
+
+. gen x3 = invnorm(uniform()) 
+
+. gen x4 = invnorm(uniform()) 
+
+. 
+. * Generate y
+. gen mupoiss = exp(b1+b2*x2+b3*x3+b4*x4)
+
+. * The next requires Stata add-on. In Stata: search rndpoix
+. rndpoix(mupoiss)
+( Generating ....... )
+Variable xp created.
+
+. gen y = xp
+
+. 
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          x2 |       200   -.0091098    1.010072  -2.857666   2.149822
+          x3 |       200   -.1459839    1.109521  -3.086754   3.111421
+          x4 |       200   -.0325314    .9674748  -2.852186   2.379461
+     mupoiss |       200    1.000447    .1993649   .6191922   1.903112
+          xp |       200        .845     .951579          0          6
+-------------+--------------------------------------------------------
+           y |       200        .845     .951579          0          6
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile y x2 x3 x4 using mma07p1mltests.asc, replace
+
+. 
+. ********** ANALYSIS: LIKELIHOOD-BASED HYPOTHESIS TESTS ***********
+. 
+. * Hypotheses to test are    
+. * (A) Single exclusion:    b3 = 0
+. * (B) Multiple exclusion:  b3 = 0, b4 = 0
+. * (C) Linear:              b3 = b4 
+. * (B) Nonlinear:           b3/b4 = 1
+. 
+. * Tests are Wald, LR, LM and LM (auxiliary)
+. 
+. ****** (A)  TEST H0: b3 = 0
+. 
+. * First skip to (B) where many comments given.
+. 
+. ****** (B) TEST H0: b3 = 0, b4 = 0. 
+. 
+. * (1) Wald test requires estimation of unrestricted model only
+. poisson y x2 x3 x4
+
+Iteration 0:   log likelihood = -238.77153  
+Iteration 1:   log likelihood = -238.77153  
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(3)      =       8.30
+                                                  Prob > chi2     =     0.0401
+Log likelihood = -238.77153                       Pseudo R2       =     0.0171
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |  -.0275702   .0767909    -0.36   0.720    -.1780775    .1229371
+          x3 |   .1630037   .0670848     2.43   0.015     .0315199    .2944874
+          x4 |   .1026568   .0802139     1.28   0.201    -.0545595    .2598732
+       _cons |  -.1653238   .0773479    -2.14   0.033     -.316923   -.0137246
+------------------------------------------------------------------------------
+
+. 
+. * (1A) Stata Wald test command
+. test (x3=0) (x4=0)
+
+ ( 1)  [y]x3 = 0
+ ( 2)  [y]x4 = 0
+
+           chi2(  2) =    8.57
+         Prob > chi2 =    0.0138
+
+. 
+. * (1B) Wald test done manually
+. * Use h'[RVR]-inv*h. 
+. * Details below will change for each example.
+. * In particular, for nonlinear restrictions more work in forming R
+. * Note that Stata puts the intercept last, not first. 
+. * So here the second and third elements of b are set to zero.
+. matrix bfull = e(b)                    /* 1xq row vector */   
+
+. matrix vfull = e(V)                    /* qxq matrix */   
+
+. matrix h = (bfull[1,2]\bfull[1,3])     /* hx1 vector */
+
+. matrix R = (0,1,0,0\0,0,1,0)           /* h x q matrix */
+
+. matrix Wald = h'*syminv(R*vfull*R')*h  /* scalar */
+
+. matrix list h
+
+h[2,1]
+           c1
+r1  .16300365
+r2  .10265681
+
+. matrix list R
+
+R[2,4]
+    c1  c2  c3  c4
+r1   0   1   0   0
+r2   0   0   1   0
+
+. matrix list Wald 
+
+symmetric Wald[1,1]
+           c1
+c1  8.5701855
+
+. scalar WaldB = Wald[1,1]
+
+. 
+. * (2) Likelihood ratio test requires estimating both models
+. 
+. poisson y x2 x3 x4
+
+Iteration 0:   log likelihood = -238.77153  
+Iteration 1:   log likelihood = -238.77153  
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(3)      =       8.30
+                                                  Prob > chi2     =     0.0401
+Log likelihood = -238.77153                       Pseudo R2       =     0.0171
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |  -.0275702   .0767909    -0.36   0.720    -.1780775    .1229371
+          x3 |   .1630037   .0670848     2.43   0.015     .0315199    .2944874
+          x4 |   .1026568   .0802139     1.28   0.201    -.0545595    .2598732
+       _cons |  -.1653238   .0773479    -2.14   0.033     -.316923   -.0137246
+------------------------------------------------------------------------------
+
+. estimates store unrestricted           /* Used for Stata lrtest */ 
+
+. scalar llunrest = e(ll)                /* Used for manual lrtest */
+
+. poisson y x2 
+
+Iteration 0:   log likelihood = -242.92271  
+Iteration 1:   log likelihood = -242.92271  (backed up)
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(1)      =       0.00
+                                                  Prob > chi2     =     0.9608
+Log likelihood = -242.92271                       Pseudo R2       =     0.0000
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |  -.0037493   .0763386    -0.05   0.961    -.1533701    .1458716
+       _cons |  -.1684599   .0769294    -2.19   0.029    -.3192388   -.0176811
+------------------------------------------------------------------------------
+
+. estimates store restrictedB            /* Used for Stata lrtest */
+
+. scalar llrestB = e(ll)                  /* Used for Stata lrtest */
+
+. 
+. * (2A) Stata likelihood ratio test
+. lrtest unrestricted restrictedB
+
+likelihood-ratio test                                  LR chi2(2)  =      8.30
+(Assumption: restrictedB nested in unrestricted)       Prob > chi2 =    0.0157
+
+. 
+. * (2B) Likelihood test done manually 
+. scalar LRB = -2*(llrestB-llunrest)
+
+. di "LR  " LRB
+LR  8.3023503
+
+. 
+. * (3) LM test via direct compuation requires estimating only the restricted model. 
+. 
+. * For exclusion restrictions in the Poisson, from 7.6.2
+. * LM = dlnL/db * V[b]-inv * dlnL/db   where b evaluated at restricted
+. *    = [Sum_i u_i*x_i]'[Sum_i exp(x_i'b)*x_i*x_i'][Sum_i u_i*x_i]
+. * First calculate Sum_i u_i*x_i' : a 1x4 row vector 
+. 
+. quietly poisson y x2 
+
+. predict yhatrest
+(option n assumed; predicted number of events)
+
+. gen u = y - yhatrest     /* yhatrest = exp(x_brest) calculated earlier */
+
+. gen one = 1
+
+. matrix vecaccum dlnL_db = u one x2 x3 x4, noconstant  
+
+. * Then calculate Sum_i exp(x_i'b)*x_i*x_i'
+. gen trx1 = sqrt(yhatrest)
+
+. gen trx2 = sqrt(yhatrest)*x2
+
+. gen trx3 = sqrt(yhatrest)*x3
+
+. gen trx4 = sqrt(yhatrest)*x4
+
+. matrix accum Vb = trx1 trx2 trx3 trx4, noconstant
+(obs=200)
+
+. matrix LMdirect = dlnL_db*syminv(Vb)*dlnL_db' 
+
+. matrix list dlnL_db
+
+dlnL_db[1,4]
+          one          x2          x3          x4
+u   1.192e-07  -4.632e-08   37.578639   19.933299
+
+. matrix list Vb
+
+symmetric Vb[4,4]
+            trx1        trx2        trx3        trx4
+trx1         169
+trx2  -2.1828434   171.62608
+trx3  -24.733563   16.929495   210.68156
+trx4   -5.561359     17.0457   23.027167   157.58531
+
+. matrix list LMdirect
+
+symmetric LMdirect[1,1]
+           u
+u  8.5750886
+
+. scalar LMdirectB = LMdirect[1,1]
+
+. 
+. * (4) LM test via auxiliary regression 
+. 
+. * N uncentered Rsq from regress (noconstant) 1 on the scores
+. * Begin by computing the unrestricted scores at the restricted estimates.
+. * This varies from problem to problem.
+. * In general could compute lnf(y) at current parameters
+. * and then get numerical derivative when perturb beta a little. 
+. * Here use analytical derivative.
+. * s_j = dlnf(y)/db_j = (y-exp(x'b))*x_j for the Poisson
+. 
+. drop yhatrest
+
+. quietly poisson y x2 
+
+. predict yhatrest
+(option n assumed; predicted number of events)
+
+. gen s1 = (y-yhatrest)*1
+
+. gen s2 = (y-yhatrest)*x2
+
+. gen s3 = (y-yhatrest)*x3
+
+. gen s4 = (y-yhatrest)*x4
+
+. regress one s1 s2 s3 s4, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  4,   196) =    2.36
+       Model |  9.18577727     4  2.29644432           Prob > F      =  0.0549
+    Residual |  190.814223   196  .973541953           R-squared     =  0.0459
+-------------+------------------------------           Adj R-squared =  0.0265
+       Total |         200   200           1           Root MSE      =  .98668
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          s1 |  -.0265153   .0748092    -0.35   0.723    -.1740497     .121019
+          s2 |  -.0102806   .0809418    -0.13   0.899    -.1699093    .1493481
+          s3 |   .1794153   .0697359     2.57   0.011     .0418862    .3169444
+          s4 |   .1225885   .0821671     1.49   0.137    -.0394566    .2846336
+------------------------------------------------------------------------------
+
+. * LM equals N times uncentered Rsq
+. scalar LMauxB = e(N)*e(r2)
+
+. * Check: LM equals explained sum of squares 
+. scalar LMauxB2 = e(mss)
+
+. di "LMauxB " LMauxB "    LMauxB2 " LMauxB2
+LMauxB 9.1857773    LMauxB2 9.1857773
+
+. 
+. * (5) DISPLAY RESULTS
+. 
+. estimates table unrestricted restrictedB, se stats(N ll r2) b(%8.3f)
+
+------------------------------------
+    Variable | unrest~d   restri~B  
+-------------+----------------------
+          x2 |   -0.028     -0.004  
+             |    0.077      0.076  
+          x3 |    0.163             
+             |    0.067             
+          x4 |    0.103             
+             |    0.080             
+       _cons |   -0.165     -0.168  
+             |    0.077      0.077  
+-------------+----------------------
+           N |  200.000    200.000  
+          ll | -238.772   -242.923  
+          r2 |                      
+------------------------------------
+                        legend: b/se
+
+. * Wald test using stata default Poisson variance matrix
+. di "WaldB " WaldB  " p-value " chi2tail(2,WaldB) 
+WaldB 8.5701855 p-value .01377234
+
+. * LR test using Poisson log-likelihoods
+. di " LRB " LRB " p-value " chi2tail(2,LRB) 
+ LRB 8.3023503 p-value .0157459
+
+. * LM test direct 
+. di " LMdirectB " LMdirectB " p-value " chi2tail(2,LMdirectB)
+ LMdirectB 8.5750886 p-value .01373862
+
+. * LM test direct by auxiliary regression
+. di " LMauxB " LMauxB " p-value " chi2tail(2,LMauxB)
+ LMauxB 9.1857773 p-value .01012357
+
+. 
+. ****** (A)  TEST H0: b3 = 0
+. 
+. * (1) Wald test
+. quietly poisson y x2 x3 x4
+
+. test (x3=0) 
+
+ ( 1)  [y]x3 = 0
+
+           chi2(  1) =    5.90
+         Prob > chi2 =    0.0151
+
+. scalar WaldA = r(chi2)
+
+. 
+. * (2) LR test
+. poisson y x2 x4
+
+Iteration 0:   log likelihood = -241.64842  
+Iteration 1:   log likelihood = -241.64842  
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(2)      =       2.55
+                                                  Prob > chi2     =     0.2793
+Log likelihood = -241.64842                       Pseudo R2       =     0.0053
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |  -.0163179   .0770381    -0.21   0.832    -.1673098     .134674
+          x4 |   .1278017   .0800348     1.60   0.110    -.0290637     .284667
+       _cons |  -.1719505   .0772389    -2.23   0.026    -.3233359   -.0205651
+------------------------------------------------------------------------------
+
+. estimates store restrictedA
+
+. lrtest unrestricted    /* Uses estimates store unrestricted from earlier */
+
+likelihood-ratio test                                  LR chi2(1)  =      5.75
+(Assumption: restrictedA nested in unrestricted)       Prob > chi2 =    0.0165
+
+. scalar LRA = r(chi2)
+
+. 
+. * (3) LM test via direct compuation requires estimating only the restricted model. 
+. * See (B) for more explanation
+. drop one yhatrest u trx1 trx2 trx3 trx4
+
+. matrix drop dlnL_db Vb LMdirect
+
+. quietly poisson y x2 x4
+
+. predict yhatrest
+(option n assumed; predicted number of events)
+
+. gen u = y - yhatrest     /* yhatrest = exp(x_brest) calculated earlier */
+
+. gen one = 1
+
+. matrix vecaccum dlnL_db = u one x2 x3 x4, noconstant  
+
+. gen trx1 = sqrt(yhatrest)
+
+. gen trx2 = sqrt(yhatrest)*x2
+
+. gen trx3 = sqrt(yhatrest)*x3
+
+. gen trx4 = sqrt(yhatrest)*x4
+
+. matrix accum Vb = trx1 trx2 trx3 trx4, noconstant
+(obs=200)
+
+. matrix LMdirect = dlnL_db*syminv(Vb)*dlnL_db' 
+
+. matrix list dlnL_db
+
+dlnL_db[1,4]
+          one          x2          x3          x4
+u  -1.788e-07  -1.717e-07   34.832631  -3.179e-07
+
+. matrix list Vb
+
+symmetric Vb[4,4]
+            trx1        trx2        trx3        trx4
+trx1         169
+trx2  -2.1828435   170.25918
+trx3  -21.987555   15.647287    212.5673
+trx4   14.371941    16.35821   22.067372   158.94405
+
+. matrix list LMdirect
+
+symmetric LMdirect[1,1]
+           u
+u  5.9159017
+
+. scalar LMdirectA = LMdirect[1,1]
+
+. 
+. * (4) LM test via auxiliary regression 
+. * See (B) for more explanation
+. drop yhatrest s1 s2 s3 s4 one
+
+. quietly poisson y x2 x4
+
+. predict yhatrest
+(option n assumed; predicted number of events)
+
+. gen s1 = (y-yhatrest)*1
+
+. gen s2 = (y-yhatrest)*x2
+
+. gen s3 = (y-yhatrest)*x3
+
+. gen s4 = (y-yhatrest)*x4
+
+. gen one = 1
+
+. regress one s1 s2 s3 s4, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  4,   196) =    1.57
+       Model |  6.21794802     4    1.554487           Prob > F      =  0.1832
+    Residual |  193.782052   196  .988683939           R-squared     =  0.0311
+-------------+------------------------------           Adj R-squared =  0.0113
+       Total |         200   200           1           Root MSE      =  .99433
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          s1 |   -.021781   .0760166    -0.29   0.775    -.1716964    .1281344
+          s2 |   .0237921    .082791     0.29   0.774    -.1394834    .1870675
+          s3 |   .1785093   .0711813     2.51   0.013     .0381297    .3188889
+          s4 |  -.0065009    .084884    -0.08   0.939    -.1739042    .1609024
+------------------------------------------------------------------------------
+
+. * LM equals N times uncentered Rsq
+. scalar LMauxA = e(N)*e(r2)
+
+. di "LMauxA " LMauxA 
+LMauxA 6.217948
+
+. 
+. * (5) DISPLAY RESULTS in Table 7.1 page 242
+. 
+. estimates table unrestricted restrictedA, se stats(N ll r2) b(%8.3f)
+
+------------------------------------
+    Variable | unrest~d   restri~A  
+-------------+----------------------
+          x2 |   -0.028     -0.016  
+             |    0.077      0.077  
+          x3 |    0.163             
+             |    0.067             
+          x4 |    0.103      0.128  
+             |    0.080      0.080  
+       _cons |   -0.165     -0.172  
+             |    0.077      0.077  
+-------------+----------------------
+           N |  200.000    200.000  
+          ll | -238.772   -241.648  
+          r2 |                      
+------------------------------------
+                        legend: b/se
+
+. di "WaldA " WaldA  " p-value " chi2tail(1,WaldA) 
+WaldA 5.9040087 p-value .01510647
+
+. di " LRA " LRA " p-value " chi2tail(1,LRA) 
+ LRA 5.7537678 p-value .01645333
+
+. di " LMdirectA " LMdirectA " p-value " chi2tail(1,LMdirectA)
+ LMdirectA 5.9159017 p-value .01500482
+
+. di " LMauxA " LMauxA " p-value " chi2tail(1,LMauxA)
+ LMauxA 6.217948 p-value .01264616
+
+. 
+. ****** (C) TEST H0: b3 = b4 
+.  
+. * (1A) Wald test
+. poisson y x2 x3 x4
+
+Iteration 0:   log likelihood = -238.77153  
+Iteration 1:   log likelihood = -238.77153  
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(3)      =       8.30
+                                                  Prob > chi2     =     0.0401
+Log likelihood = -238.77153                       Pseudo R2       =     0.0171
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |  -.0275702   .0767909    -0.36   0.720    -.1780775    .1229371
+          x3 |   .1630037   .0670848     2.43   0.015     .0315199    .2944874
+          x4 |   .1026568   .0802139     1.28   0.201    -.0545595    .2598732
+       _cons |  -.1653238   .0773479    -2.14   0.033     -.316923   -.0137246
+------------------------------------------------------------------------------
+
+. test (x3=x4)
+
+ ( 1)  [y]x3 - [y]x4 = 0
+
+           chi2(  1) =    0.29
+         Prob > chi2 =    0.5883
+
+. 
+. * (1B) Wald test done manually 
+. * Note that Stata puts the intercept last, not first. 
+. * So here the second and third elements of b are tested as equal.
+. matrix drop h R Wald
+
+. matrix bfull = e(b)                    /* 1xq row vector */   
+
+. matrix vfull = e(V)                    /* qxq matrix */   
+
+. matrix h = (bfull[1,2]-bfull[1,3])     /* hx1 vector */
+
+. matrix R = (0,1,-1,0)                  /* h x q matrix */
+
+. matrix Wald = h'*syminv(R*vfull*R')*h  /* scalar */
+
+. matrix list h
+
+symmetric h[1,1]
+           c1
+r1  .06034684
+
+. matrix list R
+
+R[1,4]
+    c1  c2  c3  c4
+r1   0   1  -1   0
+
+. matrix list Wald 
+
+symmetric Wald[1,1]
+           c1
+c1  .29301766
+
+. scalar WaldC = Wald[1,1]
+
+. di " WaldC " WaldC " p-value " chi2tail(1,WaldC) 
+ WaldC .29301766 p-value .5882932
+
+. 
+. * (2) LR Test 
+. * In general getting the restricted MLE requires constrained ML
+. * Here simple as if b3=b4 then mean is exp(b1+b2*x2+B3*(x3+x4))
+. gen x3plusx4 = x3+x4
+
+. poisson y x2 x3plusx4
+
+Iteration 0:   log likelihood = -238.91785  
+Iteration 1:   log likelihood = -238.91785  
+
+Poisson regression                                Number of obs   =        200
+                                                  LR chi2(2)      =       8.01
+                                                  Prob > chi2     =     0.0182
+Log likelihood = -238.91785                       Pseudo R2       =     0.0165
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          x2 |  -.0287235   .0768651    -0.37   0.709    -.1793763    .1219293
+    x3plusx4 |   .1374814   .0479519     2.87   0.004     .0434974    .2314653
+       _cons |  -.1672262   .0773265    -2.16   0.031    -.3187832   -.0156691
+------------------------------------------------------------------------------
+
+. estimates store restrictedC
+
+. lrtest unrestricted      /* Uses estimates store unrestricted from earlier */
+
+likelihood-ratio test                                  LR chi2(1)  =      0.29
+(Assumption: restrictedC nested in unrestricted)       Prob > chi2 =    0.5885
+
+. scalar LRC = r(chi2)
+
+. 
+. * (3) LM test direct
+. * Can use same code as earlier. Just different restricted estimates.
+. * Now from poisson y x2 x3plusx4
+. drop one yhatrest u trx1 trx2 trx3 trx4
+
+. matrix drop dlnL_db Vb
+
+. quietly poisson y x2 x3plusx4
+
+. predict yhatrest
+(option n assumed; predicted number of events)
+
+. gen u = y - yhatrest     /* yhatrest = exp(x_brest) calculated earlier */
+
+. gen one = 1
+
+. matrix vecaccum dlnL_db = u one x2 x3 x4, noconstant  
+
+. gen trx1 = sqrt(yhatrest)
+
+. gen trx2 = sqrt(yhatrest)*x2
+
+. gen trx3 = sqrt(yhatrest)*x3
+
+. gen trx4 = sqrt(yhatrest)*x4
+
+. matrix accum Vb = trx1 trx2 trx3 trx4, noconstant
+(obs=200)
+
+. matrix LMdirect = dlnL_db*syminv(Vb)*dlnL_db' 
+
+. matrix list dlnL_db
+
+dlnL_db[1,4]
+          one          x2          x3          x4
+u   8.345e-07  -3.601e-07   4.8459933  -4.8459932
+
+. matrix list Vb
+
+symmetric Vb[4,4]
+            trx1        trx2        trx3        trx4
+trx1         169
+trx2  -2.1828442   171.13986
+trx3   7.9990827   13.105974   225.99023
+trx4   19.217934    15.11254   28.153892   161.75506
+
+. matrix list LMdirect
+
+symmetric LMdirect[1,1]
+           u
+u  .29306257
+
+. scalar LMdirectC = LMdirect[1,1]
+
+. 
+. * (4) LM test via auxiliary regression 
+. drop yhatrest s1 s2 s3 s4 one
+
+. quietly poisson y x2 x3plusx4
+
+. predict yhatrest
+(option n assumed; predicted number of events)
+
+. gen s1 = (y-yhatrest)*1
+
+. gen s2 = (y-yhatrest)*x2
+
+. gen s3 = (y-yhatrest)*x3
+
+. gen s4 = (y-yhatrest)*x4
+
+. gen one = 1
+
+. regress one s1 s2 s3 s4, noconstant
+
+      Source |       SS       df       MS              Number of obs =     200
+-------------+------------------------------           F(  4,   196) =    0.08
+       Model |   .31510777     4  .078776943           Prob > F      =  0.9891
+    Residual |  199.684892   196  1.01880047           R-squared     =  0.0016
+-------------+------------------------------           Adj R-squared = -0.0188
+       Total |         200   200           1           Root MSE      =  1.0094
+
+------------------------------------------------------------------------------
+         one |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          s1 |   -.000531    .077731    -0.01   0.995    -.1538275    .1527654
+          s2 |    .012802   .0857027     0.15   0.881    -.1562159    .1818199
+          s3 |   .0283145   .0761713     0.37   0.711     -.121906    .1785351
+          s4 |  -.0367099   .0869889    -0.42   0.673    -.2082642    .1348445
+------------------------------------------------------------------------------
+
+. * LM equals N times uncentered Rsq
+. scalar LMauxC = e(N)*e(r2)
+
+. di "LMauxC " LMauxC 
+LMauxC .31510777
+
+.  
+. * (5) DISPLAY RESULTS in Table 7.1 page 242
+. 
+. estimates table unrestricted restrictedC, se stats(N ll r2) b(%8.3f)
+
+------------------------------------
+    Variable | unrest~d   restri~C  
+-------------+----------------------
+          x2 |   -0.028     -0.029  
+             |    0.077      0.077  
+          x3 |    0.163             
+             |    0.067             
+          x4 |    0.103             
+             |    0.080             
+    x3plusx4 |               0.137  
+             |               0.048  
+       _cons |   -0.165     -0.167  
+             |    0.077      0.077  
+-------------+----------------------
+           N |  200.000    200.000  
+          ll | -238.772   -238.918  
+          r2 |                      
+------------------------------------
+                        legend: b/se
+
+. di "WaldC " WaldC  " p-value " chi2tail(1,WaldC) 
+WaldC .29301766 p-value .5882932
+
+. di " LRC " LRC " p-value " chi2tail(1,LRC) 
+ LRC .29264001 p-value .5885337
+
+. di " LMdirectC " LMdirectC " p-value " chi2tail(1,LMdirectC)
+ LMdirectC .29306257 p-value .58826462
+
+. di " LMauxC " LMauxC " p-value " chi2tail(1,LMauxC)
+ LMauxC .31510777 p-value .57456264
+
+. 
+. ****** (D) TEST H0: b3/b4 - 1 = 0
+. 
+. * (1) Wald test of b3 /b4 - 1 = 0
+. * Stata does not do nonlinear hypotheses.
+. * Instead do 7.2.5 algebra.
+. matrix drop h R Wald
+
+. matrix h = (bfull[1,2]/bfull[1,3] - 1) 
+
+. matrix R = (0, 1/bfull[1,3], -bfull[1,2]/(bfull[1,3]^2), 0)  
+
+. matrix Wald = h'*syminv(R*vfull*R')*h  
+
+. matrix list h
+
+symmetric h[1,1]
+           c1
+r1  .58785028
+
+. matrix list R
+
+R[1,4]
+            c1          c2          c3          c4
+r1           0   9.7411946  -15.467559           0
+
+. matrix list Wald 
+
+symmetric Wald[1,1]
+           c1
+c1  .15768686
+
+. scalar WaldD = Wald[1,1]
+
+. di " WaldD " WaldD " p-value " chi2tail(1,WaldD) 
+ WaldD .15768686 p-value .69129516
+
+. 
+. * (2) LR Test 
+. * This requires MLE subject to nonlinear constraints. 
+. * This is difficult so not done here.
+. * But note that here will get same result as if 
+. * get MLE subject to b3 = b4 which was done in (C).
+. 
+. * (3) LM test direct
+. * Like (2) requires restricted MLE.
+. * This is difficult so not done here.
+. * But note that here will get same result as if 
+. * get MLE subject to b3 = b4 which was done in (C).
+.  
+. * (4) LM test via auxiliary regrression
+. * Same as for (3)
+. 
+. * (5) DISPLAY RESULTS
+. di "WaldD " WaldD  " p-value " chi2tail(1,WaldD) 
+WaldD .15768686 p-value .69129516
+
+. 
+. 
+. *********** DISPLAY RESULTS GIVEN IN TABLE 7.1 on page 242 ***********
+. 
+. estimates table unrestricted restrictedA restrictedB restrictedC, se stats(N ll r2) b(%8.3f)
+
+----------------------------------------------------------
+    Variable | unrest~d   restri~A   restri~B   restri~C  
+-------------+--------------------------------------------
+          x2 |   -0.028     -0.016     -0.004     -0.029  
+             |    0.077      0.077      0.076      0.077  
+          x3 |    0.163                                   
+             |    0.067                                   
+          x4 |    0.103      0.128                        
+             |    0.080      0.080                        
+    x3plusx4 |                                     0.137  
+             |                                     0.048  
+       _cons |   -0.165     -0.172     -0.168     -0.167  
+             |    0.077      0.077      0.077      0.077  
+-------------+--------------------------------------------
+           N |  200.000    200.000    200.000    200.000  
+          ll | -238.772   -241.648   -242.923   -238.918  
+          r2 |                                            
+----------------------------------------------------------
+                                              legend: b/se
+
+. di "WaldA " WaldA  " p-value " chi2tail(1,WaldA) 
+WaldA 5.9040087 p-value .01510647
+
+. 
+. * Wald test statistics
+. di "Wald A to D: (A) " %8.3f WaldA " (B) " %8.3f WaldB " (C) " %8.3f WaldC " (D) " %8.3f WaldD
+Wald A to D: (A)    5.904 (B)    8.570 (C)    0.293 (D)    0.158
+
+. di " p-values  : (A) " %8.3f chi2tail(1,WaldA) " (B) " %8.3f chi2tail(2,WaldB) " (C) " %8.3f chi2t
+> ail(1,WaldC) " (D) " %8.3f chi2tail(1,WaldD) 
+ p-values  : (A)    0.015 (B)    0.014 (C)    0.588 (D)    0.691
+
+. 
+. * LR test statistics
+. di "LR A to D:   (A) " %8.3f LRA " (B) " %8.3f LRB " (C) " %8.3f LRC " (D) " %8.3f LRC
+LR A to D:   (A)    5.754 (B)    8.302 (C)    0.293 (D)    0.293
+
+. di " p-values :  (A) " %8.3f chi2tail(1,LRA) " (B) " %8.3f chi2tail(2,LRB) " (C) " %8.3f chi2tail(
+> 1,LRC) " (D) " %8.3f chi2tail(1,LRC) 
+ p-values :  (A)    0.016 (B)    0.016 (C)    0.589 (D)    0.589
+
+. 
+. * Direct LM test statistics
+. di "LM A to D:   (A) " %8.3f LMdirectA " (B) " %8.3f LMdirectB " (C) " %8.3f LMdirectC " (D) " %8.
+> 3f LMdirectC
+LM A to D:   (A)    5.916 (B)    8.575 (C)    0.293 (D)    0.293
+
+. di " p-values:   (A) " %8.3f chi2tail(1,LMdirectA) " (B) " %8.3f chi2tail(2,LMdirectB) " (C) " %8.
+> 3f chi2tail(1,LMdirectC) " (D) " %8.3f chi2tail(1,LMdirectC) 
+ p-values:   (A)    0.015 (B)    0.014 (C)    0.588 (D)    0.588
+
+. 
+. * Auxiliary Regression LM test statistics
+. di "LM* A to D:  (A) " %8.3f LMauxA " (B) " %8.3f LMauxB " (C) " %8.3f LMauxC " (D) " %8.3f LMauxC
+LM* A to D:  (A)    6.218 (B)    9.186 (C)    0.315 (D)    0.315
+
+. di " p-values :  (A) " %8.3f chi2tail(1,LMauxA) " (B) " %8.3f chi2tail(2,LMauxB) " (C) " %8.3f chi
+> 2tail(1,LMauxC) " (D) " %8.3f chi2tail(1,LMauxC) 
+ p-values :  (A)    0.013 (B)    0.010 (C)    0.575 (D)    0.575
+
+. 
+. ********** CLOSE OUTPUT ***********
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma07p1mltests.txt
+  log type:  text
+ closed on:  17 May 2005, 13:59:21
+----------------------------------------------------------------------------------------------------

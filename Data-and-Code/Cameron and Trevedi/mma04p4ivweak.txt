@@ -1,0 +1,1015 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma04p4ivweak.txt
+  log type:  text
+ opened on:  17 May 2005, 13:45:59
+
+. 
+. ********** OVERVIEW OF MMA04P4IVWEAK.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 4.9.5 pages 110-2
+. * IV regression with potentially weak instruments
+. * (1) Compares OLS and IV estimation of log-wages on schooling regression
+. *     where schooling, experience and experience-squared are endogenous
+. *     and proximity to 4-year college, age and age-squared are instruments
+. *     so model is just-identified.
+. * (2) Verifies that here can treat errors as homoskedastic
+. * (3) Looks at weak instruments 
+. *     (A) instrument relevance: Whether Shea's partial R-squared is low
+. *     (B) finite sample bias: whether first-stage partial F is low
+. * (4) Provides Table 4.5
+. * (5) Does more analysis than reported in the book
+. 
+. * To run this program you need data and dictionary files
+. *    DATA66.dat    ASCII data set
+. *    DATA66.dct    Stata dictionary that labels variables
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set memory 20m
+(20480k)
+
+. set linesize 150   /* Permits long inputline commands with delimit */
+
+. 
+. ********** ORIGINAL DATA SOURCE **********
+. 
+. * Program mma4p4ivweak.do based on Kling Analys66.d0  September 2003
+. * written for Jeffrey R. Kling (2001) "Interpreting Instrumental Variables Estimates
+. * of the Return to Schooling", Journal of Business and Economic Statistics,
+. * July 2001, 19 (3), pp.358-364.
+. * This program focuses on Columns (1) and (2) of Kling's Table 1 on p.359
+. * in turn based on 
+. * David Card (1995), "Using Geographic Variation in College Proximity to
+. *   Estimate the Returns to Schooling", in 
+. *   Aspects of Labor Market Behavior: Essays in Honor of John Vanderkamp, 
+. *   eds. L.N. Christofides et al., Toronto: University of Toronto Press, pp.201-221.
+.  
+. ********** READ IN DATA and SUMMARIZE **********
+. 
+. infile using DATA66.dct, using(DATA66.dat)
+
+dictionary using DATA66.dat {
+  _column(1)   id          %8f   "ID CODE (r0000100)  n= 5225  mean= 2613.000  min=  1 max= 5225   "
+  _column(9)   black       %3f   "Race (r0002300)  n= 5225  mean=  1.296    min=  1    max=3       "
+  _column(13)  imigrnt     %3f   "Was r's brthpl in the US? (r0038000) n=4965 mean=0.98 mn=0 mx=1  "
+  _column(17)  hhead       %8f   "Person R lived w/ @ age 14 (r0039700) n= 5213 mean=1.92 mn=1 mx=9"
+  _column(28)  mag_14     %10f   "Were magznes avail at age 14 (r0039900) n=5167 mean=0.69 mn=0 mx=1 "
+  _column(40)  news_14    %10f   "Were nwspaprs avail at age 14 (r0040000) n=5195 mean=0.85 mn=0 mx=1"
+  _column(52)  lib_14     %10f   "Were lib-card avail at age14 (r0040100) n=5204 mean=0.66 mn=0 mx=1 "
+  _column(63)  num_sib     %8f   "Tot # sibs r 66 (r0056900)  n=5168  mean=3.408  min=0  max=18"
+  _column(72)  fgrade      %8f   "Hgc by father, 66 (r0063100)  n=3930  mean=9.937 min=0 max=18"
+  _column(81)  mgrade      %8f   "Hgc by mother, 66  (r0063300) n=4573  mean=10.25 min=0 max=18"
+  _column(90)  iq          %8f   "Iq_score  (r0171100)  n= 3369  mean=101.582  min=50  max=158 "
+  _column(99)  bdate       %8f   "Birthdate - STATA formatted                                  "
+  _column(108) gfill76     %8f   "'76 Grade level, some values filled from prevs reports"
+  _column(117) wt76        %8f   "'76 Weight     "
+  _column(126) grade76     %8f   "'76 Grade level"
+  _column(135) grade66     %8f   "'66 Grade level"
+  _column(144) age66       %8f   "Age reported by screener (r0002200)    "
+  _column(153) smsa66      %8f   "If lived in SMSA in 1966 (r0002455=1,2)"
+  _column(162) region      %8f   "Census Region in 1966 (r0002900)       "
+  _column(171) smsa76      %8f   "If lived in SMSA in 1976 (r0437515=1,2)"
+  _column(180) col4        %8f   "If any 4-year college nearby (r0004000!=4)    "
+  _column(189) mcol4       %8f   "If male 4-year college nearby (r0004100=1,2)  "
+  _column(198) col4pub     %8f   "If public 4-year college nearby (r0004000=2,3)"
+  _column(207) south76     %1f   "If lived in South in 1976 (r0437511=1)        "
+  _column(209) wage76     %10f   "'76 Wage"
+  _column(219) exp76       %8f   "'76 experience, (10 + age66) - grade76 - 6)"
+  _column(230) expsq76    %10f   "'76 experience, exp76 ^2/100               "
+  _column(243) age76       %8f   "'76 age (age66 +10)                        "
+  _column(252) agesq76     %8f   "'76 age squared (age76^2)                  "
+  _column(261) reg1        %8f   "region==NE"
+  _column(270) reg2        %8f   "If lived in Region 2 (region= MidAtl)"
+  _column(279) reg3        %8f   "If lived in Region 3 (region= ENC)   "
+  _column(288) reg4        %8f   "If lived in Region 4 (region= WNC)   "
+  _column(297) reg5        %8f   "If lived in Region 5 (region= SA )   "
+  _column(306) reg6        %8f   "If lived in Region 6 (region= ESC)   "
+  _column(315) reg7        %8f   "If lived in Region 7 (region= WSC)   "
+  _column(324) reg8        %8f   "If lived in Region 8 (region= M  )   "
+  _column(333) reg9        %8f   "If lived in Region 9 (region= P  )   "
+  _column(342) momdad14    %8f   "If lived with both parents at age 14 "
+  _column(351) sinmom14    %8f   "If lived with mother only at age 14  "
+  _column(360) nodaded     %1f   "If father has no formal education    "
+  _column(362) nomomed     %1f   "If mother has no formal education    "
+  _column(365) daded      %10f   "Mean grade level of father           "
+  _column(377) momed      %10f   "Mean grade level of mother           "
+  _column(396) famed       %8f   "Father's and mother's education      "
+  _column(405) famed1      %8f   "If mgrade> 12 & fgrade> 12 (famed=1) "
+  _column(414) famed2      %8f   "If mgrade>=12 & fgrade>=12 (famed=2) "
+  _column(423) famed3      %8f   "If mgrade==12 & fgrade==12 (famed=3) "
+  _column(432) famed4      %8f   "If mgrade>=12 & fgrade==-1 (famed=4) "
+  _column(441) famed5      %8f   "If fgrade>=12 (famed=5)              "
+  _column(450) famed6      %8f   "If mgrade>=12 & fgrade> -1 (famed=6) "
+  _column(459) famed7      %8f   "If mgrade>=9  & fgrade>=9 (famed=7)  "
+  _column(468) famed8      %8f   "If mgrade> -1 & fgrade> -1 (famed=8) "
+  _column(477) famed9      %8f   "If famed not in range (1-8)"
+  _column(486) int76       %8f   "If wt76 not missing   "
+  _column(495) age1415     %8f   "If in age group =14-15"
+  _column(504) age1617     %8f   "If in age group =16-17"
+  _column(513) age1819     %8f   "If in age group =18-19"
+  _column(522) age2021     %8f   "If in age group =20-21"
+  _column(531) age2224     %8f   "If in age group =20-24"
+  _column(540) cage1415    %8f   "If in age group =14,15 and lived near college"
+  _column(549) cage1617    %8f   "If in age group =16,17 and lived near college"
+  _column(558) cage1819    %8f   "If in age group =18,19 and lived near college"
+  _column(567) cage2021    %8f   "If in age group =20,21 and lived near college"
+  _column(576) cage2224    %8f   "If in age group =20-24 and lived near college"
+  _column(585) cage66      %8f   "Age in 66 and whether lived near college     "
+  _column(594) a1          %8f   "If age in 66 = 14 (age66=  14)"
+  _column(603) a2          %8f   "If age in 66 = 15 (age66=  15)"
+  _column(612) a3          %8f   "If age in 66 = 16 (age66=  16)"
+  _column(621) a4          %8f   "If age in 66 = 17 (age66=  17)"
+  _column(630) a5          %8f   "If age in 66 = 18 (age66=  18)"
+  _column(639) a6          %8f   "If age in 66 = 19 (age66=  19)"
+  _column(648) a7          %8f   "If age in 66 = 20 (age66=  20)"
+  _column(657) a8          %8f   "If age in 66 = 21 (age66=  21)"
+  _column(666) a9          %8f   "If age in 66 = 22 (age66=  22)"
+  _column(675) a10         %8f   "If age in 66 = 23 (age66=  23)"
+  _column(684) a11         %8f   "If age in 66 = 24 (age66=  24)"
+  _column(693) ca1         %8f   "Not lived near college in 66"
+  _column(702) ca2         %8f   "If age in 66 = 14 and lived near college"
+  _column(711) ca3         %8f   "If age in 66 = 15 and lived near college"
+  _column(720) ca4         %8f   "If age in 66 = 16 and lived near college"
+  _column(729) ca5         %8f   "If age in 66 = 17 and lived near college"
+  _column(738) ca6         %8f   "If age in 66 = 18 and lived near college"
+  _column(747) ca7         %8f   "If age in 66 = 19 and lived near college"
+  _column(756) ca8         %8f   "If age in 66 = 20 and lived near college"
+  _column(765) ca9         %8f   "If age in 66 = 21 and lived near college"
+  _column(774) ca10        %2f   "If age in 66 = 22 and lived near college"
+  _column(777) ca11        %2f   "If age in 66 = 23 and lived near college"
+  _column(780) ca12        %8f   "If age in 66 = 24 and lived near college"
+  _column(782) g25        %12f   "Grade level when 25 years old           "
+  _column(795) g25i       %12f   "If =g25 and intrvwed in year used for determining g25   "
+  _column(819) intmo66     %8f   "Intvw month in 1966, used to identify cases incl by CARD"
+  _column(828) nlsflt      %8f   "Flag to identify if the case was used by CARD"
+  _column(837) nsib        %8f   "Number of siblings "
+  _column(846) ns1         %8f   "If number of siblings = 0 (nsib= 0)"
+  _column(855) ns2         %8f   "If number of siblings = 2 (nsib= 2)"
+  _column(864) ns3         %8f   "If number of siblings = 3 (nsib= 3)"
+  _column(873) ns4         %8f   "If number of siblings = 4 (nsib= 4)"
+  _column(882) ns5         %8f   "If number of siblings = 6 (nsib= 6)"
+  _column(891) ns6         %8f   "If number of siblings = 9 (nsib= 9)"
+  _column(900) ns7         %8f   "If number of siblings =18 (nsib=18)"
+}
+
+(5226 observations read)
+
+. * save DATA66, replace
+. desc
+
+Contains data
+  obs:         5,226                          
+ vars:           101                          
+ size:     2,132,208 (89.8% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  ID CODE (r0000100)  n= 5225
+                                                mean= 2613.000  min=  1 max=
+                                                5225   
+black           float  %9.0g                  Race (r0002300)  n= 5225  mean=
+                                                1.296    min=  1    max=3
+imigrnt         float  %9.0g                  Was r's brthpl in the US?
+                                                (r0038000) n=4965 mean=0.98
+                                                mn=0 mx=1  
+hhead           float  %9.0g                  Person R lived w/ @ age 14
+                                                (r0039700) n= 5213 mean=1.92
+                                                mn=1 mx=9
+mag_14          float  %9.0g                  Were magznes avail at age 14
+                                                (r0039900) n=5167 mean=0.69
+                                                mn=0 mx=1 
+news_14         float  %9.0g                  Were nwspaprs avail at age 14
+                                                (r0040000) n=5195 mean=0.85
+                                                mn=0 mx=1
+lib_14          float  %9.0g                  Were lib-card avail at age14
+                                                (r0040100) n=5204 mean=0.66
+                                                mn=0 mx=1 
+num_sib         float  %9.0g                  Tot # sibs r 66 (r0056900)
+                                                n=5168  mean=3.408  min=0
+                                                max=18
+fgrade          float  %9.0g                  Hgc by father, 66 (r0063100)
+                                                n=3930  mean=9.937 min=0 max=18
+mgrade          float  %9.0g                  Hgc by mother, 66  (r0063300)
+                                                n=4573  mean=10.25 min=0 max=18
+iq              float  %9.0g                  Iq_score  (r0171100)  n= 3369
+                                                mean=101.582  min=50  max=158 
+bdate           float  %9.0g                  Birthdate - STATA formatted
+gfill76         float  %9.0g                  '76 Grade level, some values
+                                                filled from prevs reports
+wt76            float  %9.0g                  '76 Weight     
+grade76         float  %9.0g                  '76 Grade level
+grade66         float  %9.0g                  '66 Grade level
+age66           float  %9.0g                  Age reported by screener
+                                                (r0002200)    
+smsa66          float  %9.0g                  If lived in SMSA in 1966
+                                                (r0002455=1,2)
+region          float  %9.0g                  Census Region in 1966
+                                                (r0002900)       
+smsa76          float  %9.0g                  If lived in SMSA in 1976
+                                                (r0437515=1,2)
+col4            float  %9.0g                  If any 4-year college nearby
+                                                (r0004000!=4)    
+mcol4           float  %9.0g                  If male 4-year college nearby
+                                                (r0004100=1,2)  
+col4pub         float  %9.0g                  If public 4-year college nearby
+                                                (r0004000=2,3)
+south76         float  %9.0g                  If lived in South in 1976
+                                                (r0437511=1)        
+wage76          float  %9.0g                  '76 Wage
+exp76           float  %9.0g                  '76 experience, (10 + age66) -
+                                                grade76 - 6)
+expsq76         float  %9.0g                  '76 experience, exp76 ^2/100
+age76           float  %9.0g                  '76 age (age66 +10)
+agesq76         float  %9.0g                  '76 age squared (age76^2)
+reg1            float  %9.0g                  region==NE
+reg2            float  %9.0g                  If lived in Region 2 (region=
+                                                MidAtl)
+reg3            float  %9.0g                  If lived in Region 3 (region=
+                                                ENC)   
+reg4            float  %9.0g                  If lived in Region 4 (region=
+                                                WNC)   
+reg5            float  %9.0g                  If lived in Region 5 (region=
+                                                SA )   
+reg6            float  %9.0g                  If lived in Region 6 (region=
+                                                ESC)   
+reg7            float  %9.0g                  If lived in Region 7 (region=
+                                                WSC)   
+reg8            float  %9.0g                  If lived in Region 8 (region= M
+                                                )   
+reg9            float  %9.0g                  If lived in Region 9 (region= P
+                                                )   
+momdad14        float  %9.0g                  If lived with both parents at
+                                                age 14 
+sinmom14        float  %9.0g                  If lived with mother only at
+                                                age 14  
+nodaded         float  %9.0g                  If father has no formal
+                                                education    
+nomomed         float  %9.0g                  If mother has no formal
+                                                education    
+daded           float  %9.0g                  Mean grade level of father
+momed           float  %9.0g                  Mean grade level of mother
+famed           float  %9.0g                  Father's and mother's education
+famed1          float  %9.0g                  If mgrade> 12 & fgrade> 12
+                                                (famed=1) 
+famed2          float  %9.0g                  If mgrade>=12 & fgrade>=12
+                                                (famed=2) 
+famed3          float  %9.0g                  If mgrade==12 & fgrade==12
+                                                (famed=3) 
+famed4          float  %9.0g                  If mgrade>=12 & fgrade==-1
+                                                (famed=4) 
+famed5          float  %9.0g                  If fgrade>=12 (famed=5)
+famed6          float  %9.0g                  If mgrade>=12 & fgrade> -1
+                                                (famed=6) 
+famed7          float  %9.0g                  If mgrade>=9  & fgrade>=9
+                                                (famed=7)  
+famed8          float  %9.0g                  If mgrade> -1 & fgrade> -1
+                                                (famed=8) 
+famed9          float  %9.0g                  If famed not in range (1-8)
+int76           float  %9.0g                  If wt76 not missing   
+age1415         float  %9.0g                  If in age group =14-15
+age1617         float  %9.0g                  If in age group =16-17
+age1819         float  %9.0g                  If in age group =18-19
+age2021         float  %9.0g                  If in age group =20-21
+age2224         float  %9.0g                  If in age group =20-24
+cage1415        float  %9.0g                  If in age group =14,15 and
+                                                lived near college
+cage1617        float  %9.0g                  If in age group =16,17 and
+                                                lived near college
+cage1819        float  %9.0g                  If in age group =18,19 and
+                                                lived near college
+cage2021        float  %9.0g                  If in age group =20,21 and
+                                                lived near college
+cage2224        float  %9.0g                  If in age group =20-24 and
+                                                lived near college
+cage66          float  %9.0g                  Age in 66 and whether lived
+                                                near college     
+a1              float  %9.0g                  If age in 66 = 14 (age66=  14)
+a2              float  %9.0g                  If age in 66 = 15 (age66=  15)
+a3              float  %9.0g                  If age in 66 = 16 (age66=  16)
+a4              float  %9.0g                  If age in 66 = 17 (age66=  17)
+a5              float  %9.0g                  If age in 66 = 18 (age66=  18)
+a6              float  %9.0g                  If age in 66 = 19 (age66=  19)
+a7              float  %9.0g                  If age in 66 = 20 (age66=  20)
+a8              float  %9.0g                  If age in 66 = 21 (age66=  21)
+a9              float  %9.0g                  If age in 66 = 22 (age66=  22)
+a10             float  %9.0g                  If age in 66 = 23 (age66=  23)
+a11             float  %9.0g                  If age in 66 = 24 (age66=  24)
+ca1             float  %9.0g                  Not lived near college in 66
+ca2             float  %9.0g                  If age in 66 = 14 and lived
+                                                near college
+ca3             float  %9.0g                  If age in 66 = 15 and lived
+                                                near college
+ca4             float  %9.0g                  If age in 66 = 16 and lived
+                                                near college
+ca5             float  %9.0g                  If age in 66 = 17 and lived
+                                                near college
+ca6             float  %9.0g                  If age in 66 = 18 and lived
+                                                near college
+ca7             float  %9.0g                  If age in 66 = 19 and lived
+                                                near college
+ca8             float  %9.0g                  If age in 66 = 20 and lived
+                                                near college
+ca9             float  %9.0g                  If age in 66 = 21 and lived
+                                                near college
+ca10            float  %9.0g                  If age in 66 = 22 and lived
+                                                near college
+ca11            float  %9.0g                  If age in 66 = 23 and lived
+                                                near college
+ca12            float  %9.0g                  If age in 66 = 24 and lived
+                                                near college
+g25             float  %9.0g                  Grade level when 25 years old
+g25i            float  %9.0g                  If =g25 and intrvwed in year
+                                                used for determining g25   
+intmo66         float  %9.0g                  Intvw month in 1966, used to
+                                                identify cases incl by CARD
+nlsflt          float  %9.0g                  Flag to identify if the case
+                                                was used by CARD
+nsib            float  %9.0g                  Number of siblings 
+ns1             float  %9.0g                  If number of siblings = 0
+                                                (nsib= 0)
+ns2             float  %9.0g                  If number of siblings = 2
+                                                (nsib= 2)
+ns3             float  %9.0g                  If number of siblings = 3
+                                                (nsib= 3)
+ns4             float  %9.0g                  If number of siblings = 4
+                                                (nsib= 4)
+ns5             float  %9.0g                  If number of siblings = 6
+                                                (nsib= 6)
+ns6             float  %9.0g                  If number of siblings = 9
+                                                (nsib= 9)
+ns7             float  %9.0g                  If number of siblings =18
+                                                (nsib=18)
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      5225        2613    1508.472          1       5225
+       black |      5225    .2752153    .4466655          0          1
+     imigrnt |      5225    .0237321    .1522277          0          1
+       hhead |      5225   -.3783732    47.95128       -999          9
+      mag_14 |      5225    .6861566    .4616275          0          1
+-------------+--------------------------------------------------------
+     news_14 |      5225    .8483024    .3577176          0          1
+      lib_14 |      5225     .658469    .4733619          0          1
+     num_sib |      5168    3.407701    2.586307          0         18
+      fgrade |      3930     9.93715    3.777654          0         18
+      mgrade |      4573    10.25104     3.17986          0         18
+-------------+--------------------------------------------------------
+          iq |      3369    101.5818    15.93225         50        158
+       bdate |      5204    472926.6    31765.04     360823     521224
+     gfill76 |      5225    12.78718    2.802705          0         18
+        wt76 |      3695    475512.5    265188.5      98617    2582192
+     grade76 |      3671    13.23018    2.747627          0         18
+-------------+--------------------------------------------------------
+     grade66 |      5225    10.58431    2.433696          0         18
+       age66 |      5225    18.09129    3.157657         14         24
+      smsa66 |      5225    .6599043    .4737864          0          1
+      region |      5225    4.721722    2.300767          1          9
+      smsa76 |      5225     .491866    .4999817          0          1
+-------------+--------------------------------------------------------
+        col4 |      5225     .691866    .4617664          0          1
+       mcol4 |      5225    .6874641    .4635713          0          1
+     col4pub |      5225    .5129187    .4998809          0          1
+     south76 |      3695    .3964817    .4892328          0          1
+      wage76 |      3078    1.658013    .4430234          0     3.1797
+-------------+--------------------------------------------------------
+       exp76 |      3671    8.933533    4.212664          0         25
+     expsq76 |      3671    .9754971    .8778352          0       6.25
+       age76 |      5225    28.09129    3.157657         24         34
+     agesq76 |      5225    799.0896    182.0539        576       1156
+        reg1 |      5225         .04    .1959779          0          1
+-------------+--------------------------------------------------------
+        reg2 |      5225    .1617225    .3682313          0          1
+        reg3 |      5225    .1900478    .3923763          0          1
+        reg4 |      5225    .0639234    .2446399          0          1
+        reg5 |      5225    .2126316    .4092083          0          1
+        reg6 |      5225    .0895694    .2855912          0          1
+-------------+--------------------------------------------------------
+        reg7 |      5225    .1083254    .3108206          0          1
+        reg8 |      5225    .0304306    .1717855          0          1
+        reg9 |      5225    .1033493    .3044437          0          1
+    momdad14 |      5225    .7680383    .4221251          0          1
+    sinmom14 |      5225    .1182775    .3229673          0          1
+-------------+--------------------------------------------------------
+     nodaded |      5225    .2478469    .4318038          0          1
+     nomomed |      5225    .1247847    .3305062          0          1
+       daded |      5225    9.937162    3.276134          0         18
+       momed |      5225    10.25103    2.974812          0         18
+       famed |      5225     6.05933    2.643855          1          9
+-------------+--------------------------------------------------------
+      famed1 |      5225    .0610526    .2394497          0          1
+      famed2 |      5225    .0742584     .262216          0          1
+      famed3 |      5225    .1144498    .3183872          0          1
+      famed4 |      5225    .0474641    .2126498          0          1
+      famed5 |      5225     .077512    .2674276          0          1
+-------------+--------------------------------------------------------
+      famed6 |      5225    .1245933    .3302888          0          1
+      famed7 |      5225    .0486124     .215077          0          1
+      famed8 |      5225    .2273684    .4191726          0          1
+      famed9 |      5225     .224689    .4174173          0          1
+       int76 |      5225     .707177    .4551014          0          1
+-------------+--------------------------------------------------------
+     age1415 |      5225    .2595215    .4384141          0          1
+     age1617 |      5225    .2482297    .4320271          0          1
+     age1819 |      5225    .1751196    .3801058          0          1
+     age2021 |      5225      .11311    .3167576          0          1
+     age2224 |      5225    .2040191    .4030216          0          1
+-------------+--------------------------------------------------------
+    cage1415 |      5225    .1755024    .3804327          0          1
+    cage1617 |      5225    .1680383    .3739361          0          1
+    cage1819 |      5225    .1245933    .3302888          0          1
+    cage2021 |      5225    .0796172    .2707256          0          1
+    cage2224 |      5225    .1441148    .3512397          0          1
+-------------+--------------------------------------------------------
+      cage66 |      5225    12.56115    8.785895          0         24
+          a1 |      5225    .1314833    .3379605          0          1
+          a2 |      5225    .1280383    .3341644          0          1
+          a3 |      5225    .1326316    .3392086          0          1
+          a4 |      5225    .1155981    .3197729          0          1
+-------------+--------------------------------------------------------
+          a5 |      5225     .098756    .2983627          0          1
+          a6 |      5225    .0763636    .2656045          0          1
+          a7 |      5225    .0560766    .2300915          0          1
+          a8 |      5225    .0570335    .2319288          0          1
+          a9 |      5225    .0666029    .2493568          0          1
+-------------+--------------------------------------------------------
+         a10 |      5225    .0683254    .2523275          0          1
+         a11 |      5225    .0690909    .2536329          0          1
+         ca1 |      5225     .308134    .4617664          0          1
+         ca2 |      5225    .0876555    .2828203          0          1
+         ca3 |      5225    .0878469    .2830992          0          1
+-------------+--------------------------------------------------------
+         ca4 |      5225    .0870813    .2819812          0          1
+         ca5 |      5225    .0809569    .2727951          0          1
+         ca6 |      5225    .0708134    .2565374          0          1
+         ca7 |      5225    .0537799    .2256044          0          1
+         ca8 |      5225    .0390431     .193716          0          1
+-------------+--------------------------------------------------------
+         ca9 |      5225    .0405742    .1973204          0          1
+        ca10 |      5225    .0465072    .2106009          0          1
+        ca11 |      5225    .0484211    .2146748          0          1
+        ca12 |      5225    12.52593    2.740455          0         18
+         g25 |      5225    12.53923    2.749407          0         18
+-------------+--------------------------------------------------------
+        g25i |      4148    12.77929    2.740756          0         18
+     intmo66 |      5225   -5.790239    128.4984       -999         12
+      nlsflt |      5225    .9835407    .1272459          0          1
+        nsib |      5225    2.818565    2.473752          0         18
+         ns1 |      5225    .2547368    .4357549          0          1
+-------------+--------------------------------------------------------
+         ns2 |      5225    .3534928    .4780998          0          1
+         ns3 |      5225    .0109091    .1038853          0          1
+         ns4 |      5225    .1892823    .3917702          0          1
+         ns5 |      5225     .135311    .3420882          0          1
+         ns6 |      5225    .0558852    .2297218          0          1
+-------------+--------------------------------------------------------
+         ns7 |      5225    .0003828    .0195628          0          1
+
+. 
+. * Define the exogenous regressors using the global macro exogregressors
+. global exogregressors black south76 smsa76 reg2-reg9 /*
+>  */  smsa66 momdad14 sinmom14 nodaded nomomed daded momed famed1-famed8
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than stata  
+. outfile wage76 grade76 exp76 expsq76 col4 age76 agesq76 black south76 smsa76 reg2-reg9 /*
+>  */  smsa66 momdad14 sinmom14 nodaded nomomed daded momed famed1-famed8 /*
+>  */  using mma04p4ivweak.asc, replace
+
+. 
+. 
+. ********** (1) OLS AND IV ESTIMATES: COLUMNS 1 AND 2 OF KLING TABLE 1
+. 
+. * RETAIN cases for the analysis
+. * Here drop if missing wages or missing schooling or not at first interview
+. keep if wage76!=. & grade76!=. & nlsflt==1
+(2216 observations deleted)
+
+. 
+. * DESCRIBE dependent variable, regressors and instruments
+. desc wage76 grade76 exp76 expsq76 col4 age76 agesq76 $exogregressors 
+
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+wage76          float  %9.0g                  '76 Wage
+grade76         float  %9.0g                  '76 Grade level
+exp76           float  %9.0g                  '76 experience, (10 + age66) -
+                                                grade76 - 6)
+expsq76         float  %9.0g                  '76 experience, exp76 ^2/100
+col4            float  %9.0g                  If any 4-year college nearby
+                                                (r0004000!=4)    
+age76           float  %9.0g                  '76 age (age66 +10)
+agesq76         float  %9.0g                  '76 age squared (age76^2)
+black           float  %9.0g                  Race (r0002300)  n= 5225  mean=
+                                                1.296    min=  1    max=3
+south76         float  %9.0g                  If lived in South in 1976
+                                                (r0437511=1)        
+smsa76          float  %9.0g                  If lived in SMSA in 1976
+                                                (r0437515=1,2)
+reg2            float  %9.0g                  If lived in Region 2 (region=
+                                                MidAtl)
+reg3            float  %9.0g                  If lived in Region 3 (region=
+                                                ENC)   
+reg4            float  %9.0g                  If lived in Region 4 (region=
+                                                WNC)   
+reg5            float  %9.0g                  If lived in Region 5 (region=
+                                                SA )   
+reg6            float  %9.0g                  If lived in Region 6 (region=
+                                                ESC)   
+reg7            float  %9.0g                  If lived in Region 7 (region=
+                                                WSC)   
+reg8            float  %9.0g                  If lived in Region 8 (region= M
+                                                )   
+reg9            float  %9.0g                  If lived in Region 9 (region= P
+                                                )   
+smsa66          float  %9.0g                  If lived in SMSA in 1966
+                                                (r0002455=1,2)
+momdad14        float  %9.0g                  If lived with both parents at
+                                                age 14 
+sinmom14        float  %9.0g                  If lived with mother only at
+                                                age 14  
+nodaded         float  %9.0g                  If father has no formal
+                                                education    
+nomomed         float  %9.0g                  If mother has no formal
+                                                education    
+daded           float  %9.0g                  Mean grade level of father
+momed           float  %9.0g                  Mean grade level of mother
+famed1          float  %9.0g                  If mgrade> 12 & fgrade> 12
+                                                (famed=1) 
+famed2          float  %9.0g                  If mgrade>=12 & fgrade>=12
+                                                (famed=2) 
+famed3          float  %9.0g                  If mgrade==12 & fgrade==12
+                                                (famed=3) 
+famed4          float  %9.0g                  If mgrade>=12 & fgrade==-1
+                                                (famed=4) 
+famed5          float  %9.0g                  If fgrade>=12 (famed=5)
+famed6          float  %9.0g                  If mgrade>=12 & fgrade> -1
+                                                (famed=6) 
+famed7          float  %9.0g                  If mgrade>=9  & fgrade>=9
+                                                (famed=7)  
+famed8          float  %9.0g                  If mgrade> -1 & fgrade> -1
+                                                (famed=8) 
+
+. 
+. * SUMMARIZE dependent variable, regressors and instruments
+. sum wage76 grade76 exp76 expsq76 col4 age76 agesq76 $exogregressors 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+      wage76 |      3010    1.656664     .443798          0     3.1797
+     grade76 |      3010    13.26346    2.676913          1         18
+       exp76 |      3010    8.856146    4.141672          0         23
+     expsq76 |      3010    .9557907    .8461831          0       5.29
+        col4 |      3010    .6820598    .4657535          0          1
+-------------+--------------------------------------------------------
+       age76 |      3010     28.1196    3.137004         24         34
+     agesq76 |      3010    800.5495    180.7484        576       1156
+       black |      3010    .2335548    .4231624          0          1
+     south76 |      3010    .4036545    .4907113          0          1
+      smsa76 |      3010    .7129568    .4524571          0          1
+-------------+--------------------------------------------------------
+        reg2 |      3010    .1607973     .367405          0          1
+        reg3 |      3010    .1956811      .39679          0          1
+        reg4 |      3010    .0641196    .2450066          0          1
+        reg5 |      3010    .2083056     .406164          0          1
+        reg6 |      3010    .0960133    .2946584          0          1
+-------------+--------------------------------------------------------
+        reg7 |      3010    .1099668    .3129003          0          1
+        reg8 |      3010    .0282392     .165683          0          1
+        reg9 |      3010    .0903654    .2867522          0          1
+      smsa66 |      3010    .6495017    .4772053          0          1
+    momdad14 |      3010    .7893688    .4078247          0          1
+-------------+--------------------------------------------------------
+    sinmom14 |      3010    .1006645    .3009339          0          1
+     nodaded |      3010    .2292359    .4204111          0          1
+     nomomed |      3010    .1172757     .321802          0          1
+       daded |      3010    9.988262    3.266511          0         18
+       momed |      3010    10.33675    2.987507          0         18
+-------------+--------------------------------------------------------
+      famed1 |      3010    .0614618    .2402153          0          1
+      famed2 |      3010    .0787375    .2693734          0          1
+      famed3 |      3010    .1249169    .3306796          0          1
+      famed4 |      3010    .0475083    .2127588          0          1
+      famed5 |      3010    .0790698    .2698925          0          1
+-------------+--------------------------------------------------------
+      famed6 |      3010    .1328904    .3395126          0          1
+      famed7 |      3010    .0504983    .2190073          0          1
+      famed8 |      3010    .2202658    .4144947          0          1
+
+. 
+. * OLS estimates of return to schooling.
+. *  This regression computes schooling coeff, se for Table1 col 1 p.359
+. *  based on all cases (age grp 14-24) reported highest grd cmpl 76
+. 
+. reg wage76 grade76 exp76 expsq76 $exogregressors 
+
+      Source |       SS       df       MS              Number of obs =    3010
+-------------+------------------------------           F( 29,  2980) =   44.94
+       Model |  180.320527    29  6.21794919           Prob > F      =  0.0000
+    Residual |   412.32209  2980  .138363117           R-squared     =  0.3043
+-------------+------------------------------           Adj R-squared =  0.2975
+       Total |  592.642616  3009  .196956669           Root MSE      =  .37197
+
+------------------------------------------------------------------------------
+      wage76 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     grade76 |    .072635   .0036984    19.64   0.000     .0653833    .0798868
+       exp76 |   .0845293   .0066819    12.65   0.000     .0714277    .0976308
+     expsq76 |  -.2289581   .0319499    -7.17   0.000    -.2916041   -.1663121
+       black |  -.1894065   .0194462    -9.74   0.000    -.2275358   -.1512773
+     south76 |  -.1464841   .0260345    -5.63   0.000    -.1975314   -.0954368
+      smsa76 |   .1377121   .0201334     6.84   0.000     .0982353    .1771889
+        reg2 |   .1023805   .0360137     2.84   0.005     .0317662    .1729947
+        reg3 |   .1488958   .0352521     4.22   0.000     .0797748    .2180168
+        reg4 |   .0601267   .0417556     1.44   0.150     -.021746    .1419994
+        reg5 |   .1348504   .0419098     3.22   0.001     .0526752    .2170255
+        reg6 |   .1452831   .0453155     3.21   0.001     .0564302    .2341359
+        reg7 |   .1301968    .044965     2.90   0.004     .0420312    .2183624
+        reg8 |  -.0444289   .0513937    -0.86   0.387    -.1451997    .0563419
+        reg9 |   .1285658   .0389959     3.30   0.001     .0521042    .2050274
+      smsa66 |   .0233775    .019544     1.20   0.232    -.0149436    .0616987
+    momdad14 |   .0693317   .0263402     2.63   0.009      .017685    .1209785
+    sinmom14 |   .0335387   .0354168     0.95   0.344    -.0359052    .1029825
+     nodaded |  -.0390477   .0531089    -0.74   0.462    -.1431815    .0650862
+     nomomed |   .0168143   .0348295     0.48   0.629     -.051478    .0851066
+       daded |  -.0017839   .0043977    -0.41   0.685    -.0104068    .0068389
+       momed |   .0081443   .0041513     1.96   0.050     4.64e-06    .0162839
+      famed1 |  -.1166029   .0788125    -1.48   0.139    -.2711354    .0379296
+      famed2 |   -.052544   .0712753    -0.74   0.461    -.1922977    .0872097
+      famed3 |  -.0719675   .0654608    -1.10   0.272    -.2003205    .0563856
+      famed4 |  -.0197095   .0437058    -0.45   0.652    -.1054062    .0659872
+      famed5 |  -.0252185   .0643526    -0.39   0.695    -.1513985    .1009615
+      famed6 |  -.0733887   .0621076    -1.18   0.237    -.1951667    .0483894
+      famed7 |   -.059927   .0656929    -0.91   0.362     -.188735     .068881
+      famed8 |  -.0738951   .0572428    -1.29   0.197    -.1861345    .0383444
+       _cons |  -.0278815   .1005974    -0.28   0.782    -.2251288    .1693659
+------------------------------------------------------------------------------
+
+. estimates store ols
+
+. 
+. * IV Instrumental variables estimates of return to schooling.
+. *  This regression computes schooling coeff and se for Table 1. col 2 p.359
+. *   Endogenous variables: schooling, experience, experience squared
+. *   Excl instruments: college in cnty, age age^2
+. *   based on all cases (age grp 14-24) reported highest grd cmpl 76 ***/
+. 
+. ivreg wage76 $exogregressors    /*
+>   */  (grade76 exp76 expsq76 = col4 age76 agesq76 $exogregressors)
+
+Instrumental variables (2SLS) regression
+
+      Source |       SS       df       MS              Number of obs =    3010
+-------------+------------------------------           F( 29,  2980) =   34.56
+       Model |  122.395448    29  4.22053269           Prob > F      =  0.0000
+    Residual |  470.247169  2980  .157801063           R-squared     =  0.2065
+-------------+------------------------------           Adj R-squared =  0.1988
+       Total |  592.642616  3009  .196956669           Root MSE      =  .39724
+
+------------------------------------------------------------------------------
+      wage76 |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     grade76 |   .1324485   .0493419     2.68   0.007     .0357009    .2291961
+       exp76 |   .0632411   .0241061     2.62   0.009     .0159748    .1105074
+     expsq76 |  -.1266694   .1184765    -1.07   0.285    -.3589735    .1056347
+       black |  -.1643766   .0292248    -5.62   0.000    -.2216795   -.1070737
+     south76 |  -.1400178   .0283887    -4.93   0.000    -.1956812   -.0843545
+      smsa76 |   .0909867   .0441338     2.06   0.039     .0044509    .1775224
+        reg2 |   .0753178   .0444167     1.70   0.090    -.0117726    .1624083
+        reg3 |   .1231473   .0431763     2.85   0.004      .038489    .2078057
+        reg4 |   .0241968   .0534911     0.45   0.651    -.0806865    .1290801
+        reg5 |   .1247819   .0455148     2.74   0.006     .0355383    .2140255
+        reg6 |    .135761   .0490304     2.77   0.006      .039624    .2318979
+        reg7 |   .1063645   .0519274     2.05   0.041     .0045472    .2081817
+        reg8 |  -.0850609    .064327    -1.32   0.186    -.2111907    .0410688
+        reg9 |   .0916464   .0515551     1.78   0.076    -.0094409    .1927337
+      smsa66 |   .0379821   .0241116     1.58   0.115    -.0092951    .0852592
+    momdad14 |    .043168   .0354056     1.22   0.223    -.0262539      .11259
+    sinmom14 |    .025849   .0383465     0.67   0.500    -.0493392    .1010373
+     nodaded |  -.0462392   .0570684    -0.81   0.418    -.1581366    .0656583
+     nomomed |   .0266252   .0383434     0.69   0.487     -.048557    .1018074
+       daded |  -.0110565   .0089768    -1.23   0.218    -.0286579    .0065449
+       momed |  -.0017539   .0093223    -0.19   0.851    -.0200326    .0165249
+      famed1 |   -.213271   .1160049    -1.84   0.066    -.4407287    .0141867
+      famed2 |  -.1567074   .1145696    -1.37   0.171    -.3813508    .0679361
+      famed3 |  -.1354685   .0872725    -1.55   0.121    -.3065889     .035652
+      famed4 |  -.0707323   .0627189    -1.13   0.260     -.193709    .0522444
+      famed5 |  -.0699675    .077928    -0.90   0.369    -.2227656    .0828306
+      famed6 |  -.1171712   .0754408    -1.55   0.120    -.2650926    .0307502
+      famed7 |  -.0921498   .0749801    -1.23   0.219    -.2391679    .0548683
+      famed8 |  -.1184618   .0713021    -1.66   0.097    -.2582681    .0213445
+       _cons |  -.4311125   .3567904    -1.21   0.227    -1.130693    .2684678
+------------------------------------------------------------------------------
+Instrumented:  grade76 exp76 expsq76
+Instruments:   black south76 smsa76 reg2 reg3 reg4 reg5 reg6 reg7 reg8 reg9
+               smsa66 momdad14 sinmom14 nodaded nomomed daded momed famed1
+               famed2 famed3 famed4 famed5 famed6 famed7 famed8 col4 age76
+               agesq76
+------------------------------------------------------------------------------
+
+. estimates store iv
+
+. 
+. ********** (2) NEW ANALYSIS: HETEROSKEDASTIC ROBUST STANDARD ERRORS **********
+. 
+. * Heteroskedastic errors makes little difference here.
+. 
+. quietly reg wage76 grade76 exp76 expsq76 $exogregressors
+
+. hettest   /* Shows that here there is no heteroskeadsticity for OLS */
+
+Breusch-Pagan / Cook-Weisberg test for heteroskedasticity 
+         Ho: Constant variance
+         Variables: fitted values of wage76
+
+         chi2(1)      =     0.42
+         Prob > chi2  =   0.5191
+
+. quietly reg wage76 grade76 exp76 expsq76 $exogregressors, robust
+
+. estimates store olshet
+
+. 
+. quietly ivreg wage76 $exogregressors   /*
+>   */ (grade76 exp76 expsq76 = col4 age76 agesq76 $exogregressors), robust 
+
+. estimates store ivhet
+
+. 
+. **** DISPLAY RESULTS IN TABLE 4.5 p.111
+. 
+. * Table 4.5 p.111: OLS and IV estimates, s.e.'s and R^2 in Table 4.5
+. 
+. * Table reports only the coefficient and standard erros for grade76
+. estimates table ols olshet iv ivhet, /*
+>    */ se stats(N ll r2 rss mss rmse df_r) b(%10.4f)
+
+------------------------------------------------------------------
+    Variable |    ols         olshet         iv         ivhet     
+-------------+----------------------------------------------------
+     grade76 |     0.0726       0.0726       0.1324       0.1324  
+             |     0.0037       0.0039       0.0493       0.0488  
+       exp76 |     0.0845       0.0845       0.0632       0.0632  
+             |     0.0067       0.0068       0.0241       0.0241  
+     expsq76 |    -0.2290      -0.2290      -0.1267      -0.1267  
+             |     0.0319       0.0322       0.1185       0.1182  
+       black |    -0.1894      -0.1894      -0.1644      -0.1644  
+             |     0.0194       0.0198       0.0292       0.0285  
+     south76 |    -0.1465      -0.1465      -0.1400      -0.1400  
+             |     0.0260       0.0280       0.0284       0.0292  
+      smsa76 |     0.1377       0.1377       0.0910       0.0910  
+             |     0.0201       0.0193       0.0441       0.0440  
+        reg2 |     0.1024       0.1024       0.0753       0.0753  
+             |     0.0360       0.0350       0.0444       0.0432  
+        reg3 |     0.1489       0.1489       0.1231       0.1231  
+             |     0.0353       0.0338       0.0432       0.0418  
+        reg4 |     0.0601       0.0601       0.0242       0.0242  
+             |     0.0418       0.0412       0.0535       0.0531  
+        reg5 |     0.1349       0.1349       0.1248       0.1248  
+             |     0.0419       0.0428       0.0455       0.0459  
+        reg6 |     0.1453       0.1453       0.1358       0.1358  
+             |     0.0453       0.0452       0.0490       0.0483  
+        reg7 |     0.1302       0.1302       0.1064       0.1064  
+             |     0.0450       0.0457       0.0519       0.0516  
+        reg8 |    -0.0444      -0.0444      -0.0851      -0.0851  
+             |     0.0514       0.0509       0.0643       0.0619  
+        reg9 |     0.1286       0.1286       0.0916       0.0916  
+             |     0.0390       0.0388       0.0516       0.0504  
+      smsa66 |     0.0234       0.0234       0.0380       0.0380  
+             |     0.0195       0.0187       0.0241       0.0231  
+    momdad14 |     0.0693       0.0693       0.0432       0.0432  
+             |     0.0263       0.0257       0.0354       0.0352  
+    sinmom14 |     0.0335       0.0335       0.0258       0.0258  
+             |     0.0354       0.0359       0.0383       0.0384  
+     nodaded |    -0.0390      -0.0390      -0.0462      -0.0462  
+             |     0.0531       0.0511       0.0571       0.0550  
+     nomomed |     0.0168       0.0168       0.0266       0.0266  
+             |     0.0348       0.0344       0.0383       0.0375  
+       daded |    -0.0018      -0.0018      -0.0111      -0.0111  
+             |     0.0044       0.0044       0.0090       0.0089  
+       momed |     0.0081       0.0081      -0.0018      -0.0018  
+             |     0.0042       0.0042       0.0093       0.0093  
+      famed1 |    -0.1166      -0.1166      -0.2133      -0.2133  
+             |     0.0788       0.0792       0.1160       0.1160  
+      famed2 |    -0.0525      -0.0525      -0.1567      -0.1567  
+             |     0.0713       0.0698       0.1146       0.1132  
+      famed3 |    -0.0720      -0.0720      -0.1355      -0.1355  
+             |     0.0655       0.0644       0.0873       0.0865  
+      famed4 |    -0.0197      -0.0197      -0.0707      -0.0707  
+             |     0.0437       0.0416       0.0627       0.0601  
+      famed5 |    -0.0252      -0.0252      -0.0700      -0.0700  
+             |     0.0644       0.0625       0.0779       0.0763  
+      famed6 |    -0.0734      -0.0734      -0.1172      -0.1172  
+             |     0.0621       0.0601       0.0754       0.0735  
+      famed7 |    -0.0599      -0.0599      -0.0921      -0.0921  
+             |     0.0657       0.0640       0.0750       0.0730  
+      famed8 |    -0.0739      -0.0739      -0.1185      -0.1185  
+             |     0.0572       0.0545       0.0713       0.0682  
+       _cons |    -0.0279      -0.0279      -0.4311      -0.4311  
+             |     0.1006       0.0997       0.3568       0.3528  
+-------------+----------------------------------------------------
+           N |  3010.0000    3010.0000    3010.0000    3010.0000  
+          ll | -1279.2297   -1279.2297                            
+          r2 |     0.3043       0.3043       0.2065       0.2065  
+         rss |   412.3221     412.3221     470.2472     470.2472  
+         mss |   180.3205     180.3205     122.3954     122.3954  
+        rmse |     0.3720       0.3720       0.3972       0.3972  
+        df_r |  2980.0000    2980.0000    2980.0000    2980.0000  
+------------------------------------------------------------------
+                                                      legend: b/se
+
+. 
+. ********** (3) NEW ANALYSIS: CHECK FOR WEAK INSTRUMENTS **********
+. 
+. * Model is y = b1*x1 + x2'b2 + u
+. * where x1 is scalar endogenous  (grade76)
+. * where x2 is vector of regressors that includes 
+. *          exp76 and exp76 which are also endogenous
+. *          and $exogregressors which are exogenous
+. * and the instruments Z are grade76 col4 age76 agesq76 $exogregressors       
+. 
+. * Check for weak instruments
+. * Focus on grade76 but can also do this for the other two endogenous regressors. 
+. * In this example no problems for the other two: 
+. * as age and age-squared are good instruments for exp and exp-squared.
+. 
+. **** (A) Simple analysis R-squared and F-test  [Given in Table 4.5]
+. 
+. * R2 from regress endogenous regressor on instruments
+. * This is same as correlation between x1 and projection of x1 on Z
+. quietly reg grade76 col4 age76 agesq76 $exogregressors 
+
+. di e(r2) "  r2 of x1 on Z" 
+.29677588  r2 of x1 on Z
+
+. 
+. * Do the partial F-test on the three instruments
+. * This is the standard first-stage regression F-test
+. 
+. **** DISPLAY RESULT IN TABLE 4.5 page 111 
+. 
+. * First-stage F statistic given in Table 4.5
+. test col4 age76 agesq76 
+
+ ( 1)  col4 = 0
+ ( 2)  age76 = 0
+ ( 3)  agesq76 = 0
+
+       F(  3,  2980) =    8.07
+            Prob > F =    0.0000
+
+. 
+. * Compare this to R-squared when only regress on instruments without Z
+. quietly reg grade76 $exogregressors 
+
+. di e(r2) "  r2 of x1 on Z with the three additional instruments dropped"
+.29106483  r2 of x1 on Z with the three additional instruments dropped
+
+. 
+. * Obtain first-stge F for the other two endogenous
+. quietly reg exp76 col4 age76 agesq76 $exogregressors 
+
+. test col4 age76 agesq76
+
+ ( 1)  col4 = 0
+ ( 2)  age76 = 0
+ ( 3)  agesq76 = 0
+
+       F(  3,  2980) = 1772.03
+            Prob > F =    0.0000
+
+. quietly reg expsq76 col4 age76 agesq76 $exogregressors 
+
+. test col4 age76 agesq76 
+
+ ( 1)  col4 = 0
+ ( 2)  age76 = 0
+ ( 3)  agesq76 = 0
+
+       F(  3,  2980) = 1542.36
+            Prob > F =    0.0000
+
+. 
+. **** (B) Minimum eigenvalue of matrix analog of the first-stage F statistic
+. *        proposed by Stock et al (2002) and tables in Stock and Yogo (2003)
+. * This test is not done here.
+. 
+. **** (C) Bound et al (1995) partial R-squared
+. 
+. * Not relevant here as more than one endogenous regressor
+. * If only one endogenous regressor x1 Bound et al purge the effect of x2
+. * by (1) get residual from regress x1 on x2  
+. *    (2) get the residuals from regress z on x2
+. * and then get the R-squared from regress (1) on (2).
+. 
+. **** (D) Shea (1997) partial R-squared [Given in Table 4.5]
+. 
+. * Here we have three endogenous regressors.
+. * Focus on the endogenous schooling regressor. 
+. * For the other two just need to replace the first line of (1)
+. * e.g. quietly reg exp76 grade76 expsq76 $exogregressors
+. * and replace the first line of (2B)
+. * e.g. quietly reg exp76hat grade76hat expsq76hat $exogregressors
+. 
+. * (1) Form x1 - x1tilda: residual from regress x1 on other regressors
+. quietly reg grade76 exp76 expsq76 $exogregressors
+
+. predict x1minusx1tilda, resid
+
+. 
+. * (2) Form x1hat - x1hattilda: residual from regress x1hat on fitted values of other regressors
+. * (2A) First get the fitted values from regress endogenous on instruments
+. quietly reg grade76 col4 age76 agesq76 $exogregressors
+
+. predict grade76hat, xb
+
+. di e(r2) "  r2 from regress x1 on Z" 
+.29677588  r2 from regress x1 on Z
+
+. quietly reg exp76 col4 age76 agesq76 $exogregressors
+
+. predict exp76hat, xb
+
+. di e(r2) "  r2 from regress second endog regressor on Z"
+.70622765  r2 from regress second endog regressor on Z
+
+. quietly reg expsq76 col4 age76 agesq76 $exogregressors
+
+. predict expsq76hat, xb
+
+. di e(r2) "  r2 from regress third endog regressor on Z"
+.67573235  r2 from regress third endog regressor on Z
+
+. * Fitted values for the exogenous from regress exogenous on instruments are the exogenous
+. * (2B) Run the regression of x1hat on fitted values of other regressors
+. quietly reg grade76hat exp76hat expsq76hat $exogregressors
+
+. di e(r2) "  r2 from regress prediction of x1 on predictions of x2
+.98987117  r2 from regress prediction of x1 on predictions of x2
+
+. predict x1hatminusx1hattilda, resid
+
+. 
+. * (3) Form the correlation between (1) and (2)  
+. corr x1minusx1tilda x1hatminusx1hattilda
+(obs=3010)
+
+             | x1minu~a x1hatm~a
+-------------+------------------
+x1minusx1t~a |   1.0000
+x1hatminus~a |   0.0800   1.0000
+
+
+. 
+. **** DISPLAY RESULT IN TABLE 4.5 page 111
+. 
+. * Shea's Partial R^2 in Table 4.5
+. di r(rho)^2 "  Shea's partial R-squared measure" 
+.00640757  Shea's partial R-squared measure
+
+. 
+. sum grade76 grade76hat exp76 exp76hat expsq76 expsq76hat grade76 x1minusx1tilda x1hatminusx1hattilda grade76hat
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     grade76 |      3010    13.26346    2.676913          1         18
+  grade76hat |      3010    13.26346    1.458306   8.919074   17.42063
+       exp76 |      3010    8.856146    4.141672          0         23
+    exp76hat |      3010    8.856146    3.480551   1.329216   17.68953
+     expsq76 |      3010    .9557907    .8461831          0       5.29
+-------------+--------------------------------------------------------
+  expsq76hat |      3010    .9557907    .6955874  -.3913698   2.917523
+     grade76 |      3010    13.26346    2.676913          1         18
+x1minusx1t~a |      3010   -8.71e-10    1.833502  -6.948598   5.661138
+x1hatminus~a |      3010   -6.86e-11    .1467669  -.3732457   .3033035
+  grade76hat |      3010    13.26346    1.458306   8.919074   17.42063
+
+. 
+. **** (E) Poskitt-Skeels (2002) partial R-squared
+. * Not done here
+. 
+. **** (F) If model was over-identified then do test of over-identifying restrictions
+. * Not done here as model is just-identified
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma04p4ivweak.txt
+  log type:  text
+ closed on:  17 May 2005, 13:46:03
+------------------------------------------------------------------------------------------------------------------------------------------------------

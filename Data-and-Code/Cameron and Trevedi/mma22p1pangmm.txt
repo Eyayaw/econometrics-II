@@ -1,0 +1,1290 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section5\mma22p1pangmm.txt
+  log type:  text
+ opened on:  23 May 2005, 11:52:35
+
+. 
+. ********** OVERVIEW OF MMA22P1PANGMM.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press
+. 
+. * Chapter 22.3 pages 754-6
+. * Panel 2SLS and GMM for a linear model with endogenous regressors
+. * Fixed effects are first differenced. 
+. * Then 2SLS and GMM applied to first differenced model.
+. 
+. * Program derives Table 22.2 and does other analysis in section
+. *  (1) pooled OLS
+. *  (2) 2SLS in base instruments case
+. *  (3) 2SLS in stacked instruments case
+. *  (4) 2SGMM in base instruments case
+. *  (5) 2SGMM in stacked instruments case
+. *  (6) F-statistics for weak instruments
+. *  (7) Partial R-squared for weak instruments
+. 
+. * The pooled OLS and 2SLS replicate Ziliak (1997) Table 1 Top left-hand corner
+. *   for Base Case (9 instruments) and first Stacked Case (72 instruments) 
+. * 2SLS in first differences where both 1979 and 1980 are dropped
+. 
+. * To run you need file
+. *   MOMprecise.dat    
+. * in your directory
+. 
+. * NOTE: This data set is different from MOM.dat used in chapter 21.
+. *       The data here has more significant digits.
+. *       leading to some difference in resulting coefficient estiamtes.
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. *  The original data is from 
+. *  Jim Ziliak (1997)
+. *  "Efficient Estimation With Panel Data when Instruments are Predetermined: 
+. * An Empirical Comparison of Moment-Condition Estimators" 
+. * Journal of Business and Economic Statistics, 15, 419-431
+. * NOTE: Data originally posted on JBES website was to only 2 dec places
+. * Here more accurate data is used (the same as the data used by Ziliak)
+. * Ziliak used Gauss. Here Stata is used. 
+. 
+. * File MOM.dat has data on 532 men over 10 years (1979-1988) 
+. * Data are space-delimited ordered by person with separate line for each year
+. * So id 1 1979, id 1 1980, ..., id 1 1988, id 2 1979, 1d 2 1980, ...
+. * 8 variables: 
+. * lnhr lnwg kids ageh agesq disab id year
+. 
+. * File MOMprecise.dat has more significant digits than file MOM.dat 
+. * (the version of the data posted at the JBES website (used in chapter 21)
+. 
+. ********** READ DATA **********
+. 
+. * The data are in ascii file MOM.dat
+. * There are 532 individuals with 10 lines (years) per individual
+. * Read in using Infile: FREE FORMAT WITHOUT DICTIONARY
+. infile lnhr lnwg kids ageh agesq disab id year using MOMprecise.dat
+(5320 observations read)
+
+. describe
+
+Contains data
+  obs:         5,320                          
+ vars:             8                          
+ size:       191,520 (98.1% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+lnhr            float  %9.0g                  
+lnwg            float  %9.0g                  
+kids            float  %9.0g                  
+ageh            float  %9.0g                  
+agesq           float  %9.0g                  
+disab           float  %9.0g                  
+id              float  %9.0g                  
+year            float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        lnhr |      5320    7.657458      .28564   2.772589   8.556414
+        lnwg |      5320    2.609477    .4260333  -.2613648   4.686474
+        kids |      5320    1.555827    1.195924          0          6
+        ageh |      5320    38.91823    8.450351         22         60
+       agesq |      5320    1586.024    689.7759        484       3600
+-------------+--------------------------------------------------------
+       disab |      5320    .0609023    .2391734          0          1
+          id |      5320       266.5    153.5893          1        532
+        year |      5320      1983.5    2.872551       1979       1988
+
+. 
+. ********** FIRST DIFFERENCES REGRESSION **********
+. 
+. * Stata has no command for first differences regression
+. * Though may be possible with xtivreg
+. 
+. * The following only works if each observation is (i,t) 
+. * and within i the data are ordered by t
+. gen dlnhr = lnhr - lnhr[_n-1]
+(1 missing value generated)
+
+. gen dlnwg = lnwg - lnwg[_n-1]
+(1 missing value generated)
+
+. gen dkids = kids - kids[_n-1]
+(1 missing value generated)
+
+. gen dageh = ageh - ageh[_n-1]
+(1 missing value generated)
+
+. gen dagesq = agesq - agesq[_n-1]
+(1 missing value generated)
+
+. gen ddisab = disab - disab[_n-1]
+(1 missing value generated)
+
+. 
+. * The regression is of 
+. * dlnhr on constant dlnwg dkids dageh dagesq ddisab 
+. 
+. ********** GENERATE THE INSTRUMENTS **********
+. 
+. * The endogenous variable is dlnwg. The others are exogenous.
+. * It is not clear whether current values of the exogenous variables are used as instruments.
+. * I would think so but there is no mention in the paper of this.
+. * In addition Table 1 considers various instrument sets
+. * We consider the first (first rows) and second (second rows)
+. 
+. * (1) Use the levels of the exogenous regressors lagged one and two periods 
+. *     and the level of the endogenous regressor lagged two periods
+. * This gives nine instruments   
+. gen kidsl1 = kids[_n-1] 
+(1 missing value generated)
+
+. gen kidsl2 = kids[_n-2] 
+(2 missing values generated)
+
+. gen agehl1 = ageh[_n-1] 
+(1 missing value generated)
+
+. gen agehl2 = ageh[_n-2]
+(2 missing values generated)
+
+. gen agesql1 = agesq[_n-1] 
+(1 missing value generated)
+
+. gen agesql2 = agesq[_n-2] 
+(2 missing values generated)
+
+. gen disabl1 = disab[_n-1] 
+(1 missing value generated)
+
+. gen disabl2 = disab[_n-2]
+(2 missing values generated)
+
+. gen lnwgl2 = lnwg[_n-2] 
+(2 missing values generated)
+
+. 
+. * (2) Use the same instruments as in (1) except now stacked so that 
+. *     now the instrument matrix is block-diagonal.
+. * This gives nine instruments times number of time periods.
+. * The original data are 1979 to 1988.
+. * We will eventually drop the first two years as lose 2 years due to lags. 
+. * For short hand call the instruments z1 to z9 and the years 1981 to 1988 y1 to y8.    
+. * Pad out to 8 x 9 = 72 instruments for 8 years
+. 
+. program define makeZ
+  1. forvalues i=1(1)8 {
+  2.   gen z1y`i'=0
+  3.   replace z1y`i' = ageh[_n-1] if year==1980+`i'
+  4.   gen z2y`i'=0 
+  5.   replace z2y`i' = agesq[_n-1] if year==1980+`i'
+  6.   gen z3y`i'=0
+  7.   replace z3y`i' = kids[_n-1] if year==1980+`i'
+  8.   gen z4y`i'=0 
+  9.   replace z4y`i' = disab[_n-1] if year==1980+`i'
+ 10.   gen z5y`i'=0
+ 11.   replace z5y`i' = ageh[_n-2] if year==1980+`i'
+ 12.   gen z6y`i'=0 
+ 13.   replace z6y`i' = agesq[_n-2] if year==1980+`i'
+ 14.   gen z7y`i'=0
+ 15.   replace z7y`i' = kids[_n-2] if year==1980+`i'
+ 16.   gen z8y`i'=0 
+ 17.   replace z8y`i' = disab[_n-2] if year==1980+`i'
+ 18.   gen z9y`i'=0 
+ 19.   replace z9y`i' = lnwg[_n-2] if year==1980+`i'
+ 20. }
+ 21. end
+
+. quietly makeZ
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        lnhr |      5320    7.657458      .28564   2.772589   8.556414
+        lnwg |      5320    2.609477    .4260333  -.2613648   4.686474
+        kids |      5320    1.555827    1.195924          0          6
+        ageh |      5320    38.91823    8.450351         22         60
+       agesq |      5320    1586.024    689.7759        484       3600
+-------------+--------------------------------------------------------
+       disab |      5320    .0609023    .2391734          0          1
+          id |      5320       266.5    153.5893          1        532
+        year |      5320      1983.5    2.872551       1979       1988
+       dlnhr |      5319    .0000192    .3016322  -4.787492   4.521109
+       dlnwg |      5319    .0001115    .2718437   -2.32463   3.062298
+-------------+--------------------------------------------------------
+       dkids |      5319    -.000188    .6629109         -5          6
+       dageh |      5319    .0030081    4.611209        -36         19
+      dagesq |      5319    .2105659    371.0841      -3024       1577
+      ddisab |      5319           0    .2429913         -1          1
+      kidsl1 |      5319    1.555932    1.196012          0          6
+-------------+--------------------------------------------------------
+      kidsl2 |      5318    1.556036    1.196101          0          6
+      agehl1 |      5319    38.91747     8.45096         22         60
+      agehl2 |      5318    38.91707    8.451706         22         60
+     agesql1 |      5319    1585.974    689.8313        484       3600
+     agesql2 |      5318    1585.957    689.8949        484       3600
+-------------+--------------------------------------------------------
+     disabl1 |      5319    .0609137    .2391944          0          1
+     disabl2 |      5318    .0609252    .2392155          0          1
+      lnwgl2 |      5318    2.609513    .4261095  -.2613648   4.686474
+        z1y1 |      5320    3.544549    10.92972          0         52
+        z2y1 |      5320    132.0002    438.9997          0       2704
+-------------+--------------------------------------------------------
+        z3y1 |      5320    .1567669    .5978681          0          6
+        z4y1 |      5320    .0048872    .0697442          0          1
+        z5y1 |      5320    3.445489    10.64043          0         51
+        z6y1 |      5320    125.0688    418.0247          0       2601
+        z7y1 |      5320    .1520677    .5938801          0          6
+-------------+--------------------------------------------------------
+        z8y1 |      5320    .0054511    .0736372          0          1
+        z9y1 |      5320    .2597756    .7905791          0    4.61522
+        z1y2 |      5320     3.63891    11.20265          0         53
+        z2y2 |      5320    138.7175    458.8032          0       2809
+        z3y2 |      5320    .1590226    .6057112          0          6
+-------------+--------------------------------------------------------
+        z4y2 |      5320    .0039474    .0627099          0          1
+        z5y2 |      5320    3.544549    10.92972          0         52
+        z6y2 |      5320    132.0002    438.9997          0       2704
+        z7y2 |      5320    .1567669    .5978681          0          6
+        z8y2 |      5320    .0048872    .0697442          0          1
+-------------+--------------------------------------------------------
+        z9y2 |      5320    .2602349    .7906729          0    4.60976
+        z1y3 |      5320    3.737218    11.49054          0         54
+        z2y3 |      5320    145.9744    480.6547          0       2916
+        z3y3 |      5320    .1637218    .6172305          0          6
+        z4y3 |      5320    .0052632    .0723633          0          1
+-------------+--------------------------------------------------------
+        z5y3 |      5320     3.63891    11.20265          0         53
+        z6y3 |      5320    138.7175    458.8032          0       2809
+        z7y3 |      5320    .1590226    .6057112          0          6
+        z8y3 |      5320    .0039474    .0627099          0          1
+        z9y3 |      5320    .2610997    .7928738          0    4.52656
+-------------+--------------------------------------------------------
+        z1y4 |      5320     3.83985    11.79093          0         55
+        z2y4 |      5320    153.7444    503.9576          0       3025
+        z3y4 |      5320    .1620301    .6132476          0          6
+        z4y4 |      5320    .0037594    .0612043          0          1
+        z5y4 |      5320    3.737218    11.49054          0         54
+-------------+--------------------------------------------------------
+        z6y4 |      5320    145.9744    480.6547          0       2916
+        z7y4 |      5320    .1637218    .6172305          0          6
+        z8y4 |      5320    .0052632    .0723633          0          1
+        z9y4 |      5320    .2614749    .7946793          0   4.607767
+        z1y5 |      5320    3.940414    12.08767          0         56
+-------------+--------------------------------------------------------
+        z2y5 |      5320    161.6111    527.9522          0       3136
+        z3y5 |      5320    .1595865     .608814          0          6
+        z4y5 |      5320     .006015    .0773303          0          1
+        z5y5 |      5320     3.83985    11.79093          0         55
+        z6y5 |      5320    153.7444    503.9576          0       3025
+-------------+--------------------------------------------------------
+        z7y5 |      5320    .1620301    .6132476          0          6
+        z8y5 |      5320    .0037594    .0612043          0          1
+        z9y5 |      5320    .2610663    .7939903          0   4.618777
+        z1y6 |      5320    4.047368    12.40128          0         57
+        z2y6 |      5320     170.144    553.5552          0       3249
+-------------+--------------------------------------------------------
+        z3y6 |      5320    .1575188    .6042401          0          5
+        z4y6 |      5320    .0065789    .0808511          0          1
+        z5y6 |      5320    3.940414    12.08767          0         56
+        z6y6 |      5320    161.6111    527.9522          0       3136
+        z7y6 |      5320    .1595865     .608814          0          6
+-------------+--------------------------------------------------------
+        z8y6 |      5320     .006015    .0773303          0          1
+        z9y6 |      5320    .2600271    .7937085  -.2613648   4.648325
+        z1y7 |      5320    4.140602    12.67474          0         58
+        z2y7 |      5320    177.7635    576.2959          0       3364
+        z3y7 |      5320    .1537594    .5983346          0          5
+-------------+--------------------------------------------------------
+        z4y7 |      5320     .006203    .0785219          0          1
+        z5y7 |      5320    4.047368    12.40128          0         57
+        z6y7 |      5320     170.144    553.5552          0       3249
+        z7y7 |      5320    .1575188    .6042401          0          5
+        z8y7 |      5320    .0065789    .0808511          0          1
+-------------+--------------------------------------------------------
+        z9y7 |      5320     .261494    .7964894          0   4.686474
+        z1y8 |      5320    4.240414    12.96638          0         59
+        z2y8 |      5320    186.0765    600.9297          0       3481
+        z3y8 |      5320    .1494361    .5901043          0          5
+        z4y8 |      5320    .0090226    .0945665          0          1
+-------------+--------------------------------------------------------
+        z5y8 |      5320    4.140602    12.67474          0         58
+        z6y8 |      5320    177.7635    576.2959          0       3364
+        z7y8 |      5320    .1537594    .5983346          0          5
+        z8y8 |      5320     .006203    .0785219          0          1
+        z9y8 |      5320    .2602616    .7933278          0     4.5933
+
+. 
+. * Define variable lists for regressors X and instruments Z
+. 
+. global XREG dlnwg dkids dageh dagesq ddisab
+
+. 
+. global ZBASECASE kidsl1 agehl1 agesql1 disabl1 agehl2 kidsl2 agesql2 disabl2 lnwgl2
+
+. 
+. global ZSTACKED z1y1 z2y1 z3y1 z4y1 z5y1 z6y1 z7y1 z8y1 z9y1 /*
+>   */          z1y2 z2y2 z3y2 z4y2 z5y2 z6y2 z7y2 z8y2 z9y2 /*
+>   */          z1y3 z2y3 z3y3 z4y3 z5y3 z6y3 z7y3 z8y3 z9y3 /*
+>   */          z1y4 z2y4 z3y4 z4y4 z5y4 z6y4 z7y4 z8y4 z9y4 /*
+>   */          z1y5 z2y5 z3y5 z4y5 z5y5 z6y5 z7y5 z8y5 z9y5 /*
+>   */          z1y6 z2y6 z3y6 z4y6 z5y6 z6y6 z7y6 z8y6 z9y6 /*
+>   */          z1y7 z2y7 z3y7 z4y7 z5y7 z6y7 z7y7 z8y7 z9y7 /*
+>   */          z1y8 z2y8 z3y8 z4y8 z5y8 z6y8 z7y8 z8y8 z9y8
+
+. 
+. * Define variable lists for weak instruments test which drops 
+. 
+. save momfdiffgmm, replace
+file momfdiffgmm.dta saved
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        lnhr |      5320    7.657458      .28564   2.772589   8.556414
+        lnwg |      5320    2.609477    .4260333  -.2613648   4.686474
+        kids |      5320    1.555827    1.195924          0          6
+        ageh |      5320    38.91823    8.450351         22         60
+       agesq |      5320    1586.024    689.7759        484       3600
+-------------+--------------------------------------------------------
+       disab |      5320    .0609023    .2391734          0          1
+          id |      5320       266.5    153.5893          1        532
+        year |      5320      1983.5    2.872551       1979       1988
+       dlnhr |      5319    .0000192    .3016322  -4.787492   4.521109
+       dlnwg |      5319    .0001115    .2718437   -2.32463   3.062298
+-------------+--------------------------------------------------------
+       dkids |      5319    -.000188    .6629109         -5          6
+       dageh |      5319    .0030081    4.611209        -36         19
+      dagesq |      5319    .2105659    371.0841      -3024       1577
+      ddisab |      5319           0    .2429913         -1          1
+      kidsl1 |      5319    1.555932    1.196012          0          6
+-------------+--------------------------------------------------------
+      kidsl2 |      5318    1.556036    1.196101          0          6
+      agehl1 |      5319    38.91747     8.45096         22         60
+      agehl2 |      5318    38.91707    8.451706         22         60
+     agesql1 |      5319    1585.974    689.8313        484       3600
+     agesql2 |      5318    1585.957    689.8949        484       3600
+-------------+--------------------------------------------------------
+     disabl1 |      5319    .0609137    .2391944          0          1
+     disabl2 |      5318    .0609252    .2392155          0          1
+      lnwgl2 |      5318    2.609513    .4261095  -.2613648   4.686474
+        z1y1 |      5320    3.544549    10.92972          0         52
+        z2y1 |      5320    132.0002    438.9997          0       2704
+-------------+--------------------------------------------------------
+        z3y1 |      5320    .1567669    .5978681          0          6
+        z4y1 |      5320    .0048872    .0697442          0          1
+        z5y1 |      5320    3.445489    10.64043          0         51
+        z6y1 |      5320    125.0688    418.0247          0       2601
+        z7y1 |      5320    .1520677    .5938801          0          6
+-------------+--------------------------------------------------------
+        z8y1 |      5320    .0054511    .0736372          0          1
+        z9y1 |      5320    .2597756    .7905791          0    4.61522
+        z1y2 |      5320     3.63891    11.20265          0         53
+        z2y2 |      5320    138.7175    458.8032          0       2809
+        z3y2 |      5320    .1590226    .6057112          0          6
+-------------+--------------------------------------------------------
+        z4y2 |      5320    .0039474    .0627099          0          1
+        z5y2 |      5320    3.544549    10.92972          0         52
+        z6y2 |      5320    132.0002    438.9997          0       2704
+        z7y2 |      5320    .1567669    .5978681          0          6
+        z8y2 |      5320    .0048872    .0697442          0          1
+-------------+--------------------------------------------------------
+        z9y2 |      5320    .2602349    .7906729          0    4.60976
+        z1y3 |      5320    3.737218    11.49054          0         54
+        z2y3 |      5320    145.9744    480.6547          0       2916
+        z3y3 |      5320    .1637218    .6172305          0          6
+        z4y3 |      5320    .0052632    .0723633          0          1
+-------------+--------------------------------------------------------
+        z5y3 |      5320     3.63891    11.20265          0         53
+        z6y3 |      5320    138.7175    458.8032          0       2809
+        z7y3 |      5320    .1590226    .6057112          0          6
+        z8y3 |      5320    .0039474    .0627099          0          1
+        z9y3 |      5320    .2610997    .7928738          0    4.52656
+-------------+--------------------------------------------------------
+        z1y4 |      5320     3.83985    11.79093          0         55
+        z2y4 |      5320    153.7444    503.9576          0       3025
+        z3y4 |      5320    .1620301    .6132476          0          6
+        z4y4 |      5320    .0037594    .0612043          0          1
+        z5y4 |      5320    3.737218    11.49054          0         54
+-------------+--------------------------------------------------------
+        z6y4 |      5320    145.9744    480.6547          0       2916
+        z7y4 |      5320    .1637218    .6172305          0          6
+        z8y4 |      5320    .0052632    .0723633          0          1
+        z9y4 |      5320    .2614749    .7946793          0   4.607767
+        z1y5 |      5320    3.940414    12.08767          0         56
+-------------+--------------------------------------------------------
+        z2y5 |      5320    161.6111    527.9522          0       3136
+        z3y5 |      5320    .1595865     .608814          0          6
+        z4y5 |      5320     .006015    .0773303          0          1
+        z5y5 |      5320     3.83985    11.79093          0         55
+        z6y5 |      5320    153.7444    503.9576          0       3025
+-------------+--------------------------------------------------------
+        z7y5 |      5320    .1620301    .6132476          0          6
+        z8y5 |      5320    .0037594    .0612043          0          1
+        z9y5 |      5320    .2610663    .7939903          0   4.618777
+        z1y6 |      5320    4.047368    12.40128          0         57
+        z2y6 |      5320     170.144    553.5552          0       3249
+-------------+--------------------------------------------------------
+        z3y6 |      5320    .1575188    .6042401          0          5
+        z4y6 |      5320    .0065789    .0808511          0          1
+        z5y6 |      5320    3.940414    12.08767          0         56
+        z6y6 |      5320    161.6111    527.9522          0       3136
+        z7y6 |      5320    .1595865     .608814          0          6
+-------------+--------------------------------------------------------
+        z8y6 |      5320     .006015    .0773303          0          1
+        z9y6 |      5320    .2600271    .7937085  -.2613648   4.648325
+        z1y7 |      5320    4.140602    12.67474          0         58
+        z2y7 |      5320    177.7635    576.2959          0       3364
+        z3y7 |      5320    .1537594    .5983346          0          5
+-------------+--------------------------------------------------------
+        z4y7 |      5320     .006203    .0785219          0          1
+        z5y7 |      5320    4.047368    12.40128          0         57
+        z6y7 |      5320     170.144    553.5552          0       3249
+        z7y7 |      5320    .1575188    .6042401          0          5
+        z8y7 |      5320    .0065789    .0808511          0          1
+-------------+--------------------------------------------------------
+        z9y7 |      5320     .261494    .7964894          0   4.686474
+        z1y8 |      5320    4.240414    12.96638          0         59
+        z2y8 |      5320    186.0765    600.9297          0       3481
+        z3y8 |      5320    .1494361    .5901043          0          5
+        z4y8 |      5320    .0090226    .0945665          0          1
+-------------+--------------------------------------------------------
+        z5y8 |      5320    4.140602    12.67474          0         58
+        z6y8 |      5320    177.7635    576.2959          0       3364
+        z7y8 |      5320    .1537594    .5983346          0          5
+        z8y8 |      5320     .006203    .0785219          0          1
+        z9y8 |      5320    .2602616    .7933278          0     4.5933
+
+. 
+. ********** (1)-(3) 2SLS USING IVREG IS STRAIGHTFORWARD (Table 22.2, p.755) **********
+. 
+. * Note that this will automatically includes the exogenous variables as instrumetns
+. * It is not clear that Ziliak does this 
+. 
+. * The following drops the first two years which here are 1979 and 1980
+. drop if year == 1979 | year == 1980
+(1064 observations deleted)
+
+. 
+. * (1) OLS results at bottom Ziliak table 1
+. * Table 22.2 (page 755) OLS column with various standard errors estimates 
+. regress dlnhr $XREG, noconstant
+
+      Source |       SS       df       MS              Number of obs =    4256
+-------------+------------------------------           F(  5,  4251) =    5.38
+       Model |   2.3389287     5  .467785741           Prob > F      =  0.0001
+    Residual |  369.369193  4251  .086889954           R-squared     =  0.0063
+-------------+------------------------------           Adj R-squared =  0.0051
+       Total |  371.708121  4256  .087337435           Root MSE      =  .29477
+
+------------------------------------------------------------------------------
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |   .1115114   .0230566     4.84   0.000     .0663084    .1567144
+       dkids |  -.0062887   .0116719    -0.54   0.590    -.0291717    .0165943
+       dageh |   .0066935   .0212744     0.31   0.753    -.0350154    .0484025
+      dagesq |  -.0000797   .0002644    -0.30   0.763     -.000598    .0004387
+      ddisab |  -.0352603   .0199796    -1.76   0.078    -.0744306    .0039101
+------------------------------------------------------------------------------
+
+. estimates store olsiid
+
+. regress dlnhr $XREG, noconstant robust
+
+Regression with robust standard errors                 Number of obs =    4256
+                                                       F(  5,  4251) =    0.70
+                                                       Prob > F      =  0.6246
+                                                       R-squared     =  0.0063
+                                                       Root MSE      =  .29477
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |   .1115114   .0791674     1.41   0.159     -.043698    .2667207
+       dkids |  -.0062887    .011057    -0.57   0.570    -.0279662    .0153888
+       dageh |   .0066935   .0243788     0.27   0.784    -.0411016    .0544887
+      dagesq |  -.0000797   .0003147    -0.25   0.800    -.0006965    .0005372
+      ddisab |  -.0352603   .0364021    -0.97   0.333    -.1066273    .0361067
+------------------------------------------------------------------------------
+
+. estimates store olshet
+
+. regress dlnhr $XREG, noconstant cluster(id)
+
+Regression with robust standard errors                 Number of obs =    4256
+                                                       F(  5,   531) =    0.52
+                                                       Prob > F      =  0.7617
+                                                       R-squared     =  0.0063
+Number of clusters (id) = 532                          Root MSE      =  .29477
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |   .1115114   .0960926     1.16   0.246    -.0772569    .3002797
+       dkids |  -.0062887   .0109558    -0.57   0.566    -.0278107    .0152333
+       dageh |   .0066935    .012339     0.54   0.588    -.0175458    .0309328
+      dagesq |  -.0000797   .0001551    -0.51   0.608    -.0003843     .000225
+      ddisab |  -.0352603   .0452557    -0.78   0.436    -.1241625     .053642
+------------------------------------------------------------------------------
+
+. estimates store olspanel
+
+. 
+. * (2) 2SLS using the base case instrument set 
+. * Table 22.2 (page 755) 2SLS column base case with various se estimates 
+. ivreg dlnhr ($XREG = $ZBASECASE), noconstant
+
+Instrumental variables (2SLS) regression
+
+      Source |       SS       df       MS              Number of obs =    4256
+-------------+------------------------------           F(  5,  4251) =       .
+       Model |  .164904559     5  .032980912           Prob > F      =       .
+    Residual |  371.543217  4251  .087401368           R-squared     =       .
+-------------+------------------------------           Adj R-squared =       .
+       Total |  371.708121  4256  .087337435           Root MSE      =  .29564
+
+------------------------------------------------------------------------------
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |   .2091087   .3886332     0.54   0.591    -.5528154    .9710328
+       dkids |  -.0296864   .0437001    -0.68   0.497    -.1153615    .0559886
+       dageh |    .026388   .0289908     0.91   0.363     -.030449    .0832251
+      dagesq |  -.0003411   .0003688    -0.92   0.355    -.0010641     .000382
+      ddisab |    .000402   .0429076     0.01   0.993    -.0837194    .0845233
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   kidsl1 agehl1 agesql1 disabl1 agehl2 kidsl2 agesql2 disabl2
+               lnwgl2
+------------------------------------------------------------------------------
+
+. estimates store baseiid
+
+. ivreg dlnhr ($XREG = $ZBASECASE), noconstant robust
+
+IV (2SLS) regression with robust standard errors       Number of obs =    4256
+                                                       F(  5,  4251) =    0.23
+                                                       Prob > F      =  0.9510
+                                                       R-squared     =       .
+                                                       Root MSE      =  .29564
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |   .2091087    .423312     0.49   0.621    -.6208038    1.039021
+       dkids |  -.0296864   .0400461    -0.74   0.459    -.1081977    .0488249
+       dageh |    .026388   .0361631     0.73   0.466    -.0445106    .0972866
+      dagesq |  -.0003411   .0004555    -0.75   0.454    -.0012342     .000552
+      ddisab |    .000402   .0731433     0.01   0.996     -.142997     .143801
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   kidsl1 agehl1 agesql1 disabl1 agehl2 kidsl2 agesql2 disabl2
+               lnwgl2
+------------------------------------------------------------------------------
+
+. estimates store basehet
+
+. ivreg dlnhr ($XREG = $ZBASECASE), noconstant cluster(id)
+
+IV (2SLS) regression with robust standard errors       Number of obs =    4256
+                                                       F(  5,   531) =    1.44
+                                                       Prob > F      =  0.2087
+                                                       R-squared     =       .
+Number of clusters (id) = 532                          Root MSE      =  .29564
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |   .2091087   .3741705     0.56   0.576    -.5259273    .9441447
+       dkids |  -.0296864   .0293678    -1.01   0.313    -.0873777    .0280048
+       dageh |    .026388   .0153921     1.71   0.087    -.0038488    .0566249
+      dagesq |  -.0003411   .0001837    -1.86   0.064    -.0007019    .0000198
+      ddisab |    .000402   .0667719     0.01   0.995    -.1307674    .1315714
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   kidsl1 agehl1 agesql1 disabl1 agehl2 kidsl2 agesql2 disabl2
+               lnwgl2
+------------------------------------------------------------------------------
+
+. estimates store basepanel
+
+. 
+. * (3) 2SLS using the stacked instrument set 
+. * Table 22.2 (page 755) 2SLS column stacked case with various se estimates 
+. set matsize 100
+
+. ivreg dlnhr ($XREG = $ZSTACKED), noconstant
+
+Instrumental variables (2SLS) regression
+
+      Source |       SS       df       MS              Number of obs =    4256
+-------------+------------------------------           F(  5,  4251) =       .
+       Model | -29.3711267     5 -5.87422533           Prob > F      =       .
+    Residual |  401.079248  4251  .094349388           R-squared     =       .
+-------------+------------------------------           Adj R-squared =       .
+       Total |  371.708121  4256  .087337435           Root MSE      =  .30716
+
+------------------------------------------------------------------------------
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |    .542827   .1691348     3.21   0.001     .2112345    .8744195
+       dkids |  -.0482932   .0393723    -1.23   0.220    -.1254834     .028897
+       dageh |   .0268935   .0288808     0.93   0.352     -.029728    .0835151
+      dagesq |  -.0003511   .0003671    -0.96   0.339    -.0010709    .0003687
+      ddisab |   .0079759   .0397995     0.20   0.841    -.0700519    .0860037
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   z1y1 z2y1 z3y1 z4y1 z5y1 z6y1 z7y1 z8y1 z9y1 z1y2 z2y2 z3y2 z4y2
+               z5y2 z6y2 z7y2 z8y2 z9y2 z1y3 z2y3 z3y3 z4y3 z5y3 z6y3 z7y3 z8y3
+               z9y3 z1y4 z2y4 z3y4 z4y4 z5y4 z6y4 z7y4 z8y4 z9y4 z1y5 z2y5 z3y5
+               z4y5 z5y5 z6y5 z7y5 z8y5 z9y5 z1y6 z2y6 z3y6 z4y6 z5y6 z6y6 z7y6
+               z8y6 z9y6 z1y7 z2y7 z3y7 z4y7 z5y7 z6y7 z7y7 z8y7 z9y7 z1y8 z2y8
+               z3y8 z4y8 z5y8 z6y8 z7y8 z8y8 z9y8
+------------------------------------------------------------------------------
+
+. estimates store stackiid
+
+. ivreg dlnhr ($XREG = $ZSTACKED), noconstant robust
+
+IV (2SLS) regression with robust standard errors       Number of obs =    4256
+                                                       F(  5,  4251) =    1.59
+                                                       Prob > F      =  0.1596
+                                                       R-squared     =       .
+                                                       Root MSE      =  .30716
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |    .542827   .2260738     2.40   0.016     .0996043    .9860497
+       dkids |  -.0482932   .0350149    -1.38   0.168    -.1169408    .0203544
+       dageh |   .0268935   .0339561     0.79   0.428    -.0396781    .0934652
+      dagesq |  -.0003511   .0004324    -0.81   0.417    -.0011989    .0004966
+      ddisab |   .0079759    .064012     0.12   0.901    -.1175211    .1334729
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   z1y1 z2y1 z3y1 z4y1 z5y1 z6y1 z7y1 z8y1 z9y1 z1y2 z2y2 z3y2 z4y2
+               z5y2 z6y2 z7y2 z8y2 z9y2 z1y3 z2y3 z3y3 z4y3 z5y3 z6y3 z7y3 z8y3
+               z9y3 z1y4 z2y4 z3y4 z4y4 z5y4 z6y4 z7y4 z8y4 z9y4 z1y5 z2y5 z3y5
+               z4y5 z5y5 z6y5 z7y5 z8y5 z9y5 z1y6 z2y6 z3y6 z4y6 z5y6 z6y6 z7y6
+               z8y6 z9y6 z1y7 z2y7 z3y7 z4y7 z5y7 z6y7 z7y7 z8y7 z9y7 z1y8 z2y8
+               z3y8 z4y8 z5y8 z6y8 z7y8 z8y8 z9y8
+------------------------------------------------------------------------------
+
+. estimates store stackhet
+
+. ivreg dlnhr ($XREG = $ZSTACKED), noconstant cluster(id)
+
+IV (2SLS) regression with robust standard errors       Number of obs =    4256
+                                                       F(  5,   531) =    2.41
+                                                       Prob > F      =  0.0357
+                                                       R-squared     =       .
+Number of clusters (id) = 532                          Root MSE      =  .30716
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |    .542827   .2085225     2.60   0.009     .1331968    .9524572
+       dkids |  -.0482932   .0245011    -1.97   0.049    -.0964242   -.0001622
+       dageh |   .0268935   .0149934     1.79   0.073    -.0025602    .0563473
+      dagesq |  -.0003511   .0001866    -1.88   0.060    -.0007176    .0000154
+      ddisab |   .0079759   .0624423     0.13   0.898    -.1146884    .1306402
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   z1y1 z2y1 z3y1 z4y1 z5y1 z6y1 z7y1 z8y1 z9y1 z1y2 z2y2 z3y2 z4y2
+               z5y2 z6y2 z7y2 z8y2 z9y2 z1y3 z2y3 z3y3 z4y3 z5y3 z6y3 z7y3 z8y3
+               z9y3 z1y4 z2y4 z3y4 z4y4 z5y4 z6y4 z7y4 z8y4 z9y4 z1y5 z2y5 z3y5
+               z4y5 z5y5 z6y5 z7y5 z8y5 z9y5 z1y6 z2y6 z3y6 z4y6 z5y6 z6y6 z7y6
+               z8y6 z9y6 z1y7 z2y7 z3y7 z4y7 z5y7 z6y7 z7y7 z8y7 z9y7 z1y8 z2y8
+               z3y8 z4y8 z5y8 z6y8 z7y8 z8y8 z9y8
+------------------------------------------------------------------------------
+
+. estimates store stackpanel
+
+. ivreg dlnhr ($XREG = $ZSTACKED), noconstant robust cluster(id)
+
+IV (2SLS) regression with robust standard errors       Number of obs =    4256
+                                                       F(  5,   531) =    2.41
+                                                       Prob > F      =  0.0357
+                                                       R-squared     =       .
+Number of clusters (id) = 532                          Root MSE      =  .30716
+
+------------------------------------------------------------------------------
+             |               Robust
+       dlnhr |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       dlnwg |    .542827   .2085225     2.60   0.009     .1331968    .9524572
+       dkids |  -.0482932   .0245011    -1.97   0.049    -.0964242   -.0001622
+       dageh |   .0268935   .0149934     1.79   0.073    -.0025602    .0563473
+      dagesq |  -.0003511   .0001866    -1.88   0.060    -.0007176    .0000154
+      ddisab |   .0079759   .0624423     0.13   0.898    -.1146884    .1306402
+------------------------------------------------------------------------------
+Instrumented:  dlnwg dkids dageh dagesq ddisab
+Instruments:   z1y1 z2y1 z3y1 z4y1 z5y1 z6y1 z7y1 z8y1 z9y1 z1y2 z2y2 z3y2 z4y2
+               z5y2 z6y2 z7y2 z8y2 z9y2 z1y3 z2y3 z3y3 z4y3 z5y3 z6y3 z7y3 z8y3
+               z9y3 z1y4 z2y4 z3y4 z4y4 z5y4 z6y4 z7y4 z8y4 z9y4 z1y5 z2y5 z3y5
+               z4y5 z5y5 z6y5 z7y5 z8y5 z9y5 z1y6 z2y6 z3y6 z4y6 z5y6 z6y6 z7y6
+               z8y6 z9y6 z1y7 z2y7 z3y7 z4y7 z5y7 z6y7 z7y7 z8y7 z9y7 z1y8 z2y8
+               z3y8 z4y8 z5y8 z6y8 z7y8 z8y8 z9y8
+------------------------------------------------------------------------------
+
+. 
+. * DISPLAY THE OLS AND 2SLS RESULTS
+. 
+. * The following are used in Table 22.2 (page 755)
+. 
+. * OLS column with various standard errors estimates 
+. estimates table olspanel olshet olsiid, /*
+>    */ se stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+-----------------------------------------------------
+    Variable |  olspanel      olshet       olsiid    
+-------------+---------------------------------------
+       dlnwg |      0.112        0.112        0.112  
+             |      0.096        0.079        0.023  
+       dkids |     -0.006       -0.006       -0.006  
+             |      0.011        0.011        0.012  
+       dageh |      0.007        0.007        0.007  
+             |      0.012        0.024        0.021  
+      dagesq |     -0.000       -0.000       -0.000  
+             |      0.000        0.000        0.000  
+      ddisab |     -0.035       -0.035       -0.035  
+             |      0.045        0.036        0.020  
+-------------+---------------------------------------
+           N |   4256.000     4256.000     4256.000  
+          ll |   -837.557     -837.557     -837.557  
+          r2 |      0.006        0.006        0.006  
+         tss |                                       
+         rss |    369.369      369.369      369.369  
+         mss |      2.339        2.339        2.339  
+        rmse |      0.295        0.295        0.295  
+        df_r |    531.000     4251.000     4251.000  
+-----------------------------------------------------
+                                         legend: b/se
+
+. 
+. * 2SLS column base case with various standard errors estimates 
+. estimates table basepanel basehet baseiid, /*
+>    */ se stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+-----------------------------------------------------
+    Variable | basepanel     basehet      baseiid    
+-------------+---------------------------------------
+       dlnwg |      0.209        0.209        0.209  
+             |      0.374        0.423        0.389  
+       dkids |     -0.030       -0.030       -0.030  
+             |      0.029        0.040        0.044  
+       dageh |      0.026        0.026        0.026  
+             |      0.015        0.036        0.029  
+      dagesq |     -0.000       -0.000       -0.000  
+             |      0.000        0.000        0.000  
+      ddisab |      0.000        0.000        0.000  
+             |      0.067        0.073        0.043  
+-------------+---------------------------------------
+           N |   4256.000     4256.000     4256.000  
+          ll |                                       
+          r2 |          .            .            .  
+         tss |                                       
+         rss |    371.543      371.543      371.543  
+         mss |      0.165        0.165        0.165  
+        rmse |      0.296        0.296        0.296  
+        df_r |    531.000     4251.000     4251.000  
+-----------------------------------------------------
+                                         legend: b/se
+
+. 
+. * 2SLS column stacked case with various standard errors estimates 
+. estimates table stackpanel stackhet stackiid, /*
+>    */ se stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+-----------------------------------------------------
+    Variable | stackpanel    stackhet     stackiid   
+-------------+---------------------------------------
+       dlnwg |      0.543        0.543        0.543  
+             |      0.209        0.226        0.169  
+       dkids |     -0.048       -0.048       -0.048  
+             |      0.025        0.035        0.039  
+       dageh |      0.027        0.027        0.027  
+             |      0.015        0.034        0.029  
+      dagesq |     -0.000       -0.000       -0.000  
+             |      0.000        0.000        0.000  
+      ddisab |      0.008        0.008        0.008  
+             |      0.062        0.064        0.040  
+-------------+---------------------------------------
+           N |   4256.000     4256.000     4256.000  
+          ll |                                       
+          r2 |          .            .            .  
+         tss |                                       
+         rss |    401.079      401.079      401.079  
+         mss |    -29.371      -29.371      -29.371  
+        rmse |      0.307        0.307        0.307  
+        df_r |    531.000     4251.000     4251.000  
+-----------------------------------------------------
+                                         legend: b/se
+
+. 
+. ********** (4)-(5) 2SGMM REQUIRES SPECIAL MARTRIX CODING **********
+. 
+. *** PROGRAM PANELGMM DOES 2SLS (as check) and 2SGMM USING MATRIX COMMANDS
+. 
+. * This program:
+. *  - requires as inputs the global macros 
+. *      y   gives the dependent variable name
+. *      X   gives the list of regressor names
+. *      Z   gives the list of instrument names
+. *  - assumes the appropriate data is in memory
+. *  - assumes the cluster identifier is called id
+. 
+. * If the regressors and instruments include an intercept include 
+. * this as a separate regressor, say called ONE, in X and Z. 
+. * Then continue to use the following code with the noconstant option for accum and optaccum.
+. * (accum and optaccum automatically include a constant AT THE END, 
+. *  which is not where we want the constant.)
+. 
+. * This program computes the 2SLS and two-step GMM estimators 
+. *       [(X'Z)(Z'Z)_inv Z'X]_inv (X'Z)(Z'Z)_inv Z'y
+. * and   [(X'Z)S_inv Z'X]_inv (X'Z)S_inv Z'y
+. * and appropriate panel robust standard errors
+. * assuming a short panel with errors correlated over t for given i and heteroskedastic.
+. 
+. program define panelgmm
+  1. 
+. * (1) Create Z'Z and check that full rank
+. matrix accum ZZ = $Z, noconstant
+  2. scalar dimz = rowsof(ZZ)
+  3. scalar detzz = det(ZZ)
+  4. di "Redundant instruments if det(Z'Z) zero. Here det(Z'Z) = " detzz
+  5. 
+. * (2) Create Z'X which is trickier
+. * Create ZX'ZX = [Z X]' [Z X] using accum which automatically adds a constant
+. matrix accum ZXZX = $Z $X, noconstant
+  6. * Then Z'X is the (1,2) submatrix: rows 1 to dimz and columns dimz+1 to dimzx
+. scalar dimzx = rowsof(ZXZX)
+  7. * Also need dimension of X
+. matrix accum XX = $X, noconstant
+  8. scalar dimx = rowsof(XX)
+  9. matrix ZX = ZXZX[1..dimz,dimz+1...]
+ 10. 
+. * (3) Create Z'y 
+. * Create Zy'Zy = [Z y]' [Z y] using accum which automatically adds a constant
+. matrix accum ZyZy = $Z $y, noconstant
+ 11. * Then Z'y is the (1,2) submatrix: rows 1 to dimz and the last column
+. matrix Zy = ZyZy[1..dimz,dimz+1]
+ 12. 
+. * (4) Compute 2SLS Estimator
+. di " "
+ 13. di "2SLS results: "
+ 14. matrix b2SLS = syminv(ZX'*syminv(ZZ)*ZX)*ZX'*syminv(ZZ)*Zy
+ 15. matrix list b2SLS
+ 16. 
+. * (5) Compute S = Sum_i Zi'u_i*u_i'Z_i using opaccum
+. * Key is use of opaccum.
+. * Need to compute the residuals. 
+. gen yhat = 0
+ 17. foreach var of varlist $X {
+ 18. matrix a`var' = b2SLS["`var'",1]
+ 19. scalar b`var' = trace(a`var')  /* converts matrix to scalar */
+ 20. quietly replace yhat = yhat + (b`var')*(`var')
+ 21. }
+ 22. gen uhat = $y - yhat
+ 23. gen uhatsq = uhat*uhat
+ 24. quietly sum(uhatsq)
+ 25. scalar rmse = sqrt(r(sum)/(_N-dimx))
+ 26. di "rmse = " rmse
+ 27. * Alternative and check uses ivreg. 
+. quietly ivreg $y ($X = $Z), noconstant cluster(id)
+ 28. predict uhat2, residuals
+ 29. quietly sum uhat uhat2
+ 30. * Sort data for opaccum to work
+. preserve
+ 31. sort id
+ 32. matrix opaccum S = $Z, group(id) opvar(uhat) noconstant
+ 33. /*
+> * Ziliak uses heteroskedastic errors but not correlated. 
+> * Then instead use the following which assumes time identifier is year.
+> * Make a unique identifier obsid so that group(obsid) does not group
+> gen obsid = 10000*id + year
+> sort obsid
+> matrix opaccum S = $Z, group(obsid) opvar(uhat) noconstant
+> */
+. restore
+ 34. 
+. * (6) Compute Variance of 2SLS. 
+. matrix v2SLS = syminv(ZX'*syminv(ZZ)*ZX)*ZX'*syminv(ZZ)*S*syminv(ZZ)*ZX*syminv(ZX'*syminv(ZZ)*ZX)
+ 35. * matrix list v2SLS
+. * Now need to get standard errors
+. matrix se2SLS = J(dimx,1,0)   /* Initially column vector of zeroes */
+ 36. scalar icol = 1
+ 37. * Need loop here as Stata does not do square root on a vector
+. while icol <= dimx {
+ 38.   matrix se2SLS[icol,1] = sqrt(v2SLS[icol,icol])
+ 39.   scalar icol = icol+1
+ 40.   }
+ 41. matrix list se2SLS
+ 42. 
+. * (7) Compute Two-step GMM 
+. di " "
+ 43. di "2SGMM results: "
+ 44. matrix b2SGMM = syminv(ZX'*syminv(S)*ZX)*ZX'*syminv(S)*Zy
+ 45. matrix list b2SGMM
+ 46. 
+. * (8) Compute Variance of Two-step GMM 
+. * Compute the residuals to recompute S at the new estimates. 
+. * Note that could just use the old S
+. drop yhat uhat uhatsq
+ 47. gen yhat = 0
+ 48. foreach var of varlist $X {
+ 49. matrix a`var' = b2SGMM["`var'",1]
+ 50. scalar b`var' = trace(a`var')  /* converts matrix to scalar */
+ 51. quietly replace yhat = yhat + (b`var')*(`var')
+ 52. }
+ 53. gen uhat = $y - yhat
+ 54. gen uhatsq = uhat*uhat
+ 55. quietly sum(uhatsq)
+ 56. scalar rmse = sqrt(r(sum)/(_N-dimx))
+ 57. di "rmse = " rmse
+ 58. * Sort data for opaccum to work
+. preserve
+ 59. sort id
+ 60. matrix opaccum S = $Z, group(id) opvar(uhat) noconstant
+ 61. matrix v2SGMM = syminv(ZX'*syminv(S)*ZX)
+ 62. * matrix list v2SGMM
+. matrix se2SGMM = J(dimx,1,0)   /* Initially column vector of zeroes */
+ 63. scalar icol = 1
+ 64. * Need loop here as Stata does not do square root on a vector
+. while icol <= dimx {
+ 65.   matrix se2SGMM[icol,1] = sqrt(v2SGMM[icol,icol])
+ 66.   scalar icol = icol+1
+ 67.   }
+ 68. matrix list se2SGMM
+ 69. 
+. * (9) Compute the overidentifying restrictions test
+. * Create row vector u'Z using vecaccum which automatically adds a constant
+. matrix vecaccum uZ = uhat $Z, noconstant
+ 70. matrix maxobjfunction = uZ*syminv(S)*uZ'
+ 71. scalar ortest = maxobjfunction[1,1]
+ 72. scalar dof = dimz - dimx
+ 73. di " Over-identifying restrictions test " ortest " dof " dof " p-value " chi2tail(dof,ortest)
+ 74. 
+. end
+
+. 
+. *** EXECUTE THE PROGRAM PANEL GMM FOR THESE DATA
+. 
+. * Note that Ziliak does not use an intercept. 
+. * If have an intercept then need to add in the constant explicitly
+. * generate ONE = 1
+. * and then add this to the X and Z
+. 
+. * Define the dependent variable
+. global y dlnhr
+
+. 
+. * Define the regressors. 
+. global X $XREG
+
+. 
+. * (4) 2SGMM (and 2SLS as check) using the base case instrument set
+. * Gives 2SGMM Base Case column of Table 22.2 (page 755)
+. 
+. global Z $ZBASECASE
+
+. panelgmm
+(obs=4256)
+Redundant instruments if det(Z'Z) zero. Here det(Z'Z) = 6.375e+37
+(obs=4256)
+(obs=4256)
+(obs=4256)
+ 
+2SLS results: 
+
+b2SLS[5,1]
+             dlnhr
+ dlnwg   .20910869
+ dkids  -.02968643
+ dageh   .02638804
+dagesq  -.00034108
+ddisab   .00040197
+rmse = .29563723
+
+se2SLS[5,1]
+           c1
+r1   .3736429
+r2  .02932634
+r3  .01537039
+r4  .00018343
+r5  .06667771
+ 
+2SGMM results: 
+
+b2SGMM[5,1]
+             dlnhr
+ dlnwg   .54679602
+ dkids  -.04490416
+ dageh   .02747594
+dagesq  -.00035912
+ddisab   -.0468348
+rmse = .30719932
+
+se2SGMM[5,1]
+           c1
+r1  .32762396
+r2  .02714405
+r3  .01295984
+r4  .00015941
+r5  .06236006
+ Over-identifying restrictions test 5.4503878 dof 4 p-value .24412497
+
+. 
+. * (5) 2SGMM (and 2SLS as check) using the stacked instrument set
+. * Gives 2SGMM Stacked Case column of Table 22.2 (page 755)
+. 
+. drop uhat yhat uhatsq uhat2 /* Obtained in panelgmm */
+
+. global Z $ZSTACKED
+
+. * dlnwg dkids dageh dagesq ddisab
+. panelgmm
+(obs=4256)
+Redundant instruments if det(Z'Z) zero. Here det(Z'Z) = 7.52e+234
+(obs=4256)
+(obs=4256)
+(obs=4256)
+ 
+2SLS results: 
+
+b2SLS[5,1]
+             dlnhr
+ dlnwg   .54282703
+ dkids   -.0482932
+ dageh   .02689353
+dagesq  -.00035113
+ddisab    .0079759
+rmse = .30716345
+
+se2SLS[5,1]
+           c1
+r1  .20822845
+r2  .02446659
+r3  .01497229
+r4   .0001863
+r5   .0623543
+ 
+2SGMM results: 
+
+b2SGMM[5,1]
+             dlnhr
+ dlnwg   .32999732
+ dkids  -.01681724
+ dageh   .01637783
+dagesq  -.00019221
+ddisab  -.02010632
+rmse = .29791501
+
+se2SGMM[5,1]
+           c1
+r1  .10965082
+r2  .01356737
+r3  .00834178
+r4   .0001037
+r5  .02357317
+ Over-identifying restrictions test 69.506226 dof 67 p-value .39307324
+
+. 
+. ********** (6) F-STATISTICS FOR WEAK INSTRUMENTS (page 756) **********
+. 
+. * (1) Weak Instruments using base case instrument set
+. 
+. * Test weak instruments for dlnwg using panel robust inference
+. quietly regress dlnwg $ZBASECASE, cluster(id)
+
+. quietly test $ZBASECASE
+
+. * This value should have been reported in the text on page 756
+. * [Instead by mistake the F assuning iid errors below was reported]
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .00590049 F = 2.3790046 p = .01209278 dof = 9
+
+. 
+. * Same except use wrong inference assuming iid errors
+. quietly regress dlnwg $ZBASECASE
+
+. quietly test $ZBASECASE
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .00590049 F = 2.800243 p = .00281135 dof = 9
+
+. 
+. * (2) Weak Instruments using stacked instrument set
+. 
+. * Test weak instruments for dlnwg using panel robust inference
+. quietly regress dlnwg $ZSTACKED, cluster(id)
+
+. quietly test $ZSTACKED
+
+. * This value was reported in the text on page 756
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .02256803 F = 1.9000813 p = .00003808 dof = 72
+
+. 
+. * Same except use wrong inference assuming iid errors
+. quietly regress dlnwg $ZSTACKED
+
+. quietly test $ZSTACKED
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .02256803 F = 1.341413 p = .02961833 dof = 72
+
+. 
+. * (3) Weak Instruments for other regressors
+. * Here all regressors are instrumented. So should test all as above.
+. * These find no problems.
+. * For example, for dkids and base case instrument set
+. quietly regress dkids $ZSTACKED, cluster(id)
+
+. quietly test $ZSTACKED
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .16281613 F = 8.4145744 p = 3.349e-52 dof = 72
+
+. quietly regress dageh $ZSTACKED, cluster(id)
+
+. quietly test $ZSTACKED
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .22076423 F = 24.002499 p = 6.30e-126 dof = 72
+
+. quietly regress dagesq $ZSTACKED, cluster(id)
+
+. quietly test $ZSTACKED
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .36856999 F = 150.79951 p = 4.10e-309 dof = 72
+
+. quietly regress ddisab $ZSTACKED, cluster(id)
+
+. quietly test $ZSTACKED
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .28591864 F = 25.786283 p = 4.70e-132 dof = 72
+
+. 
+. ********** PARTIAL R-SQUARED FOR WEAK INSTRUMENTS (page 756) **********
+. 
+. * (1) Weak Instruments using base case instrument set
+. 
+. * Test weak instruments for dlnwg using panel robust inference
+. quietly regress dlnwg $ZBASECASE, cluster(id)
+
+. quietly test $ZBASECASE
+
+. di "r2 = " e(r2) " F = " r(F) " p = " r(p) " dof = " r(df)
+r2 = .00590049 F = 2.3790046 p = .01209278 dof = 9
+
+. 
+. **** (D) Shea (1997) partial R-squared
+. 
+. * Here we have five endogenous regressors and no exogenous regressors.
+. * Need to change code below if there are exogenous regressors. See ch4ivkling.do
+. * Focus on the endogenous wage regressor. 
+. * For the other four just need to replace dlnwg in the first line of (1)
+. * and replace the first line of (2B)
+. 
+. * (1) Form x1 - x1tilda: residual from regress x1 on other regressors
+. quietly reg dlnwg dkids dageh dagesq ddisab
+
+. * quietly reg dkids dlnwg dageh dagesq ddisab
+. predict x1minusx1tilda, resid
+
+. 
+. * (2) Form x1hat - x1hattilda: residual from regress x1hat on fitted values of other regressors
+. * (2A) First get the fitted values from regress endogenous on instruments
+. quietly reg dlnwg $ZBASECASE
+
+. predict dlnwghat, xb
+
+. di e(r2) "  r2 from regress x1 on Z" 
+.00590049  r2 from regress x1 on Z
+
+. quietly reg dkids $ZBASECASE
+
+. predict dkidshat, xb
+
+. di e(r2) "  r2 from regress second endog regressor on Z"
+.1473738  r2 from regress second endog regressor on Z
+
+. quietly reg dageh $ZBASECASE
+
+. predict dagehhat, xb
+
+. di e(r2) "  r2 from regress third endog regressor on Z"
+.13903221  r2 from regress third endog regressor on Z
+
+. quietly reg dagesq $ZBASECASE
+
+. predict dagesqhat, xb
+
+. di e(r2) "  r2 from regress fourth endog regressor on Z"
+.3049799  r2 from regress fourth endog regressor on Z
+
+. quietly reg ddisab $ZBASECASE
+
+. predict ddisabhat, xb
+
+. di e(r2) "  r2 from regress fifth endog regressor on Z"
+.26087493  r2 from regress fifth endog regressor on Z
+
+. * (2B) Run the regression of x1hat on fitted values of other regressors
+. quietly reg dlnwghat dkidshat dagehhat dagesqhat ddisabhat
+
+. * quietly reg dkidshat dlnwghat dagehhat dagesqhat ddisabhat
+. di e(r2) "  r2 from regress prediction of x1 on predictions of x2
+.38268288  r2 from regress prediction of x1 on predictions of x2
+
+. predict x1hatminusx1hattilda, resid
+
+. 
+. * (3) Form the correlation between (1) and (2)  
+. * This value is reported in the text on page 756
+. corr x1minusx1tilda x1hatminusx1hattilda
+(obs=4256)
+
+             | x1minu~a x1hatm~a
+-------------+------------------
+x1minusx1t~a |   1.0000
+x1hatminus~a |   0.0604   1.0000
+
+
+. di r(rho)^2 "  Shea's partial R-squared measure" 
+.00364741  Shea's partial R-squared measure
+
+. 
+. ********** CLOSE OUTPUT
+. 
+. log close
+       log:  c:\Imbook\bwebpage\Section5\mma22p1pangmm.txt
+  log type:  text
+ closed on:  23 May 2005, 11:52:42
+----------------------------------------------------------------------------------------------------

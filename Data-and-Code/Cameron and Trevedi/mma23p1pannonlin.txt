@@ -1,0 +1,1346 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section5\mma23p1pannonlin.txt
+  log type:  text
+ opened on:  23 May 2005, 12:46:16
+
+. 
+. ********** OVERVIEW OF MMA23P1PANNONLIN.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press
+. 
+. * Chapter 23.3 pages 792-5
+. * Example of nonlinear model (multiplicative effects)
+. 
+. * This program derives Table 23.1 and Figure 23.1.
+. * It performs nonlinear panel analysis for multiplicative effects model 
+. *   y_it = a_i*exp(x_it'b) = exp(c_i+x_it'b)
+. * and parametric count data models
+. 
+. *  (1) Linear (xtreg) for log(PAT) with adjustment for PAT=0
+. *      Output include Figure 23.1
+. *  (2) Poisson (xtpoisson) fixed and random effects
+. *  (3) GEE (xtgee) which includes pooled NLS
+. 
+. * The Poisson individual effects model is 
+. *   y_it ~ Poisson(x_it'b + a_i)
+. * The standard errors assume this model correctly specified
+. * i.e. Variance = mean given x+it and a_i
+. 
+. * FOr "panel robust se's see section 23.2.6 pages 788-791
+. * To obtain more panel robust standard errors this program panel bootstraps
+. * Note that the panel se entries of 0.033 under GEE, Poisson-RE and Poisson-FE
+. * are not panel robust to the extent that the bootstrap se's are panel robust
+. * and in fact are the usual se's in the case of Poisson-RE and Poisson-FE
+. * Unlike ch.21 here "panel se" means "defaul panel se" and not "panel-robust se".
+. 
+. * To speed up program reduce nreps, the number of bootstrap replications
+. 
+. * To run this program you need data file
+. *    patr7079.asc  
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * There are ten years of data but only five years 1975-79 are used in estimation
+. 
+. *  The original data is from 
+. *  Bronwyn Hall, Zvi Griliches, and Jerry Hausman (1986), 
+. * "Patents and R&D: Is There a Lag?", 
+. *  International Economic Review, 27, 265-283.
+. 
+. * File patr7079.dat has data on 346 firms
+. * There are 4 lines per firm, with 25 variables
+. *   Time-invariant:  CUSIP,ARDSSIC,SCISECT,LOGK,SUMPAT,
+. *   Time-varying X:  LOGR70,LOGR71,LOGR72, ....., LOGR77,LOGR78,LOGR79
+. *   Time-varying Y:  PAT70,PAT71,PAT72, ....., PAT77,PAT78,PAT79 
+. * in the format:
+. *   I7,I3,I2,5F12.6/6F12.6/6F12.6/5F12.6/ 
+. * where
+. * CUSIP    Compustat's identifying number for the firm (Committee on
+. *          Uniform Security Identification Procedures number).
+. * ARDSIC   A two-digit code for the applied R&D industrial classification
+. *          (roughly that in Bound, Cummins, Griliches, Hall, and Jaffe, in
+. *          the Griliches R&D, Patents, and Productivity volume).
+. * SCISECT  Dummy equal to one for firms in the scientific sector.
+. * LOGK     The logarithm of the book value of capital in 1972.
+. * SUMPAT   The sum of patents applied for between 1972-1979.
+. * LOGR70-  The logarithm of R&D spending during the year (in 1972 dollars).
+. *  LOGR79
+. * PAT70-   The number of patents applied for during the year that were
+. *  PAT79  eventually granted.
+. 
+. ********** READ DATA **********
+. 
+. * The data are in ascii file patr7079.asc
+. * There are 346 observations on 25 variables with four lines per obs
+. * The data are fixed format with 
+. *   line 1  variables  1-8   I7,I3,I2,5F12.6 
+. *   line 2  variables  9-14  6F12.6
+. *   line 3  variables 15-20  6F12.6
+. *   line 4  variables 20-25  6F12.6
+. 
+. * Read in using Infile: FREE FORMAT WITHOUT DICTIONARY
+. * As there is space between each observation data is also space-delimited 
+. * free format and then there is no need for a dictionary file
+. * The following command spans more that one line so use /* and */
+. infile CUSIP ARDSSIC SCISECT LOGK SUMPAT LOGR70 LOGR71 LOGR72 LOGR73   /*
+>    */  LOGR74 LOGR75 LOGR76 LOGR77 LOGR78 LOGR79 PAT70 PAT71 PAT72     /*
+>    */  PAT73 PAT74 PAT75 PAT76 PAT77 PAT78 PAT79 using patr7079.asc
+(346 observations read)
+
+. 
+. ********** DATA TRANSFORMATIONS **********
+. 
+. * Use observation number as an identifier, not just CUSIP
+. gen id = _n
+
+. label variable id "id"
+
+. * The following lists the variables in data set and summarizes data
+. describe
+
+Contains data
+  obs:           346                          
+ vars:            26                          
+ size:        37,368 (99.6% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+CUSIP           float  %9.0g                  
+ARDSSIC         float  %9.0g                  
+SCISECT         float  %9.0g                  
+LOGK            float  %9.0g                  
+SUMPAT          float  %9.0g                  
+LOGR70          float  %9.0g                  
+LOGR71          float  %9.0g                  
+LOGR72          float  %9.0g                  
+LOGR73          float  %9.0g                  
+LOGR74          float  %9.0g                  
+LOGR75          float  %9.0g                  
+LOGR76          float  %9.0g                  
+LOGR77          float  %9.0g                  
+LOGR78          float  %9.0g                  
+LOGR79          float  %9.0g                  
+PAT70           float  %9.0g                  
+PAT71           float  %9.0g                  
+PAT72           float  %9.0g                  
+PAT73           float  %9.0g                  
+PAT74           float  %9.0g                  
+PAT75           float  %9.0g                  
+PAT76           float  %9.0g                  
+PAT77           float  %9.0g                  
+PAT78           float  %9.0g                  
+PAT79           float  %9.0g                  
+id              float  %9.0g                  id
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       CUSIP |       346    531201.2    282074.9        800     989399
+     ARDSSIC |       336     9.97619    5.459706          1         21
+     SCISECT |       346    .4248555    .4950369          0          1
+        LOGK |       346    3.921063    2.095542   -1.76965    9.66626
+      SUMPAT |       346    284.7312    571.1136          0       3806
+-------------+--------------------------------------------------------
+      LOGR70 |       346    1.198348    1.941968   -3.67354    6.56641
+      LOGR71 |       346    1.169182    1.929444   -3.53055    6.95687
+      LOGR72 |       346    1.185953    1.929078   -3.35241    6.97009
+      LOGR73 |       346    1.231135    1.934896   -3.67395    7.06211
+      LOGR74 |       346    1.232636    1.946417   -3.15274    7.06524
+-------------+--------------------------------------------------------
+      LOGR75 |       346    1.165802     1.98001    -3.5476    6.76486
+      LOGR76 |       346    1.212888    1.979273   -3.84868     6.8285
+      LOGR77 |       346    1.250034    2.003002   -3.47884    6.90253
+      LOGR78 |       346    1.306511    2.019792    -3.2832    6.96345
+      LOGR79 |       346    1.345581    2.054982   -3.57742    7.03432
+-------------+--------------------------------------------------------
+       PAT70 |       346    40.00289    82.50335          0        608
+       PAT71 |       346    38.10983    78.40308          0        553
+       PAT72 |       346    36.30925    74.81591          0        557
+       PAT73 |       346    36.95376    77.91971          0        595
+       PAT74 |       346    37.60983    75.94388          0        528
+-------------+--------------------------------------------------------
+       PAT75 |       346    36.87283    75.98788          0        508
+       PAT76 |       346    35.84682    73.31613          0        487
+       PAT77 |       346    36.23121    72.75146          0        456
+       PAT78 |       346    32.80636     65.6505          0        434
+       PAT79 |       346    32.10116    66.36197          0        515
+-------------+--------------------------------------------------------
+          id |       346       173.5    100.0258          1        346
+
+. 
+. ******** CHANGE ORGANIZATION OF DATA USING RESHAPE AND MORE TRANSFORMATIONS
+. 
+. reshape long PAT LOGR, i(id) j(year)
+(note: j = 70 71 72 73 74 75 76 77 78 79)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                      346   ->    3460
+Number of variables                  26   ->       9
+j variable (10 values)                    ->   year
+xij variables:
+                  PAT70 PAT71 ... PAT79   ->   PAT
+               LOGR70 LOGR71 ... LOGR79   ->   LOGR
+-----------------------------------------------------------------------------
+
+. describe
+
+Contains data
+  obs:         3,460                          
+ vars:             9                          
+ size:       128,020 (98.7% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  id
+year            byte   %9.0g                  
+CUSIP           float  %9.0g                  
+ARDSSIC         float  %9.0g                  
+SCISECT         float  %9.0g                  
+LOGK            float  %9.0g                  
+SUMPAT          float  %9.0g                  
+LOGR            float  %9.0g                  
+PAT             float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  id  year
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      3460       173.5    99.89562          1        346
+        year |      3460        74.5    2.872696         70         79
+       CUSIP |      3460    531201.2    281707.7        800     989399
+     ARDSSIC |      3360     9.97619    5.452387          1         21
+     SCISECT |      3460    .4248555    .4943925          0          1
+-------------+--------------------------------------------------------
+        LOGK |      3460    3.921063    2.092814   -1.76965    9.66626
+      SUMPAT |      3460    284.7312    570.3701          0       3806
+        LOGR |      3460    1.229807    1.970524   -3.84868    7.06524
+         PAT |      3460    36.28439    74.46563          0        608
+
+. 
+. * Create new variable log(patents) with adjustment for patents = 0
+. gen NEWPAT = PAT
+
+. replace NEWPAT = 0.5 if NEWPAT==0.
+(605 real changes made)
+
+. gen LPAT = ln(NEWPAT)
+
+. label variable LPAT "Ln(Patents)"
+
+. label variable PAT "Patents"
+
+. * Dummy variable for logit analysis
+. gen DPAT = 0
+
+. replace DPAT = 1 if PAT>0
+(2855 real changes made)
+
+. label variable DPAT "Patent Indicator"
+
+. * R and D
+. gen RANDD = exp(LOGR)
+
+. label variable LOGR "Ln(R&D)"
+
+. label variable RANDD "R&D"
+
+. * Lagged log R and D
+. tsset id year
+       panel variable:  id, 1 to 346
+        time variable:  year, 70 to 79
+
+. gen LOGRL1 = L1.LOGR
+(346 missing values generated)
+
+. gen LOGRL2 = L2.LOGR
+(692 missing values generated)
+
+. gen LOGRL3 = L3.LOGR
+(1038 missing values generated)
+
+. gen LOGRL4 = L4.LOGR
+(1384 missing values generated)
+
+. gen LOGRL5 = L5.LOGR
+(1730 missing values generated)
+
+. label variable LOGRL1 "Ln(R&D) lagged once"
+
+. label variable LOGRL2 "Ln(R&D) lagged twice"
+
+. label variable LOGRL3 "Ln(R&D) lagged three times"
+
+. label variable LOGRL4 "Ln(R&D) lagged four times"
+
+. label variable LOGRL5 "Ln(R&D) lagged five times"
+
+. * Year dummies
+. gen dyear2 = 0
+
+. replace dyear2 = 1 if year==76
+(346 real changes made)
+
+. gen dyear3 = 0
+
+. replace dyear3 = 1 if year==77
+(346 real changes made)
+
+. gen dyear4 = 0
+
+. replace dyear4 = 1 if year==78
+(346 real changes made)
+
+. gen dyear5 = 0
+
+. replace dyear5 = 1 if year==79
+(346 real changes made)
+
+.  
+. * Check data and Save data as Stata data set
+. describe
+
+Contains data
+  obs:         3,460                          
+ vars:            22                          
+ size:       307,940 (97.0% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  id
+year            byte   %9.0g                  
+CUSIP           float  %9.0g                  
+ARDSSIC         float  %9.0g                  
+SCISECT         float  %9.0g                  
+LOGK            float  %9.0g                  
+SUMPAT          float  %9.0g                  
+LOGR            float  %9.0g                  Ln(R&D)
+PAT             float  %9.0g                  Patents
+NEWPAT          float  %9.0g                  
+LPAT            float  %9.0g                  Ln(Patents)
+DPAT            float  %9.0g                  Patent Indicator
+RANDD           float  %9.0g                  R&D
+LOGRL1          float  %9.0g                  Ln(R&D) lagged once
+LOGRL2          float  %9.0g                  Ln(R&D) lagged twice
+LOGRL3          float  %9.0g                  Ln(R&D) lagged three times
+LOGRL4          float  %9.0g                  Ln(R&D) lagged four times
+LOGRL5          float  %9.0g                  Ln(R&D) lagged five times
+dyear2          float  %9.0g                  
+dyear3          float  %9.0g                  
+dyear4          float  %9.0g                  
+dyear5          float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  id  year
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      3460       173.5    99.89562          1        346
+        year |      3460        74.5    2.872696         70         79
+       CUSIP |      3460    531201.2    281707.7        800     989399
+     ARDSSIC |      3360     9.97619    5.452387          1         21
+     SCISECT |      3460    .4248555    .4943925          0          1
+-------------+--------------------------------------------------------
+        LOGK |      3460    3.921063    2.092814   -1.76965    9.66626
+      SUMPAT |      3460    284.7312    570.3701          0       3806
+        LOGR |      3460    1.229807    1.970524   -3.84868    7.06524
+         PAT |      3460    36.28439    74.46563          0        608
+      NEWPAT |      3460    36.37182    74.42325         .5        608
+-------------+--------------------------------------------------------
+        LPAT |      3460    1.935464    1.949421  -.6931472   6.410175
+        DPAT |      3460    .8251445    .3798984          0          1
+       RANDD |      3460    23.02263    82.90186   .0213078   1170.563
+      LOGRL1 |      3114    1.216943    1.960836   -3.84868    7.06524
+      LOGRL2 |      2768    1.205747    1.953427   -3.84868    7.06524
+-------------+--------------------------------------------------------
+      LOGRL3 |      2422     1.19942    1.946583   -3.84868    7.06524
+      LOGRL4 |      2076    1.197176    1.941555   -3.67395    7.06524
+      LOGRL5 |      1730    1.203451    1.934293   -3.67395    7.06524
+      dyear2 |      3460          .1    .3000434          0          1
+      dyear3 |      3460          .1    .3000434          0          1
+-------------+--------------------------------------------------------
+      dyear4 |      3460          .1    .3000434          0          1
+      dyear5 |      3460          .1    .3000434          0          1
+
+. drop NEWPAT
+
+. save patr7079, replace
+file patr7079.dta saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      3460       173.5    99.89562          1        346
+        year |      3460        74.5    2.872696         70         79
+       CUSIP |      3460    531201.2    281707.7        800     989399
+     ARDSSIC |      3360     9.97619    5.452387          1         21
+     SCISECT |      3460    .4248555    .4943925          0          1
+-------------+--------------------------------------------------------
+        LOGK |      3460    3.921063    2.092814   -1.76965    9.66626
+      SUMPAT |      3460    284.7312    570.3701          0       3806
+        LOGR |      3460    1.229807    1.970524   -3.84868    7.06524
+         PAT |      3460    36.28439    74.46563          0        608
+        LPAT |      3460    1.935464    1.949421  -.6931472   6.410175
+-------------+--------------------------------------------------------
+        DPAT |      3460    .8251445    .3798984          0          1
+       RANDD |      3460    23.02263    82.90186   .0213078   1170.563
+      LOGRL1 |      3114    1.216943    1.960836   -3.84868    7.06524
+      LOGRL2 |      2768    1.205747    1.953427   -3.84868    7.06524
+      LOGRL3 |      2422     1.19942    1.946583   -3.84868    7.06524
+-------------+--------------------------------------------------------
+      LOGRL4 |      2076    1.197176    1.941555   -3.67395    7.06524
+      LOGRL5 |      1730    1.203451    1.934293   -3.67395    7.06524
+      dyear2 |      3460          .1    .3000434          0          1
+      dyear3 |      3460          .1    .3000434          0          1
+      dyear4 |      3460          .1    .3000434          0          1
+-------------+--------------------------------------------------------
+      dyear5 |      3460          .1    .3000434          0          1
+
+. xtsum, i(id)
+
+Variable         |      Mean   Std. Dev.       Min        Max |    Observations
+-----------------+--------------------------------------------+----------------
+id       overall |     173.5   99.89562          1        346 |     N =    3460
+         between |             100.0258          1        346 |     n =     346
+         within  |                    0      173.5      173.5 |     T =      10
+                 |                                            |
+year     overall |      74.5   2.872696         70         79 |     N =    3460
+         between |                    0       74.5       74.5 |     n =     346
+         within  |             2.872696         70         79 |     T =      10
+                 |                                            |
+CUSIP    overall |  531201.2   281707.7        800     989399 |     N =    3460
+         between |             282074.9        800     989399 |     n =     346
+         within  |                    0   531201.2   531201.2 |     T =      10
+                 |                                            |
+ARDSSIC  overall |   9.97619   5.452387          1         21 |     N =    3360
+         between |             5.459706          1         21 |     n =     336
+         within  |                    0    9.97619    9.97619 |     T =      10
+                 |                                            |
+SCISECT  overall |  .4248555   .4943925          0          1 |     N =    3460
+         between |             .4950369          0          1 |     n =     346
+         within  |                    0   .4248555   .4248555 |     T =      10
+                 |                                            |
+LOGK     overall |  3.921063   2.092814   -1.76965    9.66626 |     N =    3460
+         between |             2.095542   -1.76965    9.66626 |     n =     346
+         within  |                    0   3.921063   3.921063 |     T =      10
+                 |                                            |
+SUMPAT   overall |  284.7312   570.3701          0       3806 |     N =    3460
+         between |             571.1136          0       3806 |     n =     346
+         within  |                    0   284.7312   284.7312 |     T =      10
+                 |                                            |
+LOGR     overall |  1.229807   1.970524   -3.84868    7.06524 |     N =    3460
+         between |             1.944421  -3.120133   6.911438 |     n =     346
+         within  |             .3347099   -1.19673   4.218814 |     T =      10
+                 |                                            |
+PAT      overall |  36.28439   74.46563          0        608 |     N =    3460
+         between |              72.5989          0      484.8 |     n =     346
+         within  |             16.97772  -177.7156   224.3844 |     T =      10
+                 |                                            |
+LPAT     overall |  1.935464   1.949421  -.6931472   6.410175 |     N =    3460
+         between |             1.873181  -.6931472   6.180623 |     n =     346
+         within  |             .5482375  -.2643028   4.368045 |     T =      10
+                 |                                            |
+DPAT     overall |  .8251445   .3798984          0          1 |     N =    3460
+         between |             .2831052          0          1 |     n =     346
+         within  |             .2537376  -.0748555   1.725145 |     T =      10
+                 |                                            |
+RANDD    overall |  23.02263   82.90186   .0213078   1170.563 |     N =    3460
+         between |             81.69163   .0582575   1014.058 |     n =     346
+         within  |             14.71596  -280.2214     311.47 |     T =      10
+                 |                                            |
+LOGRL1   overall |  1.216943   1.960836   -3.84868    7.06524 |     N =    3114
+         between |             1.937733  -3.123236   6.897784 |     n =     346
+         within  |             .3157841  -.6151992   4.203909 |     T =       9
+                 |                                            |
+LOGRL2   overall |  1.205747   1.953427   -3.84868    7.06524 |     N =    2768
+         between |             1.932143   -3.12461   6.889576 |     n =     346
+         within  |             .3035537   -.486563   4.187752 |     T =       8
+                 |                                            |
+LOGRL3   overall |   1.19942   1.946583   -3.84868    7.06524 |     N =    2422
+         between |             1.926813  -3.074006   6.887726 |     n =     346
+         within  |             .2928787  -.2381882   4.153968 |     T =       7
+                 |                                            |
+LOGRL4   overall |  1.197176   1.941555   -3.67395    7.06524 |     N =    2076
+         between |             1.923302  -2.989647   6.897597 |     n =     346
+         within  |             .2818841  -.2335892   4.095286 |     T =       6
+                 |                                            |
+LOGRL5   overall |  1.203451   1.934293   -3.67395    7.06524 |     N =    1730
+         between |             1.917687   -2.99075   6.924144 |     n =     346
+         within  |             .2692134  -.1899074   4.062701 |     T =       5
+                 |                                            |
+dyear2   overall |        .1   .3000434          0          1 |     N =    3460
+         between |                    0         .1         .1 |     n =     346
+         within  |             .3000434          0          1 |     T =      10
+                 |                                            |
+dyear3   overall |        .1   .3000434          0          1 |     N =    3460
+         between |                    0         .1         .1 |     n =     346
+         within  |             .3000434          0          1 |     T =      10
+                 |                                            |
+dyear4   overall |        .1   .3000434          0          1 |     N =    3460
+         between |                    0         .1         .1 |     n =     346
+         within  |             .3000434          0          1 |     T =      10
+                 |                                            |
+dyear5   overall |        .1   .3000434          0          1 |     N =    3460
+         between |                    0         .1         .1 |     n =     346
+         within  |             .3000434          0          1 |     T =      10
+
+. 
+. ********** DEFINE GLOBALS INCLUDING REGRESSOR LIST **********
+. 
+. * Number of reps for the bootstrap
+. * Table 23.1 used 500
+. global nreps 500
+
+. 
+. * The regressions below are of patents on LOGR ??? on ???
+. * Additional regressors to be included below are defined in xextra
+. * Here no additional regressors
+. global xextra
+
+. 
+. ********** (1) LINEAR PANEL RANDOM AND FIXED EFFECTS FOR LOG(PAT) **********
+. 
+. * This adhoc method uses as dependent variable 
+. *     LPAT = ln(PAT) if PAT > 0
+. *          = ln(0.5) if PAT = 0
+. * which is analyzed using chapter 21 methods
+. 
+. * Note that in the first xt command need to give  , i(id)
+. * to indicate that the ith observation is for the ith id
+. * Time invariant regressors LOGK SCISECT are not included
+. 
+. use patr7079, clear
+
+. drop if year<75
+(1730 observations deleted)
+
+. 
+. * Overall plot of data 
+. * The graphs below use new Stata 8 graphics
+. * Change graphics scheme from default s2color to s1mono for printing
+. set scheme s1mono
+
+. 
+. * Figure 21.1 page 792 [with axis labels corrected - book is wrong]
+. graph twoway (scatter LPAT LOGR, msize(vsmall)) (lowess LPAT LOGR) (lfit LPAT LOGR), /* 
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Pooled (Overall) Regression") /*
+>   */ xtitle("Log R&D Spending", size(medlarge)) xscale(titlegap(*5)) /*
+>   */ ytitle("Log Patents", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(4) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Original data") label(2 "Nonparametric fit") label(3 "Linear fit"))
+
+. graph export ch23fig1.wmf, replace
+(file c:\Imbook\bwebpage\Section5\ch23fig1.wmf written in Windows Metafile format)
+
+. 
+. * OLS
+. regress LPAT LOGR $xextra, cluster(id)
+
+Regression with robust standard errors                 Number of obs =    1730
+                                                       F(  1,   345) = 1330.60
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.7192
+Number of clusters (id) = 346                          Root MSE      =  1.0461
+
+------------------------------------------------------------------------------
+             |               Robust
+        LPAT |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .8340745   .0228655    36.48   0.000     .7891012    .8790478
+       _cons |   .7954785   .0579246    13.73   0.000     .6815487    .9094083
+------------------------------------------------------------------------------
+
+. estimates store linolspan
+
+. 
+. * Fixed effects
+. xtreg LPAT LOGR $xextra, fe i(id)
+
+Fixed-effects (within) regression               Number of obs      =      1730
+Group variable (i): id                          Number of groups   =       346
+
+R-sq:  within  = 0.0026                         Obs per group: min =         5
+       between = 0.7669                                        avg =       5.0
+       overall = 0.7192                                        max =         5
+
+                                                F(1,1383)          =      3.63
+corr(u_i, Xb)  = 0.8405                         Prob > F           =    0.0570
+
+------------------------------------------------------------------------------
+        LPAT |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .1067505   .0560364     1.91   0.057    -.0031749     .216676
+       _cons |   1.709116   .0714557    23.92   0.000     1.568943    1.849289
+-------------+----------------------------------------------------------------
+     sigma_u |  1.7380872
+     sigma_e |  .51119065
+         rho |  .92038546   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+F test that all u_i=0:     F(345, 1383) =    16.96           Prob > F = 0.0000
+
+. estimates store linfe
+
+. 
+. * Random effects
+. xtreg LPAT LOGR $xextra, re i(id)
+
+Random-effects GLS regression                   Number of obs      =      1730
+Group variable (i): id                          Number of groups   =       346
+
+R-sq:  within  = 0.0026                         Obs per group: min =         5
+       between = 0.7669                                        avg =       5.0
+       overall = 0.7192                                        max =         5
+
+Random effects u_i ~ Gaussian                   Wald chi2(1)       =    915.90
+corr(u_i, X)       = 0 (assumed)                Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+        LPAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .7202377   .0237986    30.26   0.000     .6735932    .7668821
+       _cons |   .9384761   .0599584    15.65   0.000     .8209598    1.055992
+-------------+----------------------------------------------------------------
+     sigma_u |  .90057544
+     sigma_e |  .51119065
+         rho |   .7563152   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+
+. estimates store linre
+
+. 
+. 
+. ********** (2) POISSON RANDOM AND FIXED EFFECTS (Table 32.1 p.794 ) **********
+. 
+. use patr7079, clear
+
+. drop if year<75
+(1730 observations deleted)
+
+. 
+. * Poisson Cross-section with Poisson standard errors
+. * Table 23.1 Poisson column
+. 
+. poisson PAT LOGR $xextra
+
+Iteration 0:   log likelihood = -21030.607  
+Iteration 1:   log likelihood = -21030.583  
+Iteration 2:   log likelihood = -21030.583  
+
+Poisson regression                                Number of obs   =       1730
+                                                  LR chi2(1)      =  108479.76
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -21030.583                       Pseudo R2       =     0.7206
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .6929337   .0022454   308.61   0.000     .6885329    .6973346
+       _cons |   1.711528    .009767   175.24   0.000     1.692385    1.730671
+------------------------------------------------------------------------------
+
+. estimates store poisiid
+
+. 
+. * Poisson Cross-section with heteroskedastic robust standard errors
+. poisson PAT LOGR $xextra, robust
+
+Iteration 0:   log pseudo-likelihood = -21030.607  
+Iteration 1:   log pseudo-likelihood = -21030.583  
+Iteration 2:   log pseudo-likelihood = -21030.583  
+
+Poisson regression                                Number of obs   =       1730
+                                                  Wald chi2(1)    =    1223.63
+                                                  Prob > chi2     =     0.0000
+Log pseudo-likelihood = -21030.583                Pseudo R2       =     0.7206
+
+------------------------------------------------------------------------------
+             |               Robust
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .6929337   .0198092    34.98   0.000     .6541084     .731759
+       _cons |   1.711528   .0620025    27.60   0.000     1.590006    1.833051
+------------------------------------------------------------------------------
+
+. estimates store poishet
+
+. 
+. * Poisson Cross-section with panel robust standard errors
+. poisson PAT LOGR $xextra, cluster(id)
+
+Iteration 0:   log pseudo-likelihood = -21030.607  
+Iteration 1:   log pseudo-likelihood = -21030.583  
+Iteration 2:   log pseudo-likelihood = -21030.583  
+
+Poisson regression                                Number of obs   =       1730
+                                                  Wald chi2(1)    =     259.15
+Log pseudo-likelihood = -21030.583                Prob > chi2     =     0.0000
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |               Robust
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .6929337   .0430441    16.10   0.000     .6085688    .7772987
+       _cons |   1.711528   .1340309    12.77   0.000     1.448832    1.974224
+------------------------------------------------------------------------------
+
+. estimates store poispan
+
+. 
+. * Poisson panel fixed effects
+. * Table 23.1 p.794 Poisson-FE column
+. 
+. * Poisson fixed effects
+. xtpoisson PAT LOGR $xextra, fe i(id)  
+note: 22 groups (110 obs) dropped due to all zero outcomes
+
+Iteration 0:   log likelihood = -3660.2656  
+Iteration 1:   log likelihood = -3659.5926  
+Iteration 2:   log likelihood = -3659.5926  
+
+Conditional fixed-effects Poisson regression    Number of obs      =      1620
+Group variable (i): id                          Number of groups   =       324
+
+                                                Obs per group: min =         5
+                                                               avg =       5.0
+                                                               max =         5
+
+                                                Wald chi2(1)       =      1.35
+Log likelihood  = -3659.5926                    Prob > chi2        =    0.2460
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |  -.0377642   .0325518    -1.16   0.246    -.1015645     .026036
+------------------------------------------------------------------------------
+
+. estimates store poisfe
+
+. 
+. /* 
+> * Alternative way is to put in dummy variables
+> set matsize 400
+> xi: poisson PAT LOGR $xextra i.id
+> */
+. 
+. * Poisson panel random effects
+. * Table 23.1 p.794 Poisson-RE column
+. 
+. * Poisson random effects
+. xtpoisson PAT LOGR $xextra, re i(id)  
+
+Fitting Poisson model:
+
+Iteration 0:   log likelihood = -21030.607  
+Iteration 1:   log likelihood = -21030.583  
+Iteration 2:   log likelihood = -21030.583  
+
+Fitting full model:
+
+Iteration 0:   log likelihood = -5633.1283  
+Iteration 1:   log likelihood = -5560.1171  
+Iteration 2:   log likelihood = -5553.2991  
+Iteration 3:   log likelihood = -5553.1788  
+Iteration 4:   log likelihood = -5553.1787  
+
+Random-effects Poisson regression               Number of obs      =      1730
+Group variable (i): id                          Number of groups   =       346
+
+Random effects u_i ~ Gamma                      Obs per group: min =         5
+                                                               avg =       5.0
+                                                               max =         5
+
+                                                Wald chi2(1)       =    110.20
+Log likelihood  = -5553.1787                    Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .3487832   .0332254    10.50   0.000     .2836625    .4139039
+       _cons |   2.312705    .124758    18.54   0.000     2.068184    2.557226
+-------------+----------------------------------------------------------------
+    /lnalpha |   .5454692   .0899144                      .3692402    .7216983
+-------------+----------------------------------------------------------------
+       alpha |   1.725418   .1551399                      1.446635    2.057925
+------------------------------------------------------------------------------
+Likelihood-ratio test of alpha=0: chibar2(01) =  3.1e+04 Prob>=chibar2 = 0.000
+
+. estimates store poisre
+
+. 
+. * Poisson random effects with normal error
+. xtpoisson PAT LOGR $xextra, re i(id) normal
+
+Fitting comparison Poisson model:
+
+Iteration 0:   log likelihood = -21030.607  
+Iteration 1:   log likelihood = -21030.583  
+Iteration 2:   log likelihood = -21030.583  
+
+Fitting constant-only model:
+
+tau =  0.0     log likelihood = -55439.205
+tau =  0.1     log likelihood = -12594.935
+tau =  0.2     log likelihood = -8669.2146
+tau =  0.3     log likelihood = -8107.7532
+tau =  0.4     log likelihood = -7634.0488
+tau =  0.5     log likelihood = -8046.3947
+Iteration 0:   log likelihood = -7634.0488
+Iteration 1:   log likelihood = -7586.9889
+Iteration 2:   log likelihood = -7586.5899
+Iteration 3:   log likelihood = -7586.5898
+
+Fitting full model:
+
+tau =  0.0     log likelihood = -19363.106
+tau =  0.1     log likelihood = -6602.7685
+tau =  0.2     log likelihood = -6335.5261
+tau =  0.3     log likelihood = -6556.0614
+Iteration 0:   log likelihood = -6335.5261
+Iteration 1:   log likelihood = -6310.8821
+Iteration 2:   log likelihood = -6261.9825
+
+Random-effects Poisson regression               Number of obs      =      1730
+Group variable (i): id                          Number of groups   =       346
+
+Random effects u_i ~ Gaussian                   Obs per group: min =         5
+                                                               avg =       5.0
+                                                               max =         5
+
+                                                LR chi2(0)         =   2649.21
+Log likelihood  = -6261.9825                    Prob > chi2        =         .
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |    .815977          .        .       .            .           .
+       _cons |   1.156293          .        .       .            .           .
+-------------+----------------------------------------------------------------
+    /lnsig2u |  -1.310299          .        .       .            .           .
+-------------+----------------------------------------------------------------
+     sigma_u |   .5193643          .                             .           .
+------------------------------------------------------------------------------
+Likelihood-ratio test of sigma_u=0: chibar2(01) =  3.0e+04 Pr>=chibar2 = 0.000
+
+. estimates store poisrenormal
+
+. 
+. * Poisson random effects population averaged
+. xtpoisson PAT LOGR $xextra, pa i(id)  
+
+Iteration 1: tolerance = .09172122
+Iteration 2: tolerance = .02686915
+Iteration 3: tolerance = .00712438
+Iteration 4: tolerance = .00159015
+Iteration 5: tolerance = .00032104
+Iteration 6: tolerance = .00006195
+Iteration 7: tolerance = .00001174
+Iteration 8: tolerance = 2.209e-06
+Iteration 9: tolerance = 4.146e-07
+
+GEE population-averaged model                   Number of obs      =      1730
+Group variable:                         id      Number of groups   =       346
+Link:                                  log      Obs per group: min =         5
+Family:                            Poisson                     avg =       5.0
+Correlation:                  exchangeable                     max =         5
+                                                Wald chi2(1)       =  16317.27
+Scale parameter:                         1      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .5595302   .0043803   127.74   0.000      .550945    .5681153
+       _cons |   2.067515   .0185166   111.66   0.000     2.031223    2.103807
+------------------------------------------------------------------------------
+
+. estimates store poispa
+
+. 
+. * Poisson random effects population averaged with robust se
+. xtpoisson PAT LOGR $xextra, robust pa i(id)  
+
+Iteration 1: tolerance = .09172122
+Iteration 2: tolerance = .02686915
+Iteration 3: tolerance = .00712438
+Iteration 4: tolerance = .00159015
+Iteration 5: tolerance = .00032104
+Iteration 6: tolerance = .00006195
+Iteration 7: tolerance = .00001174
+Iteration 8: tolerance = 2.209e-06
+Iteration 9: tolerance = 4.146e-07
+
+GEE population-averaged model                   Number of obs      =      1730
+Group variable:                         id      Number of groups   =       346
+Link:                                  log      Obs per group: min =         5
+Family:                            Poisson                     avg =       5.0
+Correlation:                  exchangeable                     max =         5
+                                                Wald chi2(1)       =    293.80
+Scale parameter:                         1      Prob > chi2        =    0.0000
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .5595302   .0326436    17.14   0.000     .4955499    .6235104
+       _cons |   2.067515   .1113256    18.57   0.000     1.849321    2.285709
+------------------------------------------------------------------------------
+
+. estimates store poispapan
+
+. 
+. ********** (3) POISSON GEE (GENERALIZED ESTIMATING EQUATIONS **********
+. 
+. * Xtgee should reproduce Poisson random effects population averaged
+. xtgee PAT LOGR $xextra, corr(exchangeable) family(poisson) link(log) i(id)  
+
+Iteration 1: tolerance = .09172122
+Iteration 2: tolerance = .02686915
+Iteration 3: tolerance = .00712438
+Iteration 4: tolerance = .00159015
+Iteration 5: tolerance = .00032104
+Iteration 6: tolerance = .00006195
+Iteration 7: tolerance = .00001174
+Iteration 8: tolerance = 2.209e-06
+Iteration 9: tolerance = 4.146e-07
+
+GEE population-averaged model                   Number of obs      =      1730
+Group variable:                         id      Number of groups   =       346
+Link:                                  log      Obs per group: min =         5
+Family:                            Poisson                     avg =       5.0
+Correlation:                  exchangeable                     max =         5
+                                                Wald chi2(1)       =  16317.27
+Scale parameter:                         1      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .5595302   .0043803   127.74   0.000      .550945    .5681153
+       _cons |   2.067515   .0185166   111.66   0.000     2.031223    2.103807
+------------------------------------------------------------------------------
+
+. estimates store poisgee
+
+. 
+. * Xtgee should reproduce Poisson random effects population averaged with robust se
+. xtgee PAT LOGR $xextra, corr(exchangeable) family(poisson) link(log) i(id) robust 
+
+Iteration 1: tolerance = .09172122
+Iteration 2: tolerance = .02686915
+Iteration 3: tolerance = .00712438
+Iteration 4: tolerance = .00159015
+Iteration 5: tolerance = .00032104
+Iteration 6: tolerance = .00006195
+Iteration 7: tolerance = .00001174
+Iteration 8: tolerance = 2.209e-06
+Iteration 9: tolerance = 4.146e-07
+
+GEE population-averaged model                   Number of obs      =      1730
+Group variable:                         id      Number of groups   =       346
+Link:                                  log      Obs per group: min =         5
+Family:                            Poisson                     avg =       5.0
+Correlation:                  exchangeable                     max =         5
+                                                Wald chi2(1)       =    293.80
+Scale parameter:                         1      Prob > chi2        =    0.0000
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .5595302   .0326436    17.14   0.000     .4955499    .6235104
+       _cons |   2.067515   .1113256    18.57   0.000     1.849321    2.285709
+------------------------------------------------------------------------------
+
+. estimates store poisgeepan
+
+. 
+. * Xtgee should give NLS of exponential mean with iid standard errors
+. xtgee PAT LOGR $xextra, corr(independent) family(gaussian) link(log) i(id)  
+
+Iteration 1: tolerance = 8.014e-08
+
+GEE population-averaged model                   Number of obs      =      1730
+Group variable:                         id      Number of groups   =       346
+Link:                                  log      Obs per group: min =         5
+Family:                           Gaussian                     avg =       5.0
+Correlation:                   independent                     max =         5
+                                                Wald chi2(1)       =   2316.87
+Scale parameter:                  2060.724      Prob > chi2        =    0.0000
+
+Pearson chi2(1730):              3565052.8      Deviance           = 3565052.8
+Dispersion (Pearson):             2060.724      Dispersion         =  2060.724
+
+------------------------------------------------------------------------------
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .5084673   .0105636    48.13   0.000      .487763    .5291716
+       _cons |   2.528729   .0544558    46.44   0.000     2.421997     2.63546
+------------------------------------------------------------------------------
+
+. estimates store nls
+
+. 
+. * Xtgee should give NLS of exponential mean with robust standard errors
+. xtgee PAT LOGR $xextra, corr(independent) family(gaussian) link(log) i(id) robust
+
+Iteration 1: tolerance = 8.014e-08
+
+GEE population-averaged model                   Number of obs      =      1730
+Group variable:                         id      Number of groups   =       346
+Link:                                  log      Obs per group: min =         5
+Family:                           Gaussian                     avg =       5.0
+Correlation:                   independent                     max =         5
+                                                Wald chi2(1)       =     85.32
+Scale parameter:                  2060.724      Prob > chi2        =    0.0000
+
+Pearson chi2(1730):              3565052.8      Deviance           = 3565052.8
+Dispersion (Pearson):             2060.724      Dispersion         =  2060.724
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+         PAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        LOGR |   .5084673    .055046     9.24   0.000     .4005791    .6163554
+       _cons |   2.528729   .2176674    11.62   0.000     2.102109    2.955349
+------------------------------------------------------------------------------
+
+. estimates store nlspan
+
+. 
+. ********** (4) PANEL ROBUST STANDARD ERRORS BY BOOTSTRAP **********
+. 
+. * For discussion of panel robust standard errors 
+. * see text Section 23.2.6 page 788-9 (nonlinear panel) 
+. * and text Section 21.2.3 page 705-8 (linear panel) 
+. 
+. * Pooled Poisson panel robust bootstrap standard errors
+. set seed 10001
+
+. bootstrap "poisson PAT LOGR $xextra" "_b[LOGR] _b[_cons]", cluster(id) reps($nreps) level(95)
+
+command:      poisson PAT LOGR
+statistics:   _bs_1      = _b[LOGR]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      1730
+                                                  N of clusters    =       346
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .6929337  .0081667  .0473006   .6000008   .7858666   (N)
+             |                                       .6250867   .8100113   (P)
+             |                                       .6209522   .8025689  (BC)
+       _bs_2 |   500  1.711528 -.0267995   .141745   1.433038   1.990019   (N)
+             |                                       1.336657   1.924925   (P)
+             |                                       1.355381   1.935691  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix poisbootse = e(se)
+
+. 
+. * Poisson fixed effects panel bootstrap standard errors
+. set seed 10001
+
+. bootstrap "xtpoisson PAT LOGR $xextra, fe i(id)" "_b[LOGR]", cluster(id) reps($nreps) level(95)
+
+command:      xtpoisson PAT LOGR , fe i(id)
+statistic:    _bs_1      = _b[LOGR]
+
+Bootstrap statistics                              Number of obs    =      1620
+                                                  N of clusters    =       324
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500 -.0377642  .0057448  .1067039  -.2474085     .17188   (N)
+             |                                      -.2458792   .1454112   (P)
+             |                                      -.3182177   .1310303  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix poisfebootse = e(se)
+
+. 
+. * Poisson random effects panel bootstrap standard errors
+. set seed 10001
+
+. bootstrap "xtpoisson PAT LOGR $xextra, re i(id)" "_b[LOGR] _b[_cons]", cluster(id) reps($nreps) le
+> vel(95)
+
+command:      xtpoisson PAT LOGR , re i(id)
+statistics:   _bs_1      = _b[LOGR]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      1730
+                                                  N of clusters    =       346
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .3487832 -.1581585  .1194127   .1141695   .5833969   (N)
+             |                                      -.0414326   .4028537   (P)
+             |                                       .2775298   .5040658  (BC)
+       _bs_2 |   500  2.312705  .5382745  .4384781   1.451214   3.174196   (N)
+             |                                       2.104445   3.743506   (P)
+             |                                       1.804036   2.552794  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix poisrebootse = e(se)
+
+. 
+. * Poisson population averaged panel bootstrap standard errors
+. set seed 10001
+
+. bootstrap "xtpoisson PAT LOGR $xextra, pa i(id)" "_b[LOGR] _b[_cons]", cluster(id) reps($nreps) le
+> vel(95)
+
+command:      xtpoisson PAT LOGR , pa i(id)
+statistics:   _bs_1      = _b[LOGR]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      1730
+                                                  N of clusters    =       346
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   338  .5595301 -.0013448  .1072904   .3484868   .7705734   (N)
+             |                                       .1938364   .6946551   (P)
+             |                                       .0630385   .6535396  (BC)
+       _bs_2 |   338  2.067515 -.0016997  .2940233   1.489163   2.645867   (N)
+             |                                       1.675453   3.034075   (P)
+             |                                        1.80883   3.352539  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix poispabootse = e(se)
+
+. set seed 10001
+
+. 
+. * Xtgee should give exponential mean (NLS) with iid errors with boostrap se's
+. bootstrap "xtgee PAT LOGR $xextra, corr(independent) family(gaussian) link(log) i(id)"  "_b[LOGR] 
+> _b[_cons]", cluster(id) reps($nreps) level(95)  
+
+command:      xtgee PAT LOGR , corr(independent) family(gaussian) link(log) i(id)
+statistics:   _bs_1      = _b[LOGR]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      1730
+                                                  N of clusters    =       346
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .5084673  .0122215  .0541264   .4021235    .614811   (N)
+             |                                       .4453159   .6547906   (P)
+             |                                       .4372376   .6397901  (BC)
+       _bs_2 |   500  2.528729 -.0502655   .198022   2.139669   2.917789   (N)
+             |                                       1.953206   2.763821   (P)
+             |                                       2.084754   2.820513  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. 
+. * Results fiven in same order as in Table 23.1 page 794
+. matrix nlsbootse = e(se)
+
+. matrix list poisbootse
+
+poisbootse[1,2]
+        _bs_1      _bs_2
+se  .04730061  .14174498
+
+. matrix list poisfebootse
+
+symmetric poisfebootse[1,1]
+        _bs_1
+se  .10670389
+
+. matrix list poisrebootse
+
+poisrebootse[1,2]
+        _bs_1      _bs_2
+se  .11941272  .43847813
+
+. matrix list poispabootse
+
+poispabootse[1,2]
+        _bs_1      _bs_2
+se  .10729042  .29402327
+
+. 
+. ********** DISPLAY RESULTS FOR (1)-(3) GIVEN IN TABLE 23.1 page 794 **********
+. 
+. * Standard error using iid errors and in some cases panel
+. 
+. estimates table linolspan linfe linre, t se /*
+>    */ stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+-----------------------------------------------------
+    Variable | linolspan      linfe        linre     
+-------------+---------------------------------------
+        LOGR |      0.834        0.107        0.720  
+             |      0.023        0.056        0.024  
+             |      36.48         1.91        30.26  
+       _cons |      0.795        1.709        0.938  
+             |      0.058        0.071        0.060  
+             |      13.73        23.92        15.65  
+-------------+---------------------------------------
+           N |   1730.000     1730.000     1730.000  
+          ll |  -2531.658    -1100.267               
+          r2 |      0.719        0.003               
+         tss |                6732.584               
+         rss |   1890.831      361.400               
+         mss |   4841.753        0.948               
+        rmse |      1.046        0.511               
+        df_r |    345.000     1383.000               
+-----------------------------------------------------
+                                       legend: b/se/t
+
+. estimates table poisiid poishet poispan, t se /*
+>    */ stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+-----------------------------------------------------
+    Variable |  poisiid      poishet      poispan    
+-------------+---------------------------------------
+        LOGR |      0.693        0.693        0.693  
+             |      0.002        0.020        0.043  
+             |     308.61        34.98        16.10  
+       _cons |      1.712        1.712        1.712  
+             |      0.010        0.062        0.134  
+             |     175.24        27.60        12.77  
+-------------+---------------------------------------
+           N |   1730.000     1730.000     1730.000  
+          ll | -21030.583   -21030.583   -21030.583  
+          r2 |                                       
+         tss |                                       
+         rss |                                       
+         mss |                                       
+        rmse |                                       
+        df_r |                                       
+-----------------------------------------------------
+                                       legend: b/se/t
+
+. estimates table poisfe poisre poisrenormal poispa poispapan, t se /*
+>    */ stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+-------------------------------------------------------------------------------
+    Variable |   poisfe       poisre     poisreno~l     poispa     poispapan   
+-------------+-----------------------------------------------------------------
+PAT          |                                                                 
+        LOGR |     -0.038        0.349        0.816                            
+             |      0.033        0.033        0.000                            
+             |      -1.16        10.50            .                            
+       _cons |                   2.313        1.156                            
+             |                   0.125        0.000                            
+             |                   18.54            .                            
+-------------+-----------------------------------------------------------------
+lnalpha      |                                                                 
+       _cons |                   0.545                                         
+             |                   0.090                                         
+             |                    6.07                                         
+-------------+-----------------------------------------------------------------
+lnsig2u      |                                                                 
+       _cons |                               -1.310                            
+             |                                0.000                            
+             |                                    .                            
+-------------+-----------------------------------------------------------------
+_            |                                                                 
+        LOGR |                                             0.560        0.560  
+             |                                             0.004        0.033  
+             |                                            127.74        17.14  
+       _cons |                                             2.068        2.068  
+             |                                             0.019        0.111  
+             |                                            111.66        18.57  
+-------------+-----------------------------------------------------------------
+Statistics   |                                                                 
+           N |   1620.000     1730.000     1730.000     1730.000     1730.000  
+          ll |  -3659.593    -5553.179    -6261.982                            
+          r2 |                                                                 
+         tss |                                                                 
+         rss |                                                                 
+         mss |                                                                 
+        rmse |                                                                 
+        df_r |                                                                 
+-------------------------------------------------------------------------------
+                                                                 legend: b/se/t
+
+. estimates table poisgee poisgeepan nls nlspan, t se /*
+>    */ stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+------------------------------------------------------------------
+    Variable |  poisgee     poisgeepan      nls         nlspan    
+-------------+----------------------------------------------------
+        LOGR |      0.560        0.560        0.508        0.508  
+             |      0.004        0.033        0.011        0.055  
+             |     127.74        17.14        48.13         9.24  
+       _cons |      2.068        2.068        2.529        2.529  
+             |      0.019        0.111        0.054        0.218  
+             |     111.66        18.57        46.44        11.62  
+-------------+----------------------------------------------------
+           N |   1730.000     1730.000     1730.000     1730.000  
+          ll |                                                    
+          r2 |                                                    
+         tss |                                                    
+         rss |                                                    
+         mss |                                                    
+        rmse |                                                    
+        df_r |                                                    
+------------------------------------------------------------------
+                                                    legend: b/se/t
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section5\mma23p1pannonlin.txt
+  log type:  text
+ closed on:  23 May 2005, 12:53:45
+----------------------------------------------------------------------------------------------------

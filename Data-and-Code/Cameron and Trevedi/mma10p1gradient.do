@@ -1,0 +1,102 @@
+* MMA10P1GRADIENT.DO March 2005 for Stata Version 8.0
+
+log using mma10p1gradient.txt, text replace
+
+********** OVERVIEW OF MMA10P1GRADIENT.DO **********
+
+* STATA Program 
+* copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+* used for "Microeconometrics: Methods and Applications" 
+* by A. Colin Cameron and Pravin K. Trivedi (2005)
+* Cambridge University Press 
+
+* Chapter 10.2.4 page 338-9
+* Gradient Method Example (Newton-Raphson)
+* using artificial data
+
+********** SETUP **********
+
+set more off
+version 8.0
+set scheme s1mono   /* Used for graphs */
+  
+********** ANALYSIS: FIRST SIX ROUNDS OF NR ********** 
+
+* General Algorithm is 
+*   b_s+1 = b_s + A_s*g_s
+
+* For this the example in section 10.2.4
+*     Q(b) = -(1/2N) * Sum_i {(y_i-exp(b))^2}
+*         = -(1/2N) * Sum_i {(y_i)^2 -2*y_i*exp(b) + exp(b)^2}
+*         = ymean*exp(b) - 0.5*(exp(b))^2 - (1/N) * Sum_i {(y_i)^2}
+
+* so the gradient vector  (here a scalar)
+*       g = dQ_s / db
+*         = (ymean - exp(b))*exp(b)
+
+* and using the Method of scoring variation of Newton-Raphson
+* the weighting matrix (here a scalar)
+*     A_s = Inv [ - E[d^2 Q_s / db^2 ] ]
+*     A_s = Inv [ - E[(ymean - exp(b))*exp(b) - exp(b)*exp(b)] ]
+*         = Inv [ exp(2b) ]    since E[(ymean - exp(b)] = 0
+*         = exp(-2b) 
+
+* Data
+scalar ymean = 2.0
+
+* Starting value
+scalar b_1 = 0.0
+
+* First round 
+scalar g_1 = (ymean - exp(b_1))*exp(b_1)
+scalar A_1 = exp(-2*b_1)
+scalar b_2 = b_1 + A_1*g_1
+
+* Second round 
+scalar g_2 = (ymean - exp(b_2))*exp(b_2)
+scalar A_2 = exp(-2*b_2)
+scalar b_3 = b_2 + A_2*g_2
+
+* Third round 
+scalar g_3 = (ymean - exp(b_3))*exp(b_3)
+scalar A_3 = exp(-2*b_3)
+scalar b_4 = b_3 + A_3*g_3
+
+* Fourth round 
+scalar g_4 = (ymean - exp(b_4))*exp(b_4)
+scalar A_4 = exp(-2*b_4)
+scalar b_5 = b_4 + A_4*g_4
+
+* Fifth round 
+scalar g_5 = (ymean - exp(b_5))*exp(b_5)
+scalar A_5 = exp(-2*b_5)
+scalar b_6 = b_5 + A_5*g_5
+
+* Sixth round 
+scalar g_6 = (ymean - exp(b_6))*exp(b_6)
+scalar A_6 = exp(-2*b_6)
+
+* We also calculate the objective function at each round 
+* (ignoring the term - (1/N) * Sum_i {(y_i)^2} which does not depend on b)
+scalar Q_1 = ymean*exp(b_1) - 0.5*(exp(b_1))^2
+scalar Q_2 = ymean*exp(b_2) - 0.5*(exp(b_2))^2
+scalar Q_3 = ymean*exp(b_3) - 0.5*(exp(b_3))^2
+scalar Q_4 = ymean*exp(b_4) - 0.5*(exp(b_4))^2
+scalar Q_5 = ymean*exp(b_5) - 0.5*(exp(b_5))^2
+scalar Q_6 = ymean*exp(b_6) - 0.5*(exp(b_6))^2
+
+* DISPLAY THE RESULTS GIVEN IN TABLE 10.1 page 339
+di "Round  Estiamte Gradient Weight Function"
+di " 1: "  b_1 %8.6f "   "  g_1 %8.6f "   "  A_1 %8.6f "   "  Q_1 %8.6f   
+di " 2: "  b_2 %8.6f "   "  g_2 %8.6f "   "  A_2 %8.6f "   "  Q_2 %8.6f   
+di " 3: "  b_3 %8.6f "   "  g_3 %8.6f "   "  A_3 %8.6f "   "  Q_3 %8.6f   
+di " 4: "  b_4 %8.6f "   "  g_4 %8.6f "   "  A_4 %8.6f "   "  Q_4 %8.6f   
+di " 5: "  b_5 %8.6f "   "  g_5 %8.6f "   "  A_5 %8.6f "   "  Q_5 %8.6f   
+di " 6: "  b_6 %8.6f "   "  g_6 %8.6f "   "  A_6 %8.6f "   "  Q_6 %-8.6f   
+
+********** CLOSE OUTPUT **********
+log close
+clear
+exit
+
+

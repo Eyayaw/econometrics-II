@@ -1,0 +1,797 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma20p1count.txt
+  log type:  text
+ opened on:  20 May 2005, 08:41:33
+
+. 
+. ********* OVERVIEW OF MMA20P1COUNT.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press
+. 
+. * Chapter 20.3 pages 671-4 and 20.7 page 690
+. * Count data regression example
+. * It provides
+. *   (1) Frequency distribution for count (Table 20.3)
+. *   (2) Data summary (Table 20.4)
+. *   (3) Poisson regression with various standard errors (Table 20.5)
+. *   (4) Negative binomial regression with various standard errors (Table 20.5)
+. 
+. * To use this program you need health expenditure data in Stata data set
+. *   randdata.dta    
+.  
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * Essentially same data as in P. Deb and P.K. Trivedi (2002)
+. * "The Structure of Demand for Medical Care: Latent Class versus
+. *  Two-Part Models", Journal of Health Economics, 21, 601-625
+. * except that paper used different outcome (counts rather than $)
+. 
+. * Each observation is for an individual over a year.
+. * Individuals may appear in up to five years.
+. * All available sample is used except only fee for service plans included.
+. * In analysis here only year 2 is used so panel complications are avoided.
+. * Clustering of individuals within household is ignored here.
+. 
+. * Dependent variable is 
+. *      MED      med        Annual medical expenditures in constant dollars 
+. *                          excluding dental and outpatient mental 
+. *      LNMED    lnmeddol   Ln(Medical expenditures) given meddol > 0
+. *                          Missing otherwise
+. *      DMED     binexp     1 if medical expenditures > 0
+. 
+. * Regressors are 
+. *  - Health insurance measures
+. *       LC       logc      log(coinsrate+1)  where coinsurance rate is 0 to 100
+. *       IDP      idp       1 if individual deductible plan
+. *       LPI      lpi       1og(annual participation incentive payment) or 0 if no payment 
+. *       FMDE     fmde      log(max(medical deductible expenditure)) if IDP=1 and MDE>1 or 0 otherw
+> ise.
+. *  - Health status measures
+. *       NDISEASE disea     number of chronic diseases
+. *       PHYSLIM  physlm    1 if physical limitation
+. *       HLTHG    hlthg     1 if good health
+. *       HLTHF    hlthf     1 if good health
+. *       HLTHP    hlthp     1 if good health  (omitted is excellent)
+. *  - Socioeconomic characteristics
+. *       LINC     linc      log of annual family income (in $)
+. *       LFAM     lfam      log of family size
+. *       EDUCDEC  educdec   years of schooling of decision maker
+. *       AGE      xage      exact age
+. *       BLACK    black     1 if black
+. *       FEMALE   female    1 if female 
+. *       CHILD    child     1 if child
+. *       FEMCHILD fchild    1 if female child
+. 
+. * If panel data used then clustering is on
+. *       zper      person id
+. 
+. ********** READ DATA, SELECT AND TRANSFORM **********
+. 
+. use randdata.dta, clear
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        plan |     20190    11.17553    3.976751          1         19
+        site |     20190    3.298811     1.80382          1          6
+       coins |     20190     26.3056    36.40386          0        100
+    tookphys |     20190    .5974245    .4904288          0          1
+        year |     20190    2.420109    1.217141          1          5
+-------------+--------------------------------------------------------
+        zper |     20190    357965.5    180868.1     125024     632167
+       black |     20190    .1814983    .3827071          0          1
+      income |     20190    8037.409    4058.371          0   29237.54
+        xage |     20190    25.72233    16.76945          0   64.27515
+      female |     20190    .5170381     .499722          0          1
+-------------+--------------------------------------------------------
+     educdec |     20186    11.96681    2.806255          0         25
+        time |     20190    .9989561    .0259741   .0767123          1
+     outpdol |     20190    51.12649    94.92627          0   2599.902
+     drugdol |     20190     13.1687    33.76212          0   706.3979
+     suppdol |     20190      6.8024    21.39346          0    1009.47
+-------------+--------------------------------------------------------
+     mentdol |     20190    6.870347    58.41298          0   1340.834
+      inpdol |     20190    100.4694    655.6215          0   38649.81
+      meddol |     20190    171.5679    698.2015          0   39182.02
+      totadm |     20190    .1127291    .4111857          0          8
+      inpmis |     20190    .0039624     .062824          0          1
+-------------+--------------------------------------------------------
+     mentvis |     20190    .4322437    3.430789          0         62
+       mdvis |     20190    2.860426    4.504365          0         77
+    notmdvis |     20190    .6855869    3.763543          0        109
+         num |     20190    3.954235    1.853034          1         14
+         mhi |     20190    76.55584    12.50224       12.2        100
+-------------+--------------------------------------------------------
+       disea |     20190    11.24449    6.741449          0       58.6
+      physlm |     20190    .1235003    .3220164          0          1
+      ghindx |     14967    73.09055    15.99371        3.7        100
+      mdeoff |     20185    417.8422    384.1199          0       1000
+       pioff |     20185     446.677     367.466          0    1291.68
+-------------+--------------------------------------------------------
+       child |     20190    .4013373    .4901812          0          1
+      fchild |     20190    .1937098    .3952139          0          1
+        lfam |     20190    1.248156     .539301          0   2.639057
+         lpi |     20190    4.707894     2.69784          0   7.163699
+         idp |     20190    .2599802    .4386343          0          1
+-------------+--------------------------------------------------------
+        logc |     20190    2.383342    2.041776          0   4.564348
+        fmde |     20190    4.029524    3.471353          0   8.294049
+       hlthg |     20190    .3620109    .4805938          0          1
+       hlthf |     20190     .077266    .2670196          0          1
+       hlthp |     20190    .0149579    .1213874          0          1
+-------------+--------------------------------------------------------
+     xghindx |     20190     73.2375     14.2332        3.7        100
+        linc |     20190    8.708265    1.228309          0   10.28324
+        lnum |     20190    1.248156     .539301          0   2.639057
+    lnmeddol |     15737    4.109318    1.484654  -.8495329   10.57597
+      binexp |     20190    .7794453     .414631          0          1
+
+. 
+. /* Describe and summarize the original data.
+> describe
+> summarize
+> * The orignal data are a panel. 
+> * The following summarizes panel features for completeness
+> iis zper
+> tis year
+> xtdes
+> xtsum meddol lnmeddol binexp
+> */
+. 
+. * Note that unlike chapter 16 we use all years, not just year 2
+. 
+. * educdec is missing for some observations
+. drop if educdec==.
+(4 observations deleted)
+
+. 
+. * rename variables
+. rename mdvis MDU
+
+. rename meddol MED
+
+. rename binexp DMED
+
+. rename lnmeddol LNMED
+
+. rename linc LINC
+
+. rename lfam LFAM
+
+. rename educdec EDUCDEC
+
+. rename xage AGE
+
+. rename female FEMALE
+
+. rename child CHILD 
+
+. rename fchild FEMCHILD
+
+. rename black BLACK
+
+. rename disea NDISEASE
+
+. rename physlm PHYSLIM
+
+. rename hlthg HLTHG
+
+. rename hlthf HLTHF
+
+. rename hlthp HLTHP
+
+. rename idp IDP
+
+. rename logc LC
+
+. rename lpi LPI
+
+. rename fmde FMDE
+
+. 
+. * Define the regressor list which in commands can refer to as $XLIST
+. global XLIST LC IDP LPI FMDE PHYSLIM NDISEASE HLTHG HLTHF HLTHP /* 
+>      */ LINC LFAM EDUCDEC AGE FEMALE CHILD FEMCHILD BLACK
+
+. 
+. sum MDU $XLIST 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MDU |     20186    2.860696    4.504765          0         77
+          LC |     20186    2.383588    2.041713          0   4.564348
+         IDP |     20186    .2599822    .4386354          0          1
+         LPI |     20186    4.708827    2.697293          0   7.163699
+        FMDE |     20186    4.030322    3.471234          0   8.294049
+-------------+--------------------------------------------------------
+     PHYSLIM |     20186    .1235247    .3220437          0          1
+    NDISEASE |     20186     11.2445    6.741647          0       58.6
+       HLTHG |     20186    .3620826    .4806144          0          1
+       HLTHF |     20186    .0772813    .2670439          0          1
+       HLTHP |     20186    .0149609    .1213992          0          1
+-------------+--------------------------------------------------------
+        LINC |     20186    8.708167     1.22841          0   10.28324
+        LFAM |     20186    1.248404    .5390681          0   2.639057
+     EDUCDEC |     20186    11.96681    2.806255          0         25
+         AGE |     20186    25.71844    16.76759          0   64.27515
+      FEMALE |     20186    .5169424    .4997252          0          1
+-------------+--------------------------------------------------------
+       CHILD |     20186    .4014168    .4901972          0          1
+    FEMCHILD |     20186    .1937481    .3952436          0          1
+       BLACK |     20186    .1815343    .3827365          0          1
+
+. 
+. * Write final data to a text (ascii) file so can use with programs other than Stata
+. outfile MDU LC IDP LPI FMDE PHYSLIM NDISEASE HLTHG HLTHF HLTHP /* 
+>      */ LINC LFAM EDUCDEC AGE FEMALE CHILD FEMCHILD BLACK /*
+>      */ using mma20p1count.asc, replace
+
+. 
+. ********** (1) FREQUENCIES OF COUNT (Table 20.3, page 672) **********
+. 
+. * Following ggives Table 20.3 (page 672) frequencies
+. tabulate MDU
+
+     number |
+face-to-fac |
+t md visits |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      6,308       31.25       31.25
+          1 |      3,815       18.90       50.15
+          2 |      2,795       13.85       63.99
+          3 |      1,884        9.33       73.33
+          4 |      1,345        6.66       79.99
+          5 |        968        4.80       84.79
+          6 |        689        3.41       88.20
+          7 |        531        2.63       90.83
+          8 |        408        2.02       92.85
+          9 |        287        1.42       94.27
+         10 |        206        1.02       95.29
+         11 |        190        0.94       96.24
+         12 |        118        0.58       96.82
+         13 |        109        0.54       97.36
+         14 |         82        0.41       97.77
+         15 |         59        0.29       98.06
+         16 |         56        0.28       98.34
+         17 |         33        0.16       98.50
+         18 |         37        0.18       98.68
+         19 |         35        0.17       98.86
+         20 |         26        0.13       98.98
+         21 |         22        0.11       99.09
+         22 |         19        0.09       99.19
+         23 |         19        0.09       99.28
+         24 |         13        0.06       99.35
+         25 |          8        0.04       99.39
+         26 |         10        0.05       99.44
+         27 |          6        0.03       99.46
+         28 |         12        0.06       99.52
+         29 |          6        0.03       99.55
+         30 |          8        0.04       99.59
+         31 |          8        0.04       99.63
+         32 |          4        0.02       99.65
+         33 |          5        0.02       99.68
+         34 |          9        0.04       99.72
+         35 |          5        0.02       99.75
+         37 |          5        0.02       99.77
+         38 |          9        0.04       99.82
+         39 |          1        0.00       99.82
+         40 |          3        0.01       99.84
+         41 |          5        0.02       99.86
+         44 |          6        0.03       99.89
+         45 |          2        0.01       99.90
+         46 |          2        0.01       99.91
+         48 |          2        0.01       99.92
+         51 |          1        0.00       99.93
+         52 |          3        0.01       99.94
+         55 |          1        0.00       99.95
+         56 |          1        0.00       99.95
+         57 |          1        0.00       99.96
+         58 |          1        0.00       99.96
+         62 |          1        0.00       99.97
+         63 |          1        0.00       99.97
+         65 |          1        0.00       99.98
+         69 |          1        0.00       99.98
+         72 |          1        0.00       99.99
+         74 |          1        0.00       99.99
+         76 |          1        0.00      100.00
+         77 |          1        0.00      100.00
+------------+-----------------------------------
+      Total |     20,186      100.00
+
+. 
+. * Histogram with kernel density estimate
+. hist MDU, discrete kdensity
+(start=0, width=1)
+
+. 
+. ********** (2) DATA SUMMARY (Table 20.4, page 672) **********
+. 
+. * Following gives variables in same order as Table 20.4 (page 672)
+. sum MDU LC IDP LPI FMDE LINC LFAM AGE FEMALE CHILD FEMCHILD BLACK /* 
+>      */ EDUCDEC PHYSLIM NDISEASE HLTHG HLTHF HLTHP
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         MDU |     20186    2.860696    4.504765          0         77
+          LC |     20186    2.383588    2.041713          0   4.564348
+         IDP |     20186    .2599822    .4386354          0          1
+         LPI |     20186    4.708827    2.697293          0   7.163699
+        FMDE |     20186    4.030322    3.471234          0   8.294049
+-------------+--------------------------------------------------------
+        LINC |     20186    8.708167     1.22841          0   10.28324
+        LFAM |     20186    1.248404    .5390681          0   2.639057
+         AGE |     20186    25.71844    16.76759          0   64.27515
+      FEMALE |     20186    .5169424    .4997252          0          1
+       CHILD |     20186    .4014168    .4901972          0          1
+-------------+--------------------------------------------------------
+    FEMCHILD |     20186    .1937481    .3952436          0          1
+       BLACK |     20186    .1815343    .3827365          0          1
+     EDUCDEC |     20186    11.96681    2.806255          0         25
+     PHYSLIM |     20186    .1235247    .3220437          0          1
+    NDISEASE |     20186     11.2445    6.741647          0       58.6
+-------------+--------------------------------------------------------
+       HLTHG |     20186    .3620826    .4806144          0          1
+       HLTHF |     20186    .0772813    .2670439          0          1
+       HLTHP |     20186    .0149609    .1213992          0          1
+
+. 
+. 
+. *********** (3, 4) REGRESSION ANALYSIS  **************
+. 
+. * Here just two estimators - Poisson and negative binomial
+. * but three ways to calculate standard errors
+. * (A) default ML
+. * (B) robust (to misspecification of heteroskedasticity)
+. * (C) cluster-robust needed here as data are actually panel (see chapter 21, 24) 
+. 
+. *** Table 20.5  Poisson regression estimates
+. 
+. * Default standard errors assume variance = mean (ignoring overdispersion)
+. * This is first t-ratio in Table 20.5
+. poisson MDU $XLIST
+
+Iteration 0:   log likelihood = -60097.599  
+Iteration 1:   log likelihood = -60087.636  
+Iteration 2:   log likelihood = -60087.622  
+Iteration 3:   log likelihood = -60087.622  
+
+Poisson regression                                Number of obs   =      20186
+                                                  LR chi2(17)     =   13106.07
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -60087.622                       Pseudo R2       =     0.0983
+
+------------------------------------------------------------------------------
+         MDU |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0427332   .0060785    -7.03   0.000    -.0546469   -.0308195
+         IDP |  -.1613169   .0116218   -13.88   0.000    -.1840952   -.1385385
+         LPI |   .0128511   .0018362     7.00   0.000     .0092523    .0164499
+        FMDE |   -.020613   .0035521    -5.80   0.000     -.027575   -.0136511
+     PHYSLIM |   .2684048   .0123624    21.71   0.000     .2441749    .2926347
+    NDISEASE |    .023183   .0006081    38.12   0.000     .0219912    .0243749
+       HLTHG |   .0394004   .0095884     4.11   0.000     .0206074    .0581934
+       HLTHF |   .2531119    .016212    15.61   0.000     .2213369    .2848869
+       HLTHP |   .5216034   .0272382    19.15   0.000     .4682176    .5749892
+        LINC |   .0834099   .0051656    16.15   0.000     .0732854    .0935343
+        LFAM |  -.1296626   .0089603   -14.47   0.000    -.1472245   -.1121008
+     EDUCDEC |   .0176149   .0016387    10.75   0.000     .0144031    .0208268
+         AGE |   .0023756   .0004311     5.51   0.000     .0015306    .0032206
+      FEMALE |   .3487667   .0113504    30.73   0.000     .3265203     .371013
+       CHILD |   .3361904   .0178194    18.87   0.000     .3012649    .3711158
+    FEMCHILD |  -.3625218   .0179396   -20.21   0.000    -.3976827   -.3273608
+       BLACK |  -.6800518   .0155484   -43.74   0.000    -.7105262   -.6495775
+       _cons |  -.1898766   .0491731    -3.86   0.000    -.2862541    -.093499
+------------------------------------------------------------------------------
+
+. estimates store poisml
+
+. 
+. * Should always control for possible overdispersion 
+. * This is second t-ratio in Table 20.5
+. poisson MDU $XLIST, robust
+
+Iteration 0:   log pseudo-likelihood = -60097.599  
+Iteration 1:   log pseudo-likelihood = -60087.636  
+Iteration 2:   log pseudo-likelihood = -60087.622  
+Iteration 3:   log pseudo-likelihood = -60087.622  
+
+Poisson regression                                Number of obs   =      20186
+                                                  Wald chi2(17)   =    1924.78
+                                                  Prob > chi2     =     0.0000
+Log pseudo-likelihood = -60087.622                Pseudo R2       =     0.0983
+
+------------------------------------------------------------------------------
+             |               Robust
+         MDU |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0427332   .0150712    -2.84   0.005    -.0722723   -.0131942
+         IDP |  -.1613169   .0279441    -5.77   0.000    -.2160863   -.1065474
+         LPI |   .0128511   .0044136     2.91   0.004     .0042007    .0215015
+        FMDE |   -.020613   .0088874    -2.32   0.020    -.0380319   -.0031941
+     PHYSLIM |   .2684048   .0325743     8.24   0.000     .2045604    .3322493
+    NDISEASE |    .023183   .0017189    13.49   0.000      .019814    .0265521
+       HLTHG |   .0394004    .023194     1.70   0.089     -.006059    .0848598
+       HLTHF |   .2531119   .0429454     5.89   0.000     .1689405    .3372833
+       HLTHP |   .5216034   .0748808     6.97   0.000     .3748398     .668367
+        LINC |   .0834099   .0139182     5.99   0.000     .0561306    .1106891
+        LFAM |  -.1296626   .0226793    -5.72   0.000    -.1741132    -.085212
+     EDUCDEC |   .0176149    .004042     4.36   0.000     .0096927    .0255371
+         AGE |   .0023756   .0011184     2.12   0.034     .0001837    .0045675
+      FEMALE |   .3487667   .0283549    12.30   0.000      .293192    .4043413
+       CHILD |   .3361904    .040411     8.32   0.000     .2569863    .4153945
+    FEMCHILD |  -.3625218     .04415    -8.21   0.000    -.4490542   -.2759893
+       BLACK |  -.6800518   .0368748   -18.44   0.000    -.7523252   -.6077785
+       _cons |  -.1898766    .127516    -1.49   0.136    -.4398033    .0600502
+------------------------------------------------------------------------------
+
+. estimates store poisrobust
+
+. 
+. * Should also control here for clustering (see chapter 24) 
+. * as up to four years of data for each person. 
+. * Table 20.5 did not report these results
+. poisson MDU $XLIST, cluster(zper)
+
+Iteration 0:   log pseudo-likelihood = -60097.599  
+Iteration 1:   log pseudo-likelihood = -60087.636  
+Iteration 2:   log pseudo-likelihood = -60087.622  
+Iteration 3:   log pseudo-likelihood = -60087.622  
+
+Poisson regression                                Number of obs   =      20186
+                                                  Wald chi2(17)   =     827.07
+Log pseudo-likelihood = -60087.622                Prob > chi2     =     0.0000
+
+                             (standard errors adjusted for clustering on zper)
+------------------------------------------------------------------------------
+             |               Robust
+         MDU |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0427332   .0226824    -1.88   0.060    -.0871899    .0017235
+         IDP |  -.1613169   .0424591    -3.80   0.000    -.2445352   -.0780986
+         LPI |   .0128511   .0067697     1.90   0.058    -.0004173    .0261195
+        FMDE |   -.020613   .0134449    -1.53   0.125    -.0469646    .0057386
+     PHYSLIM |   .2684048   .0491061     5.47   0.000     .1721586     .364651
+    NDISEASE |    .023183   .0027457     8.44   0.000     .0178015    .0285645
+       HLTHG |   .0394004   .0354001     1.11   0.266    -.0299825    .1087833
+       HLTHF |   .2531119   .0675164     3.75   0.000     .1207822    .3854416
+       HLTHP |   .5216034   .1163731     4.48   0.000     .2935163    .7496905
+        LINC |   .0834099   .0200881     4.15   0.000     .0440379    .1227818
+        LFAM |  -.1296626   .0340038    -3.81   0.000    -.1963089   -.0630164
+     EDUCDEC |   .0176149   .0062678     2.81   0.005     .0053302    .0298996
+         AGE |   .0023756   .0016549     1.44   0.151    -.0008681    .0056192
+      FEMALE |   .3487667   .0432567     8.06   0.000      .263985    .4335483
+       CHILD |   .3361904   .0586109     5.74   0.000     .2213151    .4510656
+    FEMCHILD |  -.3625218   .0660639    -5.49   0.000    -.4920045    -.233039
+       BLACK |  -.6800518   .0544268   -12.49   0.000    -.7867263   -.5733774
+       _cons |  -.1898766   .1860343    -1.02   0.307    -.5544971     .174744
+------------------------------------------------------------------------------
+
+. estimates store poiscluster
+
+. 
+. *** Table 20.5  Negative binomial regression estimates
+. 
+. * Default standard errors assume variance = mean (ignoring overdispersion)
+. * This is first t-ratio in Table 20.5
+. nbreg MDU $XLIST
+
+Fitting Poisson model:
+
+Iteration 0:   log likelihood = -60097.599  
+Iteration 1:   log likelihood = -60087.636  
+Iteration 2:   log likelihood = -60087.622  
+Iteration 3:   log likelihood = -60087.622  
+
+Fitting constant-only model:
+
+Iteration 0:   log likelihood = -44579.449  
+Iteration 1:   log likelihood = -44192.261  
+Iteration 2:   log likelihood = -44191.615  
+Iteration 3:   log likelihood = -44191.615  
+
+Fitting full model:
+
+Iteration 0:   log likelihood = -42968.574  
+Iteration 1:   log likelihood = -42783.342  
+Iteration 2:   log likelihood = -42777.614  
+Iteration 3:   log likelihood = -42777.611  
+
+Negative binomial regression                      Number of obs   =      20186
+                                                  LR chi2(17)     =    2828.01
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -42777.611                       Pseudo R2       =     0.0320
+
+------------------------------------------------------------------------------
+         MDU |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0504405   .0128694    -3.92   0.000    -.0756641   -.0252169
+         IDP |  -.1475976   .0254099    -5.81   0.000    -.1974001   -.0977951
+         LPI |   .0158351   .0040586     3.90   0.000     .0078805    .0237898
+        FMDE |   -.021335   .0075119    -2.84   0.005     -.036058   -.0066119
+     PHYSLIM |   .2751715   .0295572     9.31   0.000     .2172404    .3331026
+    NDISEASE |   .0259352   .0014827    17.49   0.000     .0230292    .0288412
+       HLTHG |   .0065371   .0202235     0.32   0.747    -.0331002    .0461744
+       HLTHF |   .2368643   .0374086     6.33   0.000     .1635448    .3101837
+       HLTHP |   .4256563   .0741812     5.74   0.000     .2802638    .5710488
+        LINC |   .0845165   .0085659     9.87   0.000     .0677277    .1013053
+        LFAM |  -.1226764    .019308    -6.35   0.000    -.1605195   -.0848333
+     EDUCDEC |   .0162582   .0034846     4.67   0.000     .0094285    .0230879
+         AGE |   .0025943   .0009433     2.75   0.006     .0007455    .0044432
+      FEMALE |   .3672884    .024005    15.30   0.000     .3202395    .4143373
+       CHILD |   .3060317   .0385618     7.94   0.000      .230452    .3816115
+    FEMCHILD |  -.3755503   .0371392   -10.11   0.000    -.4483418   -.3027587
+       BLACK |  -.7104372   .0274929   -25.84   0.000    -.7643223   -.6565521
+       _cons |  -.2069298   .0899431    -2.30   0.021    -.3832151   -.0306445
+-------------+----------------------------------------------------------------
+    /lnalpha |   .1674206   .0147901                      .1384326    .1964087
+-------------+----------------------------------------------------------------
+       alpha |   1.182251   .0174856                      1.148472    1.217024
+------------------------------------------------------------------------------
+Likelihood-ratio test of alpha=0:  chibar2(01) = 3.5e+04 Prob>=chibar2 = 0.000
+
+. estimates store nbml
+
+. 
+. * Should always control for possible overdispersion 
+. * This is second t-ratio in Table 20.5
+. nbreg MDU $XLIST, robust
+
+Fitting Poisson model:
+
+Iteration 0:   log pseudo-likelihood = -60097.599  
+Iteration 1:   log pseudo-likelihood = -60087.636  
+Iteration 2:   log pseudo-likelihood = -60087.622  
+Iteration 3:   log pseudo-likelihood = -60087.622  
+
+Fitting constant-only model:
+
+Iteration 0:   log pseudo-likelihood = -44579.449  
+Iteration 1:   log pseudo-likelihood = -44192.261  
+Iteration 2:   log pseudo-likelihood = -44191.615  
+Iteration 3:   log pseudo-likelihood = -44191.615  
+
+Fitting full model:
+
+Iteration 0:   log pseudo-likelihood = -42968.574  
+Iteration 1:   log pseudo-likelihood = -42783.342  
+Iteration 2:   log pseudo-likelihood = -42777.614  
+Iteration 3:   log pseudo-likelihood = -42777.611  
+
+Negative binomial regression                      Number of obs   =      20186
+                                                  Wald chi2(17)   =    2203.12
+                                                  Prob > chi2     =     0.0000
+Log pseudo-likelihood = -42777.611                Pseudo R2       =     0.0320
+
+------------------------------------------------------------------------------
+             |               Robust
+         MDU |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0504405   .0156238    -3.23   0.001    -.0810625   -.0198184
+         IDP |  -.1475976   .0303777    -4.86   0.000    -.2071367   -.0880585
+         LPI |   .0158351    .004431     3.57   0.000     .0071505    .0245197
+        FMDE |   -.021335   .0090748    -2.35   0.019    -.0391211   -.0035488
+     PHYSLIM |   .2751715   .0341067     8.07   0.000     .2083235    .3420195
+    NDISEASE |   .0259352   .0016925    15.32   0.000      .022618    .0292524
+       HLTHG |   .0065371    .023814     0.27   0.784    -.0401375    .0532118
+       HLTHF |   .2368643   .0436579     5.43   0.000     .1512963    .3224322
+       HLTHP |   .4256563   .0686042     6.20   0.000     .2911945     .560118
+        LINC |   .0845165   .0113918     7.42   0.000     .0621891     .106844
+        LFAM |  -.1226764   .0231639    -5.30   0.000    -.1680769   -.0772759
+     EDUCDEC |   .0162582   .0040332     4.03   0.000     .0083533     .024163
+         AGE |   .0025943   .0011128     2.33   0.020     .0004133    .0047753
+      FEMALE |   .3672884   .0285724    12.85   0.000     .3112876    .4232892
+       CHILD |   .3060317   .0428976     7.13   0.000      .221954    .3901095
+    FEMCHILD |  -.3755503   .0447039    -8.40   0.000    -.4631682   -.2879323
+       BLACK |  -.7104372   .0359462   -19.76   0.000    -.7808903    -.639984
+       _cons |  -.2069298   .1130753    -1.83   0.067    -.4285533    .0146938
+-------------+----------------------------------------------------------------
+    /lnalpha |   .1674206   .0187562                      .1306591    .2041821
+-------------+----------------------------------------------------------------
+       alpha |   1.182251   .0221746                      1.139579    1.226522
+------------------------------------------------------------------------------
+
+. estimates store nbrobust
+
+. 
+. * Should also control here for clustering (see chapter 24) 
+. * as up to four years of data for each person. 
+. * Table 20.5 did not report these results
+. nbreg MDU $XLIST, cluster(zper)
+
+Fitting Poisson model:
+
+Iteration 0:   log pseudo-likelihood = -60097.599  
+Iteration 1:   log pseudo-likelihood = -60087.636  
+Iteration 2:   log pseudo-likelihood = -60087.622  
+Iteration 3:   log pseudo-likelihood = -60087.622  
+
+Fitting constant-only model:
+
+Iteration 0:   log pseudo-likelihood = -44579.449  
+Iteration 1:   log pseudo-likelihood = -44192.261  
+Iteration 2:   log pseudo-likelihood = -44191.615  
+Iteration 3:   log pseudo-likelihood = -44191.615  
+
+Fitting full model:
+
+Iteration 0:   log pseudo-likelihood = -42968.574  
+Iteration 1:   log pseudo-likelihood = -42783.342  
+Iteration 2:   log pseudo-likelihood = -42777.614  
+Iteration 3:   log pseudo-likelihood = -42777.611  
+
+Negative binomial regression                      Number of obs   =      20186
+                                                  Wald chi2(17)   =    1034.43
+Log pseudo-likelihood = -42777.611                Prob > chi2     =     0.0000
+
+                             (standard errors adjusted for clustering on zper)
+------------------------------------------------------------------------------
+             |               Robust
+         MDU |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+          LC |  -.0504405   .0236804    -2.13   0.033    -.0968533   -.0040277
+         IDP |  -.1475976   .0457769    -3.22   0.001    -.2373186   -.0578766
+         LPI |   .0158351   .0066968     2.36   0.018     .0027096    .0289607
+        FMDE |   -.021335   .0137245    -1.55   0.120    -.0482344    .0055645
+     PHYSLIM |   .2751715   .0489905     5.62   0.000     .1791519     .371191
+    NDISEASE |   .0259352   .0025814    10.05   0.000     .0208758    .0309946
+       HLTHG |   .0065371   .0359676     0.18   0.856    -.0639581    .0770323
+       HLTHF |   .2368643   .0653989     3.62   0.000     .1086848    .3650437
+       HLTHP |   .4256563   .1000813     4.25   0.000     .2295005     .621812
+        LINC |   .0845165   .0152197     5.55   0.000     .0546864    .1143467
+        LFAM |  -.1226764   .0340453    -3.60   0.000     -.189404   -.0559488
+     EDUCDEC |   .0162582   .0059501     2.73   0.006     .0045962    .0279202
+         AGE |   .0025943    .001581     1.64   0.101    -.0005045    .0056931
+      FEMALE |   .3672884   .0420327     8.74   0.000     .2849059    .4496709
+       CHILD |   .3060317   .0598167     5.12   0.000     .1887932    .4232702
+    FEMCHILD |  -.3755503   .0649845    -5.78   0.000    -.5029175   -.2481831
+       BLACK |  -.7104372   .0531155   -13.38   0.000    -.8145417   -.6063326
+       _cons |  -.2069298   .1576721    -1.31   0.189    -.5159613    .1021018
+-------------+----------------------------------------------------------------
+    /lnalpha |   .1674206   .0252599                      .1179121    .2169291
+-------------+----------------------------------------------------------------
+       alpha |   1.182251   .0298635                      1.125145    1.242256
+------------------------------------------------------------------------------
+
+. estimates store nbcluster
+
+. 
+. ************ DISPLAY RESULTS FOR TABLE 20.5 (page 673) ************
+. 
+. * Note for brevity the coefficients for only some of the regressors 
+. * are given in Table 20.5
+. 
+. * First columns of Table 20.5 (page 673) plus cluster-robust 
+. estimates table poisml poisrobust poiscluster, t stats(N ll rank aic bic) b(%10.4f) t(%10.3f)
+
+-----------------------------------------------------
+    Variable |   poisml     poisrobust   poisclus~r  
+-------------+---------------------------------------
+          LC |    -0.0427      -0.0427      -0.0427  
+             |     -7.030       -2.835       -1.884  
+         IDP |    -0.1613      -0.1613      -0.1613  
+             |    -13.881       -5.773       -3.799  
+         LPI |     0.0129       0.0129       0.0129  
+             |      6.999        2.912        1.898  
+        FMDE |    -0.0206      -0.0206      -0.0206  
+             |     -5.803       -2.319       -1.533  
+     PHYSLIM |     0.2684       0.2684       0.2684  
+             |     21.711        8.240        5.466  
+    NDISEASE |     0.0232       0.0232       0.0232  
+             |     38.124       13.487        8.443  
+       HLTHG |     0.0394       0.0394       0.0394  
+             |      4.109        1.699        1.113  
+       HLTHF |     0.2531       0.2531       0.2531  
+             |     15.613        5.894        3.749  
+       HLTHP |     0.5216       0.5216       0.5216  
+             |     19.150        6.966        4.482  
+        LINC |     0.0834       0.0834       0.0834  
+             |     16.147        5.993        4.152  
+        LFAM |    -0.1297      -0.1297      -0.1297  
+             |    -14.471       -5.717       -3.813  
+     EDUCDEC |     0.0176       0.0176       0.0176  
+             |     10.749        4.358        2.810  
+         AGE |     0.0024       0.0024       0.0024  
+             |      5.510        2.124        1.435  
+      FEMALE |     0.3488       0.3488       0.3488  
+             |     30.727       12.300        8.063  
+       CHILD |     0.3362       0.3362       0.3362  
+             |     18.866        8.319        5.736  
+    FEMCHILD |    -0.3625      -0.3625      -0.3625  
+             |    -20.208       -8.211       -5.487  
+       BLACK |    -0.6801      -0.6801      -0.6801  
+             |    -43.738      -18.442      -12.495  
+       _cons |    -0.1899      -0.1899      -0.1899  
+             |     -3.861       -1.489       -1.021  
+-------------+---------------------------------------
+           N | 20186.0000   20186.0000   20186.0000  
+          ll | -6.009e+04   -6.009e+04   -6.009e+04  
+        rank |    18.0000      18.0000      18.0000  
+         aic |  1.202e+05    1.202e+05    1.202e+05  
+         bic |  1.204e+05    1.204e+05    1.204e+05  
+-----------------------------------------------------
+                                          legend: b/t
+
+. 
+. * Last columns of Table 20.5 (page 673) give bnbml. Also give others.
+. estimates table nbml nbrobust nbcluster, t stats(N ll rank aic bic) b(%10.4f) t(%10.3f)
+
+-----------------------------------------------------
+    Variable |    nbml       nbrobust    nbcluster   
+-------------+---------------------------------------
+MDU          |                                       
+          LC |    -0.0504      -0.0504      -0.0504  
+             |     -3.919       -3.228       -2.130  
+         IDP |    -0.1476      -0.1476      -0.1476  
+             |     -5.809       -4.859       -3.224  
+         LPI |     0.0158       0.0158       0.0158  
+             |      3.902        3.574        2.365  
+        FMDE |    -0.0213      -0.0213      -0.0213  
+             |     -2.840       -2.351       -1.555  
+     PHYSLIM |     0.2752       0.2752       0.2752  
+             |      9.310        8.068        5.617  
+    NDISEASE |     0.0259       0.0259       0.0259  
+             |     17.492       15.324       10.047  
+       HLTHG |     0.0065       0.0065       0.0065  
+             |      0.323        0.275        0.182  
+       HLTHF |     0.2369       0.2369       0.2369  
+             |      6.332        5.425        3.622  
+       HLTHP |     0.4257       0.4257       0.4257  
+             |      5.738        6.205        4.253  
+        LINC |     0.0845       0.0845       0.0845  
+             |      9.867        7.419        5.553  
+        LFAM |    -0.1227      -0.1227      -0.1227  
+             |     -6.354       -5.296       -3.603  
+     EDUCDEC |     0.0163       0.0163       0.0163  
+             |      4.666        4.031        2.732  
+         AGE |     0.0026       0.0026       0.0026  
+             |      2.750        2.331        1.641  
+      FEMALE |     0.3673       0.3673       0.3673  
+             |     15.300       12.855        8.738  
+       CHILD |     0.3060       0.3060       0.3060  
+             |      7.936        7.134        5.116  
+    FEMCHILD |    -0.3756      -0.3756      -0.3756  
+             |    -10.112       -8.401       -5.779  
+       BLACK |    -0.7104      -0.7104      -0.7104  
+             |    -25.841      -19.764      -13.375  
+       _cons |    -0.2069      -0.2069      -0.2069  
+             |     -2.301       -1.830       -1.312  
+-------------+---------------------------------------
+lnalpha      |                                       
+       _cons |     0.1674       0.1674       0.1674  
+             |     11.320        8.926        6.628  
+-------------+---------------------------------------
+Statistics   |                                       
+           N | 20186.0000   20186.0000   20186.0000  
+          ll | -4.278e+04   -4.278e+04   -4.278e+04  
+        rank |    19.0000      19.0000      19.0000  
+         aic | 85593.2220   85593.2220   85593.2220  
+         bic | 85743.5642   85743.5642   85743.5642  
+-----------------------------------------------------
+                                          legend: b/t
+
+. 
+. * For Poisson correcting for overdispersion is most important.
+. * For negative binomial overdispersion is already incorporated.
+. * For both contreolling for clustering (in this example with panel data)
+. * is also needed.
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma20p1count.txt
+  log type:  text
+ closed on:  20 May 2005, 08:41:56
+----------------------------------------------------------------------------------------------------

@@ -1,0 +1,117 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section3\mma13p1bayesthm.txt
+  log type:  text
+ opened on:  24 May 2005, 11:04:08
+
+. 
+. ********** OVERVIEW OF MMA13P1BAYESTHM.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 13.2.2 page 424 
+. * Create Figure 13.1
+. * (1) Bayes Analysis illustrated using normal distribution and prior
+. 
+. * No data are needed.
+. 
+. ********** SETUP
+. 
+. set more off
+
+. version
+version 8.2
+
+. set scheme s1mono  /* Graphics scheme */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * Model is  y ~ normal(theta, sigmesq) where sigmasq is known.
+. * and the prior is theta ~ normal(mu, tau)
+. * which gives a normal posterior
+. * n is set below in set obs
+. 
+. ********** CREATE DATA **********
+. 
+. * The likleihood and prior are normal so the posterior is also normal
+. 
+. * Will evaluate the densities at points between 0 and 15
+. set obs 150
+obs was 0, now 150
+
+. gen xeval = 0.1*_n 
+
+. 
+. * Likelihood with sigmasq known
+. scalar nobs = 50
+
+. scalar ybar = 10
+
+. scalar sigmasq = 100
+
+. gen likelihood = normden(xeval,ybar,sqrt(sigmasq/nobs))
+
+. 
+. * Prior
+. scalar mu = 5
+
+. scalar tausq = 3
+
+. gen prior = normden(xeval,mu,sqrt(tausq))
+
+. 
+. * Posterior given sample mean of using 
+. scalar tau1sq=1/((nobs/sigmasq)+(1/tausq))
+
+. scalar mu1 = tau1sq*((ybar*nobs/sigmasq)+(mu/tausq))
+
+. gen posterior = normden(xeval,mu1,sqrt(tau1sq))
+
+. 
+. scalar list
+       mu1 =          8
+    tau1sq =        1.2
+     tausq =          3
+        mu =          5
+   sigmasq =        100
+      ybar =         10
+      nobs =         50
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       xeval |       150        7.55    4.344537         .1         15
+  likelihood |       150    .0666548    .0944174   6.44e-12   .2820948
+       prior |       150    .0665247    .0804685   1.33e-08   .2303294
+   posterior |       150    .0666667    .1131755   1.85e-12   .3641828
+
+. 
+. graph twoway (line likelihood xeval, clstyle(p2)) /*
+>   */ (line prior xeval, clstyle(p3)) /*
+>   */ (line posterior xeval, clstyle(p1)), /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Bayes: Likelihood, Prior and Posterior") /*
+>   */ xtitle("Evaluation point", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Density", size(medlarge)) yscale(titlegap(*5)) /* 
+>   */ legend(pos(10) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Likelihood N[10,2]") label(2 "Prior N[5,3]") /*
+>   */         label(3 "Posterior N[8,1.2]") )
+
+. graph save Ch13_Bayes1, replace
+(file Ch13_Bayes1.gph saved)
+
+. graph export Ch13_Bayes1.wmf, replace
+(file c:\Imbook\bwebpage\Section3\Ch13_Bayes1.wmf written in Windows Metafile format)
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section3\mma13p1bayesthm.txt
+  log type:  text
+ closed on:  24 May 2005, 11:04:12
+----------------------------------------------------------------------------------------------------

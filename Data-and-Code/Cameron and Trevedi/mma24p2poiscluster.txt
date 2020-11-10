@@ -1,0 +1,807 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section6\mma24p2poiscluster.txt
+  log type:  text
+ opened on:  24 May 2005, 16:35:22
+
+. 
+. ********** OVERVIEW OF MMA24P2POISCLUSTER.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 24.7 pages 848-53 Table 24.6
+. * Cluster robust inference for Poisson cross-section application using
+. * Vietnam Living Standard Survey data
+. 
+. * (0) Descriptive Statistics (Table 24.3 second half)
+. * (1) Frequencies of data (Table 24.5)
+. * (2) Poisson regression with individual-level data (Table 24.6)
+. 
+. * The results differ in second significant digit from those in text
+. * despite same sample size. Not sure why.
+. 
+. * For Table 24.4 for clustered household data see MMA24P1OLSCLUSTER.DO
+. 
+. * The Poisson cluster effects model is 
+. *   y_it ~ Poiss0n(x_it'b + a_i)
+. * Default xtreg output assumes Poisson distribution - var = mean.
+. * This is usually too strong an assumption.
+. * Instead should get cluster-robust errors after xtpois
+. * See Section 21.2.3 pages 709-12 and section 23.26 pages 788-9
+. * Stata Version 8 does not do this. 
+. * Here we do a panel bootstrap - results not reported in the text
+. 
+. * To speed up programs reduce breps - the number of bootstrap reps
+. * This program takes a long time if bootstrap
+. 
+. * To run this program you need data set 
+. *     vietnam_ex2.dta
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * The data comes from World Bank 1997 Vietnam Living Standards Survey 
+. * A subset was used in chapter 4.6.4.
+. * The larger sample here is described on pages 848-9
+. 
+. * The data are HOUSEHOLD data
+. * There are N=5006 individuals in 194 clusters (communes)
+. 
+. * The separate data set vietnam_ex1.dta has individual level data
+. 
+. ********** READ IN INDIVIDUAL-LEVEL DATA and SUMMARIZE (Table 24.3) **********
+. 
+. use vietnam_ex2.dta, clear
+
+. desc
+
+Contains data from vietnam_ex2.dta
+  obs:        27,766                          
+ vars:            12                          11 Apr 2005 12:33
+ size:     1,443,832 (85.9% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+COMPED98        float  %9.0g                  
+SEX             float  %9.0g                  
+AGE             float  %9.0g                  
+MARRIED         float  %9.0g                  
+ILLDUM          float  %9.0g                  
+INJDUM          float  %9.0g                  
+ILLDAYS         float  %9.0g                  
+ACTDAYS         float  %9.0g                  
+PHARVIS         float  %9.0g                  
+HLTHINS         float  %9.0g                  
+lnhhinc         float  %9.0g                  
+commune         float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    COMPED98 |     27765    3.390672     1.93115          0         11
+         SEX |     27765    .5111471    .4998847          0          1
+         AGE |     27765    2.977504    .9671446          0    4.59512
+     MARRIED |     27765    .3988835    .4896775          0          1
+      ILLDUM |     27765    .6219701    .8995068          0          9
+-------------+--------------------------------------------------------
+      INJDUM |     27765    .0096885    .0979537          0          1
+     ILLDAYS |     27765    2.804034     5.45823          0         60
+     ACTDAYS |     27765    .0657302    1.115939          0         30
+     PHARVIS |     27765    .5117594    1.313427          0         30
+     HLTHINS |     27765    .1625788    .3689876          0          1
+-------------+--------------------------------------------------------
+     lnhhinc |     27765     2.60261    .6244145   .0467014   5.405502
+     commune |     27765    101.5266    56.28334          1        194
+
+. 
+. rename COMPED98 EDUC
+
+. rename ILLDUM ILLNESS
+
+. rename INJDUM INJURY
+
+. rename HLTHINS INSURANCE
+
+. rename lnhhinc LNHHEXP
+
+. rename commune COMMUNE
+
+. 
+. * Following should give same descriptive statistics 
+. * as in bottom half (Household) in Table 24.3 p.850
+. * But there are is a difference for LNHHEXP plus here no data on MEDEXP
+. sum PHARVIS LNHHEXP AGE SEX MARRIED EDUC ILLNESS INJURY ILLDAYS ACTDAYS INSURANCE COMMUNE
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+     PHARVIS |     27765    .5117594    1.313427          0         30
+     LNHHEXP |     27765     2.60261    .6244145   .0467014   5.405502
+         AGE |     27765    2.977504    .9671446          0    4.59512
+         SEX |     27765    .5111471    .4998847          0          1
+     MARRIED |     27765    .3988835    .4896775          0          1
+-------------+--------------------------------------------------------
+        EDUC |     27765    3.390672     1.93115          0         11
+     ILLNESS |     27765    .6219701    .8995068          0          9
+      INJURY |     27765    .0096885    .0979537          0          1
+     ILLDAYS |     27765    2.804034     5.45823          0         60
+     ACTDAYS |     27765    .0657302    1.115939          0         30
+-------------+--------------------------------------------------------
+   INSURANCE |     27765    .1625788    .3689876          0          1
+     COMMUNE |     27765    101.5266    56.28334          1        194
+
+. sum LNHHEXP, detail
+
+                           LNHHEXP
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     1.302267       .0467014
+ 5%     1.658267       .1111674
+10%     1.875315       .3755146       Obs               27765
+25%     2.188848       .4177101       Sum of Wgt.       27765
+
+50%     2.534935                      Mean            2.60261
+                        Largest       Std. Dev.      .6244145
+75%     2.962732       5.405502
+90%     3.458658       5.405502       Variance       .3898934
+95%     3.737957       5.405502       Skewness       .4925002
+99%     4.295394       5.405502       Kurtosis       3.583693
+
+. 
+. * Following gives Table 24.5 (page 852) frequencies
+. * These differ in some places from Table 24.5 - especially for number = 0
+. tabulate PHARVIS
+
+    PHARVIS |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |     20,668       74.44       74.44
+          1 |      3,829       13.79       88.23
+          2 |      1,716        6.18       94.41
+          3 |        777        2.80       97.21
+          4 |        359        1.29       98.50
+          5 |        174        0.63       99.13
+          6 |         64        0.23       99.36
+          7 |         43        0.15       99.51
+          8 |         16        0.06       99.57
+          9 |          4        0.01       99.59
+         10 |         78        0.28       99.87
+         11 |          1        0.00       99.87
+         12 |          5        0.02       99.89
+         13 |          1        0.00       99.89
+         14 |          3        0.01       99.90
+         15 |          9        0.03       99.94
+         16 |          1        0.00       99.94
+         20 |          8        0.03       99.97
+         22 |          2        0.01       99.97
+         27 |          1        0.00       99.98
+         28 |          3        0.01       99.99
+         30 |          3        0.01      100.00
+------------+-----------------------------------
+      Total |     27,765      100.00
+
+. 
+. * Histogram with kernel density estimate
+. hist PHARVIS, discrete kdensity
+(start=0, width=1)
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata  
+. outfile PHARVIS LNHHEXP AGE SEX MARRIED EDUC ILLNESS INJURY ILLDAYS /*
+>    */ ACTDAYS INSURANCE COMMUNE using vietnam_ex2.asc, replace
+
+. 
+. ********** ANALYSIS: CLUSTER ANALYSIS FOR POISSON MODEL [Table 24.6 p.851] *********
+. 
+. * Regressor list for the Poisson regressions
+. global XLISTPOISSON LNHHEXP INSURANCE SEX AGE MARRIED ILLDAYS ACTDAYS INJURY ILLNESS EDUC
+
+. 
+. * Poisson with usual standard errors (Table 24.6 columns 1-2) 
+. poisson PHARVIS $XLISTPOISSON
+
+Iteration 0:   log likelihood = -26309.924  
+Iteration 1:   log likelihood = -25300.337  
+Iteration 2:   log likelihood = -25281.839  
+Iteration 3:   log likelihood = -25281.786  
+Iteration 4:   log likelihood = -25281.786  
+
+Poisson regression                                Number of obs   =      27765
+                                                  LR chi2(10)     =   13226.50
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -25281.786                       Pseudo R2       =     0.2073
+
+------------------------------------------------------------------------------
+     PHARVIS |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |    .078686   .0138419     5.68   0.000     .0515564    .1058156
+   INSURANCE |  -.2485716   .0259704    -9.57   0.000    -.2994727   -.1976706
+         SEX |   .0851733   .0171697     4.96   0.000     .0515213    .1188253
+         AGE |   .0252426   .0106126     2.38   0.017     .0044423    .0460429
+     MARRIED |   .1239639   .0209267     5.92   0.000     .0829483    .1649795
+     ILLDAYS |   .0429083   .0010728    40.00   0.000     .0408057    .0450109
+     ACTDAYS |   .0089793   .0052409     1.71   0.087    -.0012927    .0192514
+      INJURY |   .1717029   .0747292     2.30   0.022     .0252364    .3181694
+     ILLNESS |   .5623976   .0064536    87.15   0.000     .5497488    .5750464
+        EDUC |  -.0524459   .0048173   -10.89   0.000    -.0618878   -.0430041
+       _cons |  -1.640821   .0458542   -35.78   0.000    -1.730694   -1.550949
+------------------------------------------------------------------------------
+
+. estimates store poisiid
+
+. 
+. * Poisson with heteroskedastic-robust standard errors (Table 24.6 column 3) 
+. poisson PHARVIS $XLISTPOISSON, robust
+
+Iteration 0:   log pseudo-likelihood = -26309.924  
+Iteration 1:   log pseudo-likelihood = -25300.337  
+Iteration 2:   log pseudo-likelihood = -25281.839  
+Iteration 3:   log pseudo-likelihood = -25281.786  
+Iteration 4:   log pseudo-likelihood = -25281.786  
+
+Poisson regression                                Number of obs   =      27765
+                                                  Wald chi2(10)   =    2423.07
+                                                  Prob > chi2     =     0.0000
+Log pseudo-likelihood = -25281.786                Pseudo R2       =     0.2073
+
+------------------------------------------------------------------------------
+             |               Robust
+     PHARVIS |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |    .078686   .0255091     3.08   0.002     .0286891    .1286829
+   INSURANCE |  -.2485716   .0437892    -5.68   0.000    -.3343969   -.1627464
+         SEX |   .0851733    .030907     2.76   0.006     .0245967    .1457499
+         AGE |   .0252426   .0198448     1.27   0.203    -.0136526    .0641377
+     MARRIED |   .1239639   .0419107     2.96   0.003     .0418205    .2061073
+     ILLDAYS |   .0429083   .0028779    14.91   0.000     .0372678    .0485488
+     ACTDAYS |   .0089793   .0207444     0.43   0.665     -.031679    .0496377
+      INJURY |   .1717029   .2043534     0.84   0.401    -.2288224    .5722282
+     ILLNESS |   .5623976   .0228635    24.60   0.000      .517586    .6072092
+        EDUC |  -.0524459   .0081043    -6.47   0.000    -.0683301   -.0365618
+       _cons |  -1.640821   .0872497   -18.81   0.000    -1.811828   -1.469815
+------------------------------------------------------------------------------
+
+. estimates store poishet
+
+. 
+. * Poisson with cluster-robust standard errors (Table 24.6 column 4) 
+. poisson PHARVIS $XLISTPOISSON, cluster(COMMUNE)
+
+Iteration 0:   log pseudo-likelihood = -26309.924  
+Iteration 1:   log pseudo-likelihood = -25300.337  
+Iteration 2:   log pseudo-likelihood = -25281.839  
+Iteration 3:   log pseudo-likelihood = -25281.786  
+Iteration 4:   log pseudo-likelihood = -25281.786  
+
+Poisson regression                                Number of obs   =      27765
+                                                  Wald chi2(10)   =    1295.38
+Log pseudo-likelihood = -25281.786                Prob > chi2     =     0.0000
+
+                          (standard errors adjusted for clustering on COMMUNE)
+------------------------------------------------------------------------------
+             |               Robust
+     PHARVIS |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |    .078686   .0472052     1.67   0.096    -.0138344    .1712065
+   INSURANCE |  -.2485716   .0617873    -4.02   0.000    -.3696725   -.1274708
+         SEX |   .0851733   .0327427     2.60   0.009     .0209988    .1493478
+         AGE |   .0252426   .0262626     0.96   0.336    -.0262311    .0767163
+     MARRIED |   .1239639    .048607     2.55   0.011      .028696    .2192318
+     ILLDAYS |   .0429083   .0037384    11.48   0.000     .0355811    .0502355
+     ACTDAYS |   .0089793   .0190493     0.47   0.637    -.0283567    .0463154
+      INJURY |   .1717029   .2214258     0.78   0.438    -.2622836    .6056894
+     ILLNESS |   .5623976    .028512    19.72   0.000      .506515    .6182802
+        EDUC |  -.0524459   .0153841    -3.41   0.001    -.0825982   -.0222937
+       _cons |  -1.640821   .1541108   -10.65   0.000    -1.942873    -1.33877
+------------------------------------------------------------------------------
+
+. estimates store poisclust
+
+. 
+. * Random effects estimation (Table 24.6 columns 5-6) 
+. * This uses the xtpois command which first requires identifying the cluster
+. iis COMMUNE
+
+. xtpois PHARVIS $XLISTPOISSON, re
+
+Fitting Poisson model:
+
+Iteration 0:   log likelihood = -26309.924  
+Iteration 1:   log likelihood = -25300.337  
+Iteration 2:   log likelihood = -25281.839  
+Iteration 3:   log likelihood = -25281.786  
+Iteration 4:   log likelihood = -25281.786  
+
+Fitting full model:
+
+Iteration 0:   log likelihood = -23538.342  
+Iteration 1:   log likelihood = -23430.615  
+Iteration 2:   log likelihood = -23419.142  
+Iteration 3:   log likelihood = -23419.132  
+Iteration 4:   log likelihood = -23419.132  
+
+Random-effects Poisson regression               Number of obs      =     27765
+Group variable (i): COMMUNE                     Number of groups   =       194
+
+Random effects u_i ~ Gamma                      Obs per group: min =        51
+                                                               avg =     143.1
+                                                               max =       206
+
+                                                Wald chi2(10)      =  13723.01
+Log likelihood  = -23419.132                    Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+     PHARVIS |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |  -.1013746   .0187549    -5.41   0.000    -.1381336   -.0646157
+   INSURANCE |  -.1675953   .0273642    -6.12   0.000    -.2212283   -.1139624
+         SEX |    .099303   .0172541     5.76   0.000     .0654855    .1331206
+         AGE |   .0047406   .0107899     0.44   0.660    -.0164073    .0258884
+     MARRIED |   .1579958   .0212825     7.42   0.000     .1162828    .1997088
+     ILLDAYS |    .046055   .0011422    40.32   0.000     .0438164    .0482937
+     ACTDAYS |   .0186084   .0054546     3.41   0.001     .0079176    .0292991
+      INJURY |   .1479464   .0780863     1.89   0.058       -.0051    .3009928
+     ILLNESS |   .5801872   .0076855    75.49   0.000      .565124    .5952505
+        EDUC |  -.0284493   .0055827    -5.10   0.000    -.0393911   -.0175075
+       _cons |  -1.276974   .0723199   -17.66   0.000    -1.418718   -1.135229
+-------------+----------------------------------------------------------------
+    /lnalpha |  -1.039839   .1035295                     -1.242753    -.836925
+-------------+----------------------------------------------------------------
+       alpha |   .3535115   .0365989                      .2885885    .4330401
+------------------------------------------------------------------------------
+Likelihood-ratio test of alpha=0: chibar2(01) =  3725.31 Prob>=chibar2 = 0.000
+
+. estimates store poisre
+
+. 
+. * Following shows that cluster option for xtpois in Stata version does nothing
+. xtpois PHARVIS $XLISTPOISSON, i(COMMUNE) re
+
+Fitting Poisson model:
+
+Iteration 0:   log likelihood = -26309.924  
+Iteration 1:   log likelihood = -25300.337  
+Iteration 2:   log likelihood = -25281.839  
+Iteration 3:   log likelihood = -25281.786  
+Iteration 4:   log likelihood = -25281.786  
+
+Fitting full model:
+
+Iteration 0:   log likelihood = -23538.342  
+Iteration 1:   log likelihood = -23430.615  
+Iteration 2:   log likelihood = -23419.142  
+Iteration 3:   log likelihood = -23419.132  
+Iteration 4:   log likelihood = -23419.132  
+
+Random-effects Poisson regression               Number of obs      =     27765
+Group variable (i): COMMUNE                     Number of groups   =       194
+
+Random effects u_i ~ Gamma                      Obs per group: min =        51
+                                                               avg =     143.1
+                                                               max =       206
+
+                                                Wald chi2(10)      =  13723.01
+Log likelihood  = -23419.132                    Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+     PHARVIS |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |  -.1013746   .0187549    -5.41   0.000    -.1381336   -.0646157
+   INSURANCE |  -.1675953   .0273642    -6.12   0.000    -.2212283   -.1139624
+         SEX |    .099303   .0172541     5.76   0.000     .0654855    .1331206
+         AGE |   .0047406   .0107899     0.44   0.660    -.0164073    .0258884
+     MARRIED |   .1579958   .0212825     7.42   0.000     .1162828    .1997088
+     ILLDAYS |    .046055   .0011422    40.32   0.000     .0438164    .0482937
+     ACTDAYS |   .0186084   .0054546     3.41   0.001     .0079176    .0292991
+      INJURY |   .1479464   .0780863     1.89   0.058       -.0051    .3009928
+     ILLNESS |   .5801872   .0076855    75.49   0.000      .565124    .5952505
+        EDUC |  -.0284493   .0055827    -5.10   0.000    -.0393911   -.0175075
+       _cons |  -1.276974   .0723199   -17.66   0.000    -1.418718   -1.135229
+-------------+----------------------------------------------------------------
+    /lnalpha |  -1.039839   .1035295                     -1.242753    -.836925
+-------------+----------------------------------------------------------------
+       alpha |   .3535115   .0365989                      .2885885    .4330401
+------------------------------------------------------------------------------
+Likelihood-ratio test of alpha=0: chibar2(01) =  3725.31 Prob>=chibar2 = 0.000
+
+. 
+. * Note that can cluster bootstrap if desired to get more robust standard errors
+. * This is done at end of program
+. 
+. * Fixed effects estimation (FGLS) (Table 24.6 columns 7-8) 
+. xtpois PHARVIS $XLISTPOISSON, fe
+note: 1 group (94 obs) dropped due to all zero outcomes
+
+Iteration 0:   log likelihood =  -28435.61  
+Iteration 1:   log likelihood = -24231.502  
+Iteration 2:   log likelihood = -22468.078  
+Iteration 3:   log likelihood = -22446.225  
+Iteration 4:   log likelihood = -22446.002  
+Iteration 5:   log likelihood = -22446.002  
+
+Conditional fixed-effects Poisson regression    Number of obs      =     27671
+Group variable (i): COMMUNE                     Number of groups   =       193
+
+                                                Obs per group: min =        51
+                                                               avg =     143.4
+                                                               max =       206
+
+                                                Wald chi2(10)      =  13621.76
+Log likelihood  = -22446.002                    Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+     PHARVIS |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |  -.1146402    .019025    -6.03   0.000    -.1519285   -.0773519
+   INSURANCE |   -.163603   .0274193    -5.97   0.000    -.2173438   -.1098622
+         SEX |   .0997415   .0172564     5.78   0.000     .0659195    .1335635
+         AGE |   .0033591   .0107945     0.31   0.756    -.0177977     .024516
+     MARRIED |   .1606792   .0212958     7.55   0.000     .1189403    .2024182
+     ILLDAYS |    .046148   .0011453    40.29   0.000     .0439032    .0483929
+     ACTDAYS |   .0189184   .0054666     3.46   0.001      .008204    .0296328
+      INJURY |   .1479319    .078183     1.89   0.058    -.0053039    .3011677
+     ILLNESS |   .5803719   .0077289    75.09   0.000     .5652235    .5955203
+        EDUC |  -.0272099   .0056191    -4.84   0.000    -.0382232   -.0161966
+------------------------------------------------------------------------------
+
+. estimates store poisfe
+
+. 
+. * Note that can cluster bootstrap if desired to get more robust standard errors
+. * This is done at end of program
+. 
+. ********** DISPLAY TABLE 24.6 RESULTS page 852 **********
+.  
+. * The results here differ in the second significant digit from those in text 
+. * despite same sample size. Not sure why.
+. 
+. estimates table poisiid poishet poisclust, /*
+>    */ b(%10.3f) t(%10.2f) stats(r2 N)
+
+-----------------------------------------------------
+    Variable |  poisiid      poishet     poisclust   
+-------------+---------------------------------------
+     LNHHEXP |      0.079        0.079        0.079  
+             |       5.68         3.08         1.67  
+   INSURANCE |     -0.249       -0.249       -0.249  
+             |      -9.57        -5.68        -4.02  
+         SEX |      0.085        0.085        0.085  
+             |       4.96         2.76         2.60  
+         AGE |      0.025        0.025        0.025  
+             |       2.38         1.27         0.96  
+     MARRIED |      0.124        0.124        0.124  
+             |       5.92         2.96         2.55  
+     ILLDAYS |      0.043        0.043        0.043  
+             |      40.00        14.91        11.48  
+     ACTDAYS |      0.009        0.009        0.009  
+             |       1.71         0.43         0.47  
+      INJURY |      0.172        0.172        0.172  
+             |       2.30         0.84         0.78  
+     ILLNESS |      0.562        0.562        0.562  
+             |      87.15        24.60        19.72  
+        EDUC |     -0.052       -0.052       -0.052  
+             |     -10.89        -6.47        -3.41  
+       _cons |     -1.641       -1.641       -1.641  
+             |     -35.78       -18.81       -10.65  
+-------------+---------------------------------------
+          r2 |                                       
+           N |  27765.000    27765.000    27765.000  
+-----------------------------------------------------
+                                          legend: b/t
+
+. estimates table poisre poisfe, /*
+>    */ b(%10.3f) t(%10.2f) stats(r2 N)
+
+----------------------------------------
+    Variable |   poisre       poisfe    
+-------------+--------------------------
+PHARVIS      |                          
+     LNHHEXP |     -0.101       -0.115  
+             |      -5.41        -6.03  
+   INSURANCE |     -0.168       -0.164  
+             |      -6.12        -5.97  
+         SEX |      0.099        0.100  
+             |       5.76         5.78  
+         AGE |      0.005        0.003  
+             |       0.44         0.31  
+     MARRIED |      0.158        0.161  
+             |       7.42         7.55  
+     ILLDAYS |      0.046        0.046  
+             |      40.32        40.29  
+     ACTDAYS |      0.019        0.019  
+             |       3.41         3.46  
+      INJURY |      0.148        0.148  
+             |       1.89         1.89  
+     ILLNESS |      0.580        0.580  
+             |      75.49        75.09  
+        EDUC |     -0.028       -0.027  
+             |      -5.10        -4.84  
+       _cons |     -1.277               
+             |     -17.66               
+-------------+--------------------------
+lnalpha      |                          
+       _cons |     -1.040               
+             |     -10.04               
+-------------+--------------------------
+Statistics   |                          
+          r2 |                          
+           N |  27765.000    27671.000  
+----------------------------------------
+                             legend: b/t
+
+. 
+. ********** ADDITIONALLY DO CLUSTER BOOTSTRAPS **********
+. 
+. * These results not given in the text
+. 
+. * Output at website uses breps 500
+. global breps 50
+
+. 
+. * Note that can bootstrap if desired to get more robust standard errors
+. * The first reproduces pois , cluster(COMMUNE)
+. bootstrap "poisson PHARVIS $XLISTPOISSON" _b, cluster(COMMUNE) reps($breps) level(95)
+
+command:      poisson PHARVIS LNHHEXP INSURANCE SEX AGE MARRIED ILLDAYS ACTDAYS INJURY ILLNESS EDUC
+statistics:   b_LNHHEXP  = [PHARVIS]_b[LNHHEXP]
+              b_INSURA~E = [PHARVIS]_b[INSURANCE]
+              b_SEX      = [PHARVIS]_b[SEX]
+              b_AGE      = [PHARVIS]_b[AGE]
+              b_MARRIED  = [PHARVIS]_b[MARRIED]
+              b_ILLDAYS  = [PHARVIS]_b[ILLDAYS]
+              b_ACTDAYS  = [PHARVIS]_b[ACTDAYS]
+              b_INJURY   = [PHARVIS]_b[INJURY]
+              b_ILLNESS  = [PHARVIS]_b[ILLNESS]
+              b_EDUC     = [PHARVIS]_b[EDUC]
+              b_cons     = [PHARVIS]_b[_cons]
+
+Bootstrap statistics                              Number of obs    =     27765
+                                                  N of clusters    =       194
+                                                  Replications     =        50
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   b_LNHHEXP |    50   .078686  .0072233  .0475425  -.0168542   .1742262   (N)
+             |                                      -.0050689   .1878158   (P)
+             |                                      -.0204097   .1710779  (BC)
+ b_INSURANCE |    50 -.2485716  .0013929  .0770506  -.4034107  -.0937326   (N)
+             |                                      -.3640907  -.1004183   (P)
+             |                                      -.4677969  -.1004183  (BC)
+       b_SEX |    50  .0851733 -.0039062  .0345537   .0157351   .1546115   (N)
+             |                                        .022333   .1494552   (P)
+             |                                        .022333   .1494552  (BC)
+       b_AGE |    50  .0252426  .0012812  .0270715  -.0291596   .0796447   (N)
+             |                                       -.025843   .0726057   (P)
+             |                                      -.0479862   .0726057  (BC)
+   b_MARRIED |    50  .1239639 -.0017894  .0406114   .0423522   .2055756   (N)
+             |                                       .0132484   .2024732   (P)
+             |                                       .0132484   .2101617  (BC)
+   b_ILLDAYS |    50  .0429083 -.0005122     .0034   .0360757   .0497409   (N)
+             |                                       .0358535   .0481521   (P)
+             |                                       .0363203   .0500312  (BC)
+   b_ACTDAYS |    50  .0089793 -.0021093  .0249974  -.0412549   .0592135   (N)
+             |                                      -.0343906   .0573651   (P)
+             |                                      -.0352626   .0573651  (BC)
+    b_INJURY |    50  .1717029 -.0321969  .2090263  -.2483512    .591757   (N)
+             |                                      -.3271621   .4807015   (P)
+             |                                      -.1896703    .648314  (BC)
+   b_ILLNESS |    50  .5623976  .0061368  .0294736   .5031682    .621627   (N)
+             |                                       .5206931   .6271017   (P)
+             |                                       .5192547   .6206369  (BC)
+      b_EDUC |    50 -.0524459  .0027244    .01598  -.0845589  -.0203329   (N)
+             |                                      -.0825952   -.017323   (P)
+             |                                      -.0850821  -.0256777  (BC)
+      b_cons |    50 -1.640821 -.0414073  .1460702   -1.93436  -1.347282   (N)
+             |                                      -1.984352  -1.399226   (P)
+             |                                      -1.867373  -1.310915  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. * The t-statistic vector is e(b)./e(se) where ./ is elt. by elt. division
+. * But Stata Version 8 does not do ./ so instead need the following
+. matrix tpois = (vecdiag(diag(e(b))*syminv(diag(e(se)))))'
+
+. matrix list tpois, format(%10.2f)
+
+tpois[11,1]
+                 r1
+  b_LNHHEXP    1.66
+b_INSURANCE   -3.23
+      b_SEX    2.46
+      b_AGE    0.93
+  b_MARRIED    3.05
+  b_ILLDAYS   12.62
+  b_ACTDAYS    0.36
+   b_INJURY    0.82
+  b_ILLNESS   19.08
+     b_EDUC   -3.28
+     b_cons  -11.23
+
+. 
+. * The next two reproduce xtpois , cluster(COMMUNE)
+. * but xtpois has no cluster option so instead cluster boostrap
+. 
+. * Fixed effects estimator
+. bootstrap "xtpois PHARVIS $XLISTPOISSON, fe" _b, cluster(COMMUNE) reps($breps) level(95)
+
+command:      xtpois PHARVIS LNHHEXP INSURANCE SEX AGE MARRIED ILLDAYS ACTDAYS INJURY ILLNESS EDUC ,
+>  fe
+statistics:   b_LNHHEXP  = [PHARVIS]_b[LNHHEXP]
+              b_INSURA~E = [PHARVIS]_b[INSURANCE]
+              b_SEX      = [PHARVIS]_b[SEX]
+              b_AGE      = [PHARVIS]_b[AGE]
+              b_MARRIED  = [PHARVIS]_b[MARRIED]
+              b_ILLDAYS  = [PHARVIS]_b[ILLDAYS]
+              b_ACTDAYS  = [PHARVIS]_b[ACTDAYS]
+              b_INJURY   = [PHARVIS]_b[INJURY]
+              b_ILLNESS  = [PHARVIS]_b[ILLNESS]
+              b_EDUC     = [PHARVIS]_b[EDUC]
+
+Bootstrap statistics                              Number of obs    =     27671
+                                                  N of clusters    =       193
+                                                  Replications     =        50
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   b_LNHHEXP |    50 -.1146402  .0046925   .042981  -.2010138  -.0282666   (N)
+             |                                      -.1801919  -.0258064   (P)
+             |                                      -.1841975   -.043704  (BC)
+ b_INSURANCE |    50  -.163603  .0145077  .0513299  -.2667543  -.0604516   (N)
+             |                                      -.2391983  -.0581847   (P)
+             |                                       -.269962  -.0993868  (BC)
+       b_SEX |    50  .0997415  .0030381  .0298361   .0397836   .1596994   (N)
+             |                                       .0581716   .1630876   (P)
+             |                                        .055771   .1562326  (BC)
+       b_AGE |    50  .0033591 -.0017336  .0228288   -.042517   .0492353   (N)
+             |                                      -.0508069    .040935   (P)
+             |                                      -.0508069   .0541492  (BC)
+   b_MARRIED |    50  .1606793   .009603  .0435503   .0731616   .2481969   (N)
+             |                                       .1091381    .260388   (P)
+             |                                       .0877519   .2407327  (BC)
+   b_ILLDAYS |    50   .046148 -.0004107  .0027904   .0405406   .0517555   (N)
+             |                                       .0397139   .0504146   (P)
+             |                                       .0397139    .050898  (BC)
+   b_ACTDAYS |    50  .0189184 -.0049228  .0176306  -.0165115   .0543484   (N)
+             |                                      -.0169987   .0490534   (P)
+             |                                      -.0158923   .0497731  (BC)
+    b_INJURY |    50  .1479319  .0204617  .2194316  -.2930323   .5888962   (N)
+             |                                      -.2735089   .5520838   (P)
+             |                                      -.3044733   .5520838  (BC)
+   b_ILLNESS |    50  .5803719  .0003675  .0199171    .540347   .6203969   (N)
+             |                                       .5370637   .6163648   (P)
+             |                                       .5370637   .6163648  (BC)
+      b_EDUC |    50 -.0272099 -.0003993  .0112987  -.0499155  -.0045043   (N)
+             |                                      -.0521668  -.0068456   (P)
+             |                                      -.0531845  -.0068456  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix tpoisfe = (vecdiag(diag(e(b))*syminv(diag(e(se)))))'
+
+. matrix list tpoisfe, format(%10.2f)
+
+tpoisfe[10,1]
+                r1
+  b_LNHHEXP  -2.67
+b_INSURANCE  -3.19
+      b_SEX   3.34
+      b_AGE   0.15
+  b_MARRIED   3.69
+  b_ILLDAYS  16.54
+  b_ACTDAYS   1.07
+   b_INJURY   0.67
+  b_ILLNESS  29.14
+     b_EDUC  -2.41
+
+. 
+. * Random effects estimator
+. bootstrap "xtpois PHARVIS $XLISTPOISSON, re" _b, cluster(COMMUNE) reps($breps) level(95)
+
+command:      xtpois PHARVIS LNHHEXP INSURANCE SEX AGE MARRIED ILLDAYS ACTDAYS INJURY ILLNESS EDUC ,
+>  re
+statistics:   b_LNHHEXP  = [PHARVIS]_b[LNHHEXP]
+              b_INSURA~E = [PHARVIS]_b[INSURANCE]
+              b_SEX      = [PHARVIS]_b[SEX]
+              b_AGE      = [PHARVIS]_b[AGE]
+              b_MARRIED  = [PHARVIS]_b[MARRIED]
+              b_ILLDAYS  = [PHARVIS]_b[ILLDAYS]
+              b_ACTDAYS  = [PHARVIS]_b[ACTDAYS]
+              b_INJURY   = [PHARVIS]_b[INJURY]
+              b_ILLNESS  = [PHARVIS]_b[ILLNESS]
+              b_EDUC     = [PHARVIS]_b[EDUC]
+              b_cons     = [PHARVIS]_b[_cons]
+              b_1cons    = [lnalpha]_b[_cons]
+
+Bootstrap statistics                              Number of obs    =     27765
+                                                  N of clusters    =       194
+                                                  Replications     =        50
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   b_LNHHEXP |    50 -.1013746  .0038095  .0406385  -.1830407  -.0197086   (N)
+             |                                      -.1794194  -.0319058   (P)
+             |                                      -.1977448  -.0319058  (BC)
+ b_INSURANCE |    50 -.1675954 -.0053195    .04945  -.2669688  -.0682219   (N)
+             |                                      -.2912881  -.0900193   (P)
+             |                                      -.2677689   -.088337  (BC)
+       b_SEX |    50   .099303 -.0008622   .032962   .0330634   .1655427   (N)
+             |                                       .0463968   .1569125   (P)
+             |                                       .0463968   .1569125  (BC)
+       b_AGE |    50  .0047406  -.002087  .0196285  -.0347045   .0441856   (N)
+             |                                      -.0319554   .0398893   (P)
+             |                                      -.0212454   .0454795  (BC)
+   b_MARRIED |    50  .1579958  .0045701  .0386327   .0803604   .2356311   (N)
+             |                                       .1002202   .2446688   (P)
+             |                                       .0595091   .2383231  (BC)
+   b_ILLDAYS |    50   .046055 -.0000891  .0033445    .039334   .0527761   (N)
+             |                                       .0400018   .0525925   (P)
+             |                                       .0400018   .0528012  (BC)
+   b_ACTDAYS |    50  .0186084 -.0013996  .0204209   -.022429   .0596457   (N)
+             |                                      -.0251694   .0533912   (P)
+             |                                      -.0251694   .0624974  (BC)
+    b_INJURY |    50  .1479464 -.0122248  .2130704  -.2802346   .5761274   (N)
+             |                                      -.2971589   .4662884   (P)
+             |                                      -.3564237   .4662884  (BC)
+   b_ILLNESS |    50  .5801873   .002013   .019375   .5412517   .6191228   (N)
+             |                                       .5488635    .621733   (P)
+             |                                       .5488635   .6328769  (BC)
+      b_EDUC |    50 -.0284493 -.0017922  .0117021  -.0519655  -.0049331   (N)
+             |                                       -.050308  -.0116823   (P)
+             |                                       -.050308  -.0065941  (BC)
+      b_cons |    50 -1.276974 -.0036143  .1309168  -1.540061  -1.013887   (N)
+             |                                      -1.523902  -.9686469   (P)
+             |                                      -1.523902  -.9686469  (BC)
+     b_1cons |    50 -1.039839  .0148765  .0966908  -1.234147  -.8455317   (N)
+             |                                      -1.170977  -.8494586   (P)
+             |                                      -1.183111  -.8494586  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix tpoisre = (vecdiag(diag(e(b))*syminv(diag(e(se)))))'
+
+. matrix list tpoisre, format(%10.2f)
+
+tpoisre[12,1]
+                 r1
+  b_LNHHEXP   -2.49
+b_INSURANCE   -3.39
+      b_SEX    3.01
+      b_AGE    0.24
+  b_MARRIED    4.09
+  b_ILLDAYS   13.77
+  b_ACTDAYS    0.91
+   b_INJURY    0.69
+  b_ILLNESS   29.95
+     b_EDUC   -2.43
+     b_cons   -9.75
+    b_1cons  -10.75
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section6\mma24p2poiscluster.txt
+  log type:  text
+ closed on:  24 May 2005, 16:50:38
+----------------------------------------------------------------------------------------------------

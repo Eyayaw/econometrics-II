@@ -1,0 +1,478 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma04p2qreg.txt
+  log type:  text
+ opened on:  17 May 2005, 13:43:21
+
+. 
+. ********** OVERVIEW OF MMA04P2QREG.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 4.6.4 pages 88-90
+. * Quantile Regression analysis.
+. *   (1) Quantile regression estimates for different quantiles
+. *   (2) Figure 4.1: Quantile Slope Coefficient Estimates as Quantile Varies
+. *   (3) Figure 4.2: Quantile Regression Lines as Quantile Varies
+. 
+. * To run this program you need data file
+. *    qreg0902.dta 
+. * or for programs other than Stata use qreg92.asc
+. 
+. * Step (3) takes a long time due to bootstrap to get standard errors.
+. * To speed up the program reduce the number of repititions in qsreg
+. * But any final results should use a large number of bootstraps  
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+.    
+. ********** DATA DESCRIPTION **********
+. 
+. * The data from World Bank 1997 Vietnam Living Standards Survey 
+. * are described in chapter 4.6.4.
+. * A larger sample from this survey is studied in Chapter 24.7
+. 
+. ********** READ DATA, TRANSFORM and SAMPLE SELECTION **********
+. 
+. use qreg0902
+
+. describe
+
+Contains data from qreg0902.dta
+  obs:         5,999                          
+ vars:             9                          19 Sep 2002 21:45
+ size:       191,968 (98.1% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+sex             byte   %8.0g                  Gender of HH.head (1:M;2:F)
+age             int    %8.0g                  Age of household head
+educyr98        float  %9.0g                  schooling year of HH.head
+farm            float  %9.0g       loaiho     Type of HH (1:farm; 0:nonfarm)
+urban98         byte   %8.0g       urban      1:urban 98; 0:rural 98
+hhsize          long   %12.0g                 Household size
+lhhexp1         float  %9.0g                  
+lhhex12m        float  %9.0g                  
+lnrlfood        float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         sex |      5999    1.270712    .4443645          1          2
+         age |      5999    48.01284     13.7702         16         95
+    educyr98 |      5999    7.094419    4.416092          0         22
+        farm |      5999    .5730955    .4946694          0          1
+     urban98 |      5999    .2883814    .4530472          0          1
+-------------+--------------------------------------------------------
+      hhsize |      5999    4.752292    1.954292          1         19
+     lhhexp1 |      5999    9.341561    .6877458   6.543108   12.20242
+    lhhex12m |      5006    6.310585    1.593083          0   12.36325
+    lnrlfood |      5999    8.679536    .5368118   6.356364   11.38385
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata  
+. outfile sex age educyr98 farm urban98 hhsize lhhexp1 lhhex12m lnrlfood /*
+>         */ using qreg0902.asc, replace
+
+. 
+. * drop zero observations for medical expenditures
+. drop if lhhex12m == .
+(993 observations deleted)
+
+. 
+. * lhhexp1 is natural logarithm of household total expenditure
+. * lhhex12m is natural logarithm of household medical expenditure
+. gen lntotal = lhhexp1
+
+. gen lnmed = lhhex12m
+
+. label variable lntotal "Log household total expenditure"
+
+. label variable lnmed "Log household medical expenditure"
+
+. describe 
+
+Contains data from qreg0902.dta
+  obs:         5,006                          
+ vars:            11                          19 Sep 2002 21:45
+ size:       200,240 (98.0% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+sex             byte   %8.0g                  Gender of HH.head (1:M;2:F)
+age             int    %8.0g                  Age of household head
+educyr98        float  %9.0g                  schooling year of HH.head
+farm            float  %9.0g       loaiho     Type of HH (1:farm; 0:nonfarm)
+urban98         byte   %8.0g       urban      1:urban 98; 0:rural 98
+hhsize          long   %12.0g                 Household size
+lhhexp1         float  %9.0g                  
+lhhex12m        float  %9.0g                  
+lnrlfood        float  %9.0g                  
+lntotal         float  %9.0g                  Log household total expenditure
+lnmed           float  %9.0g                  Log household medical
+                                                expenditure
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         sex |      5006    1.269676     .443836          1          2
+         age |      5006    48.06133    13.79974         18         95
+    educyr98 |      5006    7.147956    4.333304          0         21
+        farm |      5006    .5679185    .4954151          0          1
+     urban98 |      5006    .2920495    .4547504          0          1
+-------------+--------------------------------------------------------
+      hhsize |      5006    4.832601     1.95257          1         19
+     lhhexp1 |      5006    9.370402    .6726841   6.543108   12.20242
+    lhhex12m |      5006    6.310585    1.593083          0   12.36325
+    lnrlfood |      5006    8.697963    .5309517   6.356364   11.38385
+     lntotal |      5006    9.370402    .6726841   6.543108   12.20242
+-------------+--------------------------------------------------------
+       lnmed |      5006    6.310585    1.593083          0   12.36325
+
+. 
+. ********* ANALYSIS: QUANTILE REGRESSION **********
+. 
+. * (0) OLS
+. reg lnmed lntotal
+
+      Source |       SS       df       MS              Number of obs =    5006
+-------------+------------------------------           F(  1,  5004) =  311.91
+       Model |  745.293239     1  745.293239           Prob > F      =  0.0000
+    Residual |  11956.9671  5004  2.38948183           R-squared     =  0.0587
+-------------+------------------------------           Adj R-squared =  0.0585
+       Total |  12702.2603  5005  2.53791415           Root MSE      =  1.5458
+
+------------------------------------------------------------------------------
+       lnmed |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     lntotal |   .5736545   .0324817    17.66   0.000     .5099761    .6373328
+       _cons |   .9352117   .3051496     3.06   0.002     .3369847    1.533439
+------------------------------------------------------------------------------
+
+. predict pols
+(option xb assumed; fitted values)
+
+. reg lnmed lntotal, robust
+
+Regression with robust standard errors                 Number of obs =    5006
+                                                       F(  1,  5004) =  318.05
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.0587
+                                                       Root MSE      =  1.5458
+
+------------------------------------------------------------------------------
+             |               Robust
+       lnmed |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     lntotal |   .5736545   .0321665    17.83   0.000      .510594     .636715
+       _cons |   .9352117    .298119     3.14   0.002     .3507677    1.519656
+------------------------------------------------------------------------------
+
+. * Bootstrap standard errors for OLS
+. set seed 10101
+
+. * bs "reg lnmed lntotal" "_b[lntotal]", reps(100)
+. 
+. * (1) Quantile and median regression for quantiles 0.1, 0.5 and 0.9
+. *     Save prediction to construct Figure 4.2. 
+. qreg lnmed lntotal, quant(.10)
+Iteration  1:  WLS sum of weighted deviations =  3554.0793
+
+Iteration  1: sum of abs. weighted deviations =  3555.3279
+Iteration  2: sum of abs. weighted deviations =  3344.1924
+Iteration  3: sum of abs. weighted deviations =  3051.7353
+Iteration  4: sum of abs. weighted deviations =  2942.1274
+Iteration  5: sum of abs. weighted deviations =  2939.3979
+Iteration  6: sum of abs. weighted deviations =  2935.9969
+Iteration  7: sum of abs. weighted deviations =  2933.0493
+Iteration  8: sum of abs. weighted deviations =  2932.7763
+Iteration  9: sum of abs. weighted deviations =  2932.4432
+Iteration 10: sum of abs. weighted deviations =  2932.4429
+
+.1 Quantile regression                               Number of obs =      5006
+  Raw sum of deviations 2936.097 (about 4.1743875)
+  Min sum of deviations 2932.443                     Pseudo R2     =    0.0012
+
+------------------------------------------------------------------------------
+       lnmed |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     lntotal |   .1512009   .0552584     2.74   0.006     .0428702    .2595317
+       _cons |   2.825072   .5194064     5.44   0.000     1.806808    3.843336
+------------------------------------------------------------------------------
+
+. predict pqreg10
+(option xb assumed; fitted values)
+
+. qreg lnmed lntotal, quant(.5)
+Iteration  1:  WLS sum of weighted deviations =  6112.8801
+
+Iteration  1: sum of abs. weighted deviations =  6112.4546
+Iteration  2: sum of abs. weighted deviations =  6098.5295
+Iteration  3: sum of abs. weighted deviations =  6097.2178
+Iteration  4: sum of abs. weighted deviations =  6097.1564
+
+Median regression                                    Number of obs =      5006
+  Raw sum of deviations 6324.265 (about 6.3716121)
+  Min sum of deviations 6097.156                     Pseudo R2     =    0.0359
+
+------------------------------------------------------------------------------
+       lnmed |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     lntotal |   .6210917   .0388194    16.00   0.000     .5449886    .6971948
+       _cons |   .5921626   .3646869     1.62   0.104    -.1227836    1.307109
+------------------------------------------------------------------------------
+
+. predict pqreg50
+(option xb assumed; fitted values)
+
+. qreg lnmed lntotal, quant(.90)
+Iteration  1:  WLS sum of weighted deviations =  3275.6073
+
+Iteration  1: sum of abs. weighted deviations =  3279.5575
+Iteration  2: sum of abs. weighted deviations =  2691.3839
+Iteration  3: sum of abs. weighted deviations =  2521.5214
+Iteration  4: sum of abs. weighted deviations =   2506.303
+Iteration  5: sum of abs. weighted deviations =  2505.1952
+Iteration  6: sum of abs. weighted deviations =  2505.1334
+Iteration  7: sum of abs. weighted deviations =  2505.1314
+Iteration  8: sum of abs. weighted deviations =  2505.1313
+
+.9 Quantile regression                               Number of obs =      5006
+  Raw sum of deviations 2687.692 (about 8.2789364)
+  Min sum of deviations 2505.131                     Pseudo R2     =    0.0679
+
+------------------------------------------------------------------------------
+       lnmed |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     lntotal |   .8003569   .0517225    15.47   0.000     .6989581    .9017558
+       _cons |   .6750967   .4857563     1.39   0.165    -.2771985    1.627392
+------------------------------------------------------------------------------
+
+. predict pqreg90
+(option xb assumed; fitted values)
+
+. 
+. * (2) Create Figure 4.2 on page 90 first as this is easy
+. graph twoway (scatter lnmed lntotal, msize(vsmall)) (lfit pqreg90 lntotal, clstyle(p2)) /*
+>   */ (lfit pqreg50 lntotal, clstyle(p1)) (lfit pqreg10 lntotal, clstyle(p3)), /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Regression Lines as Quantile Varies") /*
+>   */ xtitle("Log Household Medical Expenditure", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Log Household Total Expenditure", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(11) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Actual Data") label(2 "90th percentile") /*
+>   */         label(3 "Median") label(4 "10th percentile"))
+
+. graph export ch4fig2QR.wmf, replace
+(file c:\Imbook\bwebpage\Section2\ch4fig2QR.wmf written in Windows Metafile format)
+
+. 
+. * (3) Create Figure 4.1 second as this is more difficult
+. * Simultaneous quantile regression for quantiles 0.05, 0.10, ..., 0.90, 0.95 
+. * with standard errors by bootstrap - here 200 replications
+. set seed 10101
+
+. sqreg lnmed lntotal, quant(.05,.1,.15,.2,.25,.3,.35,.4,.45,.5,.55,.6,.65,.7,.75,.8,.85,.9,.95) rep
+> s(200)
+(fitting base model)
+(bootstrapping .....................................................................................
+> ..................................................................................................
+> .................)
+
+Simultaneous quantile regression                     Number of obs =      5006
+  bootstrap(200) SEs                                 .05 Pseudo R2 =    0.0015
+                                                     .10 Pseudo R2 =    0.0012
+                                                     .15 Pseudo R2 =    0.0058
+                                                     .20 Pseudo R2 =    0.0106
+                                                     .25 Pseudo R2 =    0.0149
+                                                     .30 Pseudo R2 =    0.0183
+                                                     .35 Pseudo R2 =    0.0242
+                                                     .40 Pseudo R2 =    0.0274
+                                                     .45 Pseudo R2 =    0.0326
+                                                     .50 Pseudo R2 =    0.0359
+                                                     .55 Pseudo R2 =    0.0408
+                                                     .60 Pseudo R2 =    0.0464
+                                                     .65 Pseudo R2 =    0.0500
+                                                     .70 Pseudo R2 =    0.0520
+                                                     .75 Pseudo R2 =    0.0563
+                                                     .80 Pseudo R2 =    0.0603
+                                                     .85 Pseudo R2 =    0.0630
+                                                     .90 Pseudo R2 =    0.0679
+                                                     .95 Pseudo R2 =    0.0795
+
+------------------------------------------------------------------------------
+             |              Bootstrap
+       lnmed |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+q5           |
+     lntotal |   .1536332   .0791236     1.94   0.052    -.0014838    .3087501
+       _cons |   2.095395   .7559016     2.77   0.006     .6134964    3.577293
+-------------+----------------------------------------------------------------
+q10          |
+     lntotal |   .1512009    .085018     1.78   0.075    -.0154716    .3178734
+       _cons |   2.825072   .7697613     3.67   0.000     1.316002    4.334141
+-------------+----------------------------------------------------------------
+q15          |
+     lntotal |   .2695707   .0580757     4.64   0.000     .1557168    .3834245
+       _cons |   2.231293   .5429047     4.11   0.000     1.166962    3.295624
+-------------+----------------------------------------------------------------
+q20          |
+     lntotal |   .3552251   .0504688     7.04   0.000     .2562841    .4541662
+       _cons |   1.740233   .4649551     3.74   0.000     .8287172    2.651749
+-------------+----------------------------------------------------------------
+q25          |
+     lntotal |   .4034632   .0421514     9.57   0.000     .3208279    .4860984
+       _cons |   1.567055   .3844967     4.08   0.000     .8132731    2.320837
+-------------+----------------------------------------------------------------
+q30          |
+     lntotal |   .4797723   .0478081    10.04   0.000     .3860474    .5734972
+       _cons |   1.097107   .4299363     2.55   0.011     .2542435     1.93997
+-------------+----------------------------------------------------------------
+q35          |
+     lntotal |     .52179   .0440082    11.86   0.000     .4355147    .6080652
+       _cons |   .9213684   .4064355     2.27   0.023     .1245768     1.71816
+-------------+----------------------------------------------------------------
+q40          |
+     lntotal |   .5691746   .0412824    13.79   0.000     .4882429    .6501062
+       _cons |   .6808693   .3754568     1.81   0.070    -.0551906    1.416929
+-------------+----------------------------------------------------------------
+q45          |
+     lntotal |   .6123663   .0402805    15.20   0.000     .5333989    .6913337
+       _cons |   .4890392    .373467     1.31   0.190    -.2431197    1.221198
+-------------+----------------------------------------------------------------
+q50          |
+     lntotal |   .6210917   .0414602    14.98   0.000     .5398117    .7023718
+       _cons |   .5921626   .3866997     1.53   0.126    -.1659383    1.350263
+-------------+----------------------------------------------------------------
+q55          |
+     lntotal |   .6523013     .02904    22.46   0.000     .5953701    .7092324
+       _cons |   .4913988    .264271     1.86   0.063    -.0266881    1.009486
+-------------+----------------------------------------------------------------
+q60          |
+     lntotal |   .6531127   .0321585    20.31   0.000     .5900679    .7161575
+       _cons |   .6631971   .2981433     2.22   0.026     .0787056    1.247689
+-------------+----------------------------------------------------------------
+q65          |
+     lntotal |   .6843844     .03378    20.26   0.000     .6181608    .7506079
+       _cons |   .5550968   .3162769     1.76   0.079    -.0649445    1.175138
+-------------+----------------------------------------------------------------
+q70          |
+     lntotal |    .714783   .0330755    21.61   0.000     .6499406    .7796255
+       _cons |   .4732288   .3028818     1.56   0.118    -.1205524     1.06701
+-------------+----------------------------------------------------------------
+q75          |
+     lntotal |   .7416898   .0369607    20.07   0.000     .6692306     .814149
+       _cons |   .4298887   .3416755     1.26   0.208     -.239945    1.099722
+-------------+----------------------------------------------------------------
+q80          |
+     lntotal |   .7675658   .0443925    17.29   0.000      .680537    .8545946
+       _cons |   .3966887   .4132223     0.96   0.337    -.4134081    1.206785
+-------------+----------------------------------------------------------------
+q85          |
+     lntotal |   .8009016    .056703    14.12   0.000     .6897389    .9120642
+       _cons |   .3649957   .5369325     0.68   0.497    -.6876273    1.417619
+-------------+----------------------------------------------------------------
+q90          |
+     lntotal |   .8003569   .0473557    16.90   0.000     .7075189    .8931949
+       _cons |   .6750967   .4450068     1.52   0.129    -.1973116    1.547505
+-------------+----------------------------------------------------------------
+q95          |
+     lntotal |    .767308   .0507532    15.12   0.000     .6678094    .8668066
+       _cons |   1.487137   .4739756     3.14   0.002     .5579371    2.416337
+------------------------------------------------------------------------------
+
+. * Test equality of slope coefffiients for 25th and 75th quantiles
+. test [q25]lntotal = [q75]lntotal
+
+ ( 1)  [q25]lntotal - [q75]lntotal = 0
+
+       F(  1,  5004) =   55.14
+            Prob > F =    0.0000
+
+. * Create vectors of slope cofficients and estimated variances
+. * Code here specific for this problem
+. * with single slope coefficient is 1st, 3rd, 5th , ... entry 
+. matrix b = e(b)
+
+. matrix bslopevector = b[1,1]\b[1,3]\b[1,5]\b[1,7]\b[1,9]\b[1,11]\b[1,13]  /*
+>                */ \b[1,15]\b[1,17]\b[1,19]\b[1,21]\b[1,23]\b[1,25]  /*
+>                */ \b[1,27]\b[1,29]\b[1,31]\b[1,33]\b[1,35]\b[1,37] 
+
+. matrix V = e(V)
+
+. matrix Vslopevector = V[1,1]\V[3,3]\V[5,5]\V[7,7]\V[9,9]\V[11,11]\V[13,13] /*
+>                */ \V[15,15]\V[17,17]\V[19,19]\V[21,21]\V[23,23]\V[25,25] /*
+>                */ \V[27,27]\V[29,29]\V[31,31]\V[33,33]\V[35,35]\V[37,37] 
+
+. matrix q = e(q1)\e(q2)\e(q3)\e(q4)\e(q5)\e(q6)\e(q7)\e(q8)\e(q9)\e(q10) /*
+>             */ \e(q11)\e(q12)\e(q13)\e(q14)\e(q15)\e(q16)\e(q17)\e(q18)\e(q19)
+
+. * Convert column vectors to variables as graph handles variables
+. svmat bslopevector, name(bslope)
+
+. svmat Vslopevector, name(Vslope)
+
+. svmat q, name(quantiles) 
+
+. gen upper = bslope1 + 1.96*sqrt(Vslope1)
+(4987 missing values generated)
+
+. gen lower = bslope1 - 1.96*sqrt(Vslope1)
+(4987 missing values generated)
+
+. * Also include OLS slope ccoefficient
+. quietly reg lnmed lntotal
+
+. gen bols=_b[lntotal]
+
+. sum upper bslope1 lower bols
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       upper |        19    .6564067    .1904354   .3087155   .9120393
+     bslope1 |        19    .5641943     .209318   .1512009   .8009015
+       lower |        19    .4719818    .2302585  -.0154343   .7075397
+        bols |      5006    .5736545           0   .5736545   .5736545
+
+. 
+. * Following produces Figure 4.1 om page 89
+. graph twoway (line upper quantiles1, msize(vtiny) mstyle(p2) clstyle(p1) clcolor(gs12)) /* 
+>   */ (line bslope1 quantiles1, msize(vtiny) mstyle(p1) clstyle(p1)) /* 
+>   */ (line lower quantiles1, msize(vtiny) mstyle(p2) clstyle(p1) clcolor(gs12)) /*
+>   */ (line bols quantiles1, msize(vtiny) mstyle(p3) clstyle(p2)), /*
+>   */ scale(1.2) plotregion(style(none)) /*
+>   */ title("Slope Estimates as Quantile Varies") /*
+>   */ xtitle("Quantile", size(medlarge)) xscale(titlegap(*5)) /* 
+>   */ ytitle("Slope and confidence bands", size(medlarge)) yscale(titlegap(*5)) /*
+>   */ legend(pos(4) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Upper 95% confidence band") label(2 "Quantile slope coefficient") /*
+>   */         label(3 "Lower 95% confidence band") label(4 "OLS slope coefficient") )
+
+. graph export ch4fig1QR.wmf, replace
+(file c:\Imbook\bwebpage\Section2\ch4fig1QR.wmf written in Windows Metafile format)
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma04p2qreg.txt
+  log type:  text
+ closed on:  17 May 2005, 13:51:21
+----------------------------------------------------------------------------------------------------

@@ -99,7 +99,7 @@ In terms of the policy objective, the general problem of drug abuse and violence
 
 # Exercise 2: DiD - practical application
 
-(a) **{Reproduce Figure (2) of [@DOBKIN201448]**
+(a) **Reproduce Figure (2) of [@DOBKIN201448]**
 
 The two points mentioned in the paper corresponding to this figure can also be seen in this plot (see Figure (\ref{fig-1})). First, for each group, there was a decrease in the average number of labs discovered beginning in early 2004. Second, by 2007 the average number of labs discovered in a state was less than half of what it was before 2004 for each of the three groups of labs. However, these declines in the number of labs from 2004 to 2007 were not solely due to the OTC regulations, as the declines began before states enacted the sales restrictions. This fact is further supported by Figure (\ref{fig-2}).
 
@@ -182,7 +182,7 @@ pp + geom_text(
   theme(legend.position = "none")
 ```
 
-(b) **{Make a graph that shows the average number of the three different types of labs discovered in event time. Center the figure at time 0 (when the law went into effect in the state).**
+(b) **Make a graph that shows the average number of the three different types of labs discovered in event time. Center the figure at time 0 (when the law went into effect in the state).**
 
 The number of labs seized (in each group) started declining before the states implemented the regulations, roughly a year (12 months) before the law came into effect, as can be seen in Figure (\ref{fig-2}). 
 
@@ -229,12 +229,12 @@ edit_note <- function(x) {
 }
 
 caption <- function(x) {
-  caption <- grep(r"(\\caption.)", x, value = TRUE)
+  caption <- grep(r"(\caption.)", x, value = TRUE)
   cap <- unlist(strsplit(caption, "(?<=\\.)\\s", perl = TRUE))[[1]]
   paste0(cap, "}")
 }
 get_label <- function(x) {
-  caption <- grep(r"(\\caption.)", x, value = TRUE)
+  caption <- grep(r"(\caption.)", x, value = TRUE)
   a <- unlist(strsplit(caption, "(?<=\\.)\\s", perl = TRUE))
   a <- unlist(strsplit(a[[2]], "and", perl = TRUE))
   a <- sub("\\}", "", a)
@@ -245,7 +245,7 @@ files <- lapply(files, edit_note)
 
 lbls <- lapply(files, get_label)
 
-captions <- sapply(files, function(x) seq_along(x)[grepl(r"(\\caption.)", x)])
+captions <- sapply(files, function(x) seq_along(x)[grepl(r"(\caption.)", x)])
 
 files[[1]][[captions[[1]]]] <- caption(files[[1]])
 files[[2]][[captions[[2]]]] <- caption(files[[2]])
@@ -259,12 +259,12 @@ files[[1]] <- c(files[[1]][1:5], labs[[1]], files[[1]][6:length(files[[1]])])
 files[[2]] <- c(files[[2]][1:5], labs[[2]], files[[2]][6:length(files[[2]])])
 files <- lapply(files, function(x) x[-10]) # remove hline between OTC coef and mean
 
-files[[1]][grepl(r"(^\\hline\\hline$)", files[[1]])] <- "\\toprule" # \\hline\\hline to \\toprule
+files[[1]][grepl(r"(^\hline\hline$)", files[[1]])] <- "\\toprule" # \\hline\\hline to \\toprule
 
 files <- c(files[[1]][1:14],"\\vspace{0.5cm}\\\\", files[[2]][6:14], files[[1]][15:19])
 files <- paste0(files, collapse = "\n")
 files <- gsub("\\hline", "\\midrule", files) # replace all \\hlines
-files <- gsub(r"((OTC)(\\_)(Restriction))", "\\1 \\3", files)
+files <- gsub(r"((OTC)(\_)(Restriction))", "\\1 \\3", files)
 files <- gsub("(?<=\\})\\{c\\}(?=\\{)", "{l}", files, perl = TRUE) # all left aligned
 cat(files)
 ```

@@ -1,0 +1,265 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma04p1wls.txt
+  log type:  text
+ opened on:  17 May 2005, 13:41:48
+
+. 
+. ********** OVERVIEW OF MMA04P1WLS.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 4.5.3 pages 84-5 
+. * Robust Standard Errors for OLS, WLS and GLS
+. * (1) Robust and nonrobust standard errors for OLS, WLS and GLS.
+. * (2) Table 4.3 
+. * using generated data (see below)
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8
+
+. set scheme s1mono   /* Used for graphs */
+
+.   
+. ********** GENERATE DATA and SUMMARIZE **********
+. 
+. * Model is  y = 1 + 1*x + u
+. * where     u = abs(x)*e
+. *           x ~ N(0, 5^2)
+. *           e ~ N(0, 2^2)
+. 
+. * Errors are conditionally heteroskedastic with V[u|x]=4*x^2
+. * OLS, WLS and GLS are consistent 
+. * but need to use robust standard errors for OLS and WLS.
+. 
+. set seed 10105
+
+. set obs 100
+obs was 0, now 100
+
+. gen x = 5*invnorm(uniform())
+
+. gen e = 2*invnorm(uniform())
+
+. gen u = abs(x)*e
+
+. gen y = 1 + 1*x + u
+
+. 
+. * Descriptive Statistics
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           x |       100   -.1322828     4.64293  -11.05289   10.63336
+           e |       100     .350339    2.033639  -3.776468   5.150759
+           u |       100    1.215709    8.187081  -19.58098    32.6086
+           y |       100    2.083426    9.364465  -27.63657   39.93944
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile y x e u using mma04p1wls.asc, replace
+
+. 
+. ********** ESTIMATE THE MODELS **********
+. 
+. ** (1) OLS - first column of Table 4.3
+. 
+. * (1A) OLS with wrong standard errors
+. regress y x
+
+      Source |       SS       df       MS              Number of obs =     100
+-------------+------------------------------           F(  1,    98) =   30.23
+       Model |  2046.73901     1  2046.73901           Prob > F      =  0.0000
+    Residual |  6634.88855    98  67.7029444           R-squared     =  0.2358
+-------------+------------------------------           Adj R-squared =  0.2280
+       Total |  8681.62755    99  87.6932076           Root MSE      =  8.2282
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |    .979313   .1781124     5.50   0.000     .6258548    1.332771
+       _cons |   2.212973   .8231553     2.69   0.008     .5794478    3.846497
+------------------------------------------------------------------------------
+
+. estimates store olsusual
+
+. 
+. * (1B) OLS with correct standard errors (robust sandwich)
+. regress y x, robust
+
+Regression with robust standard errors                 Number of obs =     100
+                                                       F(  1,    98) =   12.68
+                                                       Prob > F      =  0.0006
+                                                       R-squared     =  0.2358
+                                                       Root MSE      =  8.2282
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |    .979313   .2750617     3.56   0.001     .4334621    1.525164
+       _cons |   2.212973   .8198253     2.70   0.008      .586056    3.839889
+------------------------------------------------------------------------------
+
+. estimates store olsrobust
+
+. 
+. ** (2) WLS - second column of Table 4.3
+. 
+. * (2A) WLS with wrong standard errors
+. * Use the aweight option (not clearly explained in Stata manual).
+. * The aweight option MULTIPLIES y and x by sqrt(aweight).
+. * Here we suppose V[u]=constant*|x|
+. * So want to divide by sqrt(|x|), so let aweight=1/|x|
+. gen absx = abs(x)
+
+. regress y x [aweight=1/absx] 
+(sum of wgt is   5.7885e+02)
+
+      Source |       SS       df       MS              Number of obs =     100
+-------------+------------------------------           F(  1,    98) =   25.29
+       Model |   56.759883     1   56.759883           Prob > F      =  0.0000
+    Residual |  219.985987    98  2.24475497           R-squared     =  0.2051
+-------------+------------------------------           Adj R-squared =  0.1970
+       Total |   276.74587    99  2.79541283           Root MSE      =  1.4983
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .9569768   .1903115     5.03   0.000     .5793097    1.334644
+       _cons |   1.060374   .1498265     7.08   0.000     .7630484      1.3577
+------------------------------------------------------------------------------
+
+. estimates store wlsusual
+
+. 
+. * (2B) WLS with correct standard errors (robust sandwich)
+. regress y x [aweight=1/absx], robust 
+(sum of wgt is   5.7885e+02)
+
+Regression with robust standard errors                 Number of obs =     100
+                                                       F(  1,    98) =   17.07
+                                                       Prob > F      =  0.0001
+                                                       R-squared     =  0.2051
+                                                       Root MSE      =  1.4983
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .9569768    .231612     4.13   0.000     .4973503    1.416603
+       _cons |   1.060374    .050533    20.98   0.000     .9600931    1.160655
+------------------------------------------------------------------------------
+
+. estimates store wlsrobust
+
+. 
+. ** (3) GLS - last column of Table 4.3
+. 
+. * (3A) GLS with usual standard errors (correct)
+. * Here we know V[u]=constant*x^2
+. * So want to divide by x, so let aweight=1/(x^2)
+. gen xsq = x*x
+
+. regress y x [aweight=1/xsq]
+(sum of wgt is   1.0314e+05)
+
+      Source |       SS       df       MS              Number of obs =     100
+-------------+------------------------------           F(  1,    98) =   20.70
+       Model |  .086075004     1  .086075004           Prob > F      =  0.0000
+    Residual |  .407542418    98  .004158596           R-squared     =  0.1744
+-------------+------------------------------           Adj R-squared =  0.1660
+       Total |  .493617422    99  .004986035           Root MSE      =  .06449
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .9516457   .2091752     4.55   0.000     .5365444    1.366747
+       _cons |   .9964956   .0065131   153.00   0.000     .9835706    1.009421
+------------------------------------------------------------------------------
+
+. estimates store glsusual
+
+. 
+. * (3B) GLS with standard errors (robust sandwich - unnecessary here)
+. regress y x [aweight=1/xsq], robust
+(sum of wgt is   1.0314e+05)
+
+Regression with robust standard errors                 Number of obs =     100
+                                                       F(  1,    98) =   20.89
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.1744
+                                                       Root MSE      =  .06449
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .9516457   .2082145     4.57   0.000     .5384508    1.364841
+       _cons |   .9964956   .0078922   126.26   0.000     .9808337    1.012157
+------------------------------------------------------------------------------
+
+. estimates store glsrobust
+
+. 
+. * (3C) Check that aweight works as expected. 
+. * Do GLS by OLS on daya transformed by dividing by x.
+. gen try = y/x
+
+. gen trint = 1/x
+
+. gen trx = x/x
+
+. regress try trx trint, noconstant
+
+      Source |       SS       df       MS              Number of obs =     100
+-------------+------------------------------           F(  2,    98) =11850.15
+       Model |  101659.545     2  50829.7726           Prob > F      =  0.0000
+    Residual |  420.359033    98  4.28937789           R-squared     =  0.9959
+-------------+------------------------------           Adj R-squared =  0.9958
+       Total |  102079.904   100  1020.79904           Root MSE      =  2.0711
+
+------------------------------------------------------------------------------
+         try |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         trx |   .9516457   .2091752     4.55   0.000     .5365444    1.366747
+       trint |   .9964956   .0065131   153.00   0.000     .9835706    1.009421
+------------------------------------------------------------------------------
+
+. 
+. ********** DISPLAY KEY RESULTS **********
+. 
+. * Table 4.3
+. estimates table olsusual olsrobust wlsusual wlsrobust glsusual glsrobust, /*
+>        */ se stats(N r2) b(%7.3f) keep(_cons x)
+
+--------------------------------------------------------------------------
+    Variable | olsus~l   olsro~t   wlsus~l   wlsro~t   glsus~l   glsro~t  
+-------------+------------------------------------------------------------
+       _cons |   2.213     2.213     1.060     1.060     0.996     0.996  
+             |   0.823     0.820     0.150     0.051     0.007     0.008  
+           x |   0.979     0.979     0.957     0.957     0.952     0.952  
+             |   0.178     0.275     0.190     0.232     0.209     0.208  
+-------------+------------------------------------------------------------
+           N | 100.000   100.000   100.000   100.000   100.000   100.000  
+          r2 |   0.236     0.236     0.205     0.205     0.174     0.174  
+--------------------------------------------------------------------------
+                                                              legend: b/se
+
+. 
+. * Minor typo in Table 4.3: 
+. *  for GLS Constant has robust s.e. of [0.008] not [0.006]
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma04p1wls.txt
+  log type:  text
+ closed on:  17 May 2005, 13:41:48
+----------------------------------------------------------------------------------------------------

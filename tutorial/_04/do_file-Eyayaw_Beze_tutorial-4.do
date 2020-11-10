@@ -1,6 +1,6 @@
-local path "~/insert-path-here"
+// local path "~/insert-path-here"
 
-cd "`path'"
+// cd "`path'"
 
 set more 1
 capture log close

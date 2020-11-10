@@ -1,0 +1,802 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section4\mma15p2gev.txt
+  log type:  text
+ opened on:  19 May 2005, 12:16:29
+
+. 
+. ********** OVERVIEW OF MMA15P2GEV.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 15.6.3 page 511
+. * Nested logit (GEV) model analysis.
+. *   (1)  Set data up and reproduce Mixed estimates in Table 15.2 p.493
+. *   (2A) Nested logit model estimates (page 511)
+. *   (2B) Restricted nested logit model estimates (page 511)
+. *   (2C) Equivalent conditional logit model estimates (same as (2B))
+. 
+. * Related programs are 
+. *    mma15p1mnl.do   multinomial and conditional logit using Stata
+. *    mma15p3mnl.lim  multinomial logit using Limdep
+. *    mma15p4gev.lim  conditional and nested logit using Limdep and Nlogit
+. 
+. * To run this program you need data file
+. *    Nldata.asc 
+. 
+. * NOTE: The example here is deliberately simple and merely illustrative.
+. *       with nesting structure 
+. *             /     \
+. *           /  \   /  \
+. * In this case with parameter rho_j differing across alternatives
+. * Stata 8 estimates the earlier variant of the nested logit model
+. * rather than the preferred variant given in the text.
+. * See the discussion at bottom of page 511 and also Train (2003, p.88)
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+.   
+. ********** DATA DESCRIPTION **********
+. 
+. * Data Set comes from :
+. * J. A. Herriges and C. L. Kling, 
+. * "Nonlinear Income Effects in Random Utility Models", 
+. * Review of Economics and Statistics, 81(1999): 62-72
+. 
+. * The data are given as a combined observation with data on all 4 choices.
+. * This will work for multinomial logit program.
+. * For conditional logit will need to make a new data set which has
+. * four separate entries for each observation as there are four alternatives. 
+. 
+. * Filename: NLDATA.ASC
+. * Format: Ascii
+. * Number of Observations: 1182
+. * Each observations appears over 3 lines with 4 variables per line 
+. * so 4 x 1182 = 4728 observations 
+. * Variable Number and Description
+. * 1     Recreation mode choice. = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. * 2     Price for chosen alternative
+. * 3     Catch rate for chosen alternative
+. * 4     = 1 if beach mode chosen; = 0 otherwise
+. * 5     = 1 if pier mode chosen; = 0 otherwise
+. * 6     = 1 if private boat mode chosen; = 0 otherwise
+. * 7     = 1 if charter boat mode chosen; = 0 otherwise
+. * 8     = price for beach mode
+. * 9     = price for pier mode
+. * 10    = price for private boat mode
+. * 11    = price for charter boat mode
+. * 12    = catch rate for beach mode
+. * 13    = catch rate for pier mode
+. * 14    = catch rate for private boat mode
+. * 15    = catch rate for charter boat mode
+. * 16    = monthly income
+. 
+. ******* (1) CONDITIONAL LOGIT MODEL (Table 15.2 p.493 Mixed column) *********
+. 
+. infile mode price crate dbeach dpier dprivate dcharter pbeach ppier /*
+>    */ pprivate pcharter qbeach qpier qprivate qcharter income /*
+>    */ using nldata.asc
+(1182 observations read)
+
+. 
+. gen ydiv1000 = income/1000
+
+. 
+. * Data are one entry per individual
+. * Need to reshape to 4 observations per individual - one for each alternative
+. * Use reshape to do this which also creates variable (see below)
+. *   alternatv = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+. gen id = _n
+
+. gen d1 = dbeach
+
+. gen p1 = pbeach
+
+. gen q1 = qbeach
+
+. gen d2 = dpier
+
+. gen p2 = ppier
+
+. gen q2 = qpier
+
+. gen d3 = dprivate
+
+. gen p3 = pprivate
+
+. gen q3 = qprivate
+
+. gen d4 = dcharter
+
+. gen p4 = pcharter
+
+. gen q4 = qcharter
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        mode |      1182    3.005076    .9936162          1          4
+       price |      1182    52.08197    53.82997       1.29     666.11
+       crate |      1182    .3893684    .5605964      .0002     2.3101
+      dbeach |      1182    .1133672    .3171753          0          1
+       dpier |      1182    .1505922    .3578023          0          1
+-------------+--------------------------------------------------------
+    dprivate |      1182    .3536379    .4783008          0          1
+    dcharter |      1182    .3824027    .4861799          0          1
+      pbeach |      1182     103.422     103.641       1.29    843.186
+       ppier |      1182     103.422     103.641       1.29    843.186
+    pprivate |      1182    55.25657    62.71344       2.29     666.11
+-------------+--------------------------------------------------------
+    pcharter |      1182    84.37924    63.54465      27.29     691.11
+      qbeach |      1182    .2410113    .1907524      .0678      .5333
+       qpier |      1182    .1622237    .1603898      .0014      .4522
+    qprivate |      1182    .1712146    .2097885      .0002      .7369
+    qcharter |      1182    .6293679    .7061142      .0021     2.3101
+-------------+--------------------------------------------------------
+      income |      1182    4099.337    2461.964   416.6667      12500
+    ydiv1000 |      1182    4.099337    2.461964   .4166667       12.5
+          id |      1182       591.5    341.3583          1       1182
+          d1 |      1182    .1133672    .3171753          0          1
+          p1 |      1182     103.422     103.641       1.29    843.186
+-------------+--------------------------------------------------------
+          q1 |      1182    .2410113    .1907524      .0678      .5333
+          d2 |      1182    .1505922    .3578023          0          1
+          p2 |      1182     103.422     103.641       1.29    843.186
+          q2 |      1182    .1622237    .1603898      .0014      .4522
+          d3 |      1182    .3536379    .4783008          0          1
+-------------+--------------------------------------------------------
+          p3 |      1182    55.25657    62.71344       2.29     666.11
+          q3 |      1182    .1712146    .2097885      .0002      .7369
+          d4 |      1182    .3824027    .4861799          0          1
+          p4 |      1182    84.37924    63.54465      27.29     691.11
+          q4 |      1182    .6293679    .7061142      .0021     2.3101
+
+. 
+. reshape long d p q, i(id) j(alterntv)
+(note: j = 1 2 3 4)
+
+Data                               wide   ->   long
+-----------------------------------------------------------------------------
+Number of obs.                     1182   ->    4728
+Number of variables                  30   ->      22
+j variable (4 values)                     ->   alterntv
+xij variables:
+                           d1 d2 ... d4   ->   d
+                           p1 p2 ... p4   ->   p
+                           q1 q2 ... q4   ->   q
+-----------------------------------------------------------------------------
+
+. * This automatically creates alterntv = 1 (beach), ... 4 (charter)
+. describe
+
+Contains data
+  obs:         4,728                          
+ vars:            22                          
+ size:       420,792 (95.9% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+id              float  %9.0g                  
+alterntv        byte   %9.0g                  
+mode            float  %9.0g                  
+price           float  %9.0g                  
+crate           float  %9.0g                  
+dbeach          float  %9.0g                  
+dpier           float  %9.0g                  
+dprivate        float  %9.0g                  
+dcharter        float  %9.0g                  
+pbeach          float  %9.0g                  
+ppier           float  %9.0g                  
+pprivate        float  %9.0g                  
+pcharter        float  %9.0g                  
+qbeach          float  %9.0g                  
+qpier           float  %9.0g                  
+qprivate        float  %9.0g                  
+qcharter        float  %9.0g                  
+income          float  %9.0g                  
+ydiv1000        float  %9.0g                  
+d               float  %9.0g                  
+p               float  %9.0g                  
+q               float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  id  alterntv
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+           p |      4728    86.61996    88.01813       1.29    843.186
+           q |      4728    .3009544    .4335593      .0002     2.3101
+
+. 
+. * Bring in alternative specific dummies
+. * Since d2-d4 already used instead call them dummy2 - dummy4
+. gen obsnum=_n
+
+. gen dummy1 = (mod(obsnum,4)==1) * 1
+
+. gen dummy2 = (mod(obsnum,4)==2) * 1
+
+. gen dummy3 = (mod(obsnum,4)==3) * 1
+
+. gen dummy4 = (mod(obsnum,4)==0) * 1
+
+. gen d1y = (mod(obsnum,4)==1) * ydiv1000
+
+. gen d2y = (mod(obsnum,4)==2) * ydiv1000
+
+. gen d3y = (mod(obsnum,4)==3) * ydiv1000
+
+. gen d4y = (mod(obsnum,4)==0) * ydiv1000
+
+. 
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+          id |      4728       591.5      341.25          1       1182
+    alterntv |      4728         2.5    1.118152          1          4
+        mode |      4728    3.005076    .9933008          1          4
+       price |      4728    52.08197    53.81289       1.29     666.11
+       crate |      4728    .3893684    .5604185      .0002     2.3101
+-------------+--------------------------------------------------------
+      dbeach |      4728    .1133672    .3170746          0          1
+       dpier |      4728    .1505922    .3576888          0          1
+    dprivate |      4728    .3536379     .478149          0          1
+    dcharter |      4728    .3824027    .4860256          0          1
+      pbeach |      4728     103.422    103.6081       1.29    843.186
+-------------+--------------------------------------------------------
+       ppier |      4728     103.422    103.6081       1.29    843.186
+    pprivate |      4728    55.25657    62.69354       2.29     666.11
+    pcharter |      4728    84.37924    63.52448      27.29     691.11
+      qbeach |      4728    .2410113    .1906919      .0678      .5333
+       qpier |      4728    .1622237    .1603389      .0014      .4522
+-------------+--------------------------------------------------------
+    qprivate |      4728    .1712146    .2097219      .0002      .7369
+    qcharter |      4728    .6293679    .7058901      .0021     2.3101
+      income |      4728    4099.337    2461.183   416.6667      12500
+    ydiv1000 |      4728    4.099337    2.461183   .4166667       12.5
+           d |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+           p |      4728    86.61996    88.01813       1.29    843.186
+           q |      4728    .3009544    .4335593      .0002     2.3101
+      obsnum |      4728      2364.5        1365          1       4728
+      dummy1 |      4728         .25    .4330585          0          1
+      dummy2 |      4728         .25    .4330585          0          1
+-------------+--------------------------------------------------------
+      dummy3 |      4728         .25    .4330585          0          1
+      dummy4 |      4728         .25    .4330585          0          1
+         d1y |      4728    1.024834    2.160064          0       12.5
+         d2y |      4728    1.024834    2.160064          0       12.5
+         d3y |      4728    1.024834    2.160064          0       12.5
+-------------+--------------------------------------------------------
+         d4y |      4728    1.024834    2.160064          0       12.5
+
+. 
+. * The following gives Mixed column of Table 15.2 p.493
+. * Note that dummy1 and d1y are omitted to avoid dummy variablle trap
+. 
+. clogit d dummy2 dummy3 dummy4 d2y d3y d4y p q, group(id)
+
+Iteration 0:   log likelihood =  -1538.389
+Iteration 1:   log likelihood = -1297.4143
+Iteration 2:   log likelihood = -1233.5431
+Iteration 3:   log likelihood = -1216.8043
+Iteration 4:   log likelihood = -1215.1582
+Iteration 5:   log likelihood = -1215.1376
+Iteration 6:   log likelihood = -1215.1376
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(8)      =     846.92
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -1215.1376                       Pseudo R2       =     0.2584
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+      dummy2 |   .7779594   .2204939     3.53   0.000     .3457992     1.21012
+      dummy3 |   .5272788   .2227927     2.37   0.018     .0906131    .9639444
+      dummy4 |   1.694366   .2240506     7.56   0.000     1.255235    2.133497
+         d2y |  -.1275771   .0506395    -2.52   0.012    -.2268288   -.0283255
+         d3y |   .0894398   .0500671     1.79   0.074    -.0086898    .1875695
+         d4y |  -.0332917   .0503409    -0.66   0.508     -.131958    .0653746
+           p |  -.0251166   .0017317   -14.50   0.000    -.0285106   -.0217225
+           q |    .357782   .1097733     3.26   0.001     .1426302    .5729337
+------------------------------------------------------------------------------
+
+. 
+. ******* (2) NESTED LOGIT MODEL (p.511) *********
+. 
+. * Define the Tree for Nested logit
+. *       with nesting structure 
+. *             /     \
+. *           /  \   /  \
+. * In this case with parameter rho_j differing across alternatives
+. * Stata 8 estimates the earlier variant of the nested logit model
+. * rather than the preferred variant given in the text.
+. * See the discussion at bottom of page 511 and also Train (2003, p.88)
+. 
+. nlogitgen type = alterntv(shore: 1 | 2 , boat: 3 | 4)
+new variable type is generated with 2 groups
+label list lb_type
+lb_type:
+           1 shore
+           2 boat
+
+. nlogittree alterntv type
+
+tree structure specified for the nested logit model
+
+        top --> bottom
+
+        type      alterntv  
+--------------------------
+       shore             1  
+                         2  
+        boat             3  
+                         4  
+
+. 
+. *** (2A) Estimate the nested logit model 
+. ***      This is the model on p.511 that has "higher log-likelihood"
+. 
+. * For the top level we use regressors that do not vary at the lower level
+. * So not p or q, but could be income or alternative dummy 
+. * Here use income and alternative dummy
+. gen dshore = (type ==1) * 1
+
+. gen dshorey = (type ==1) * ydiv1000
+
+. nlogit d (alterntv = p q) (type = dshore dshorey), group(id)
+
+tree structure specified for the nested logit model
+
+        top --> bottom
+
+        type      alterntv  
+--------------------------
+       shore             1  
+                         2  
+        boat             3  
+                         4  
+
+initial:       log likelihood = -1256.8179
+rescale:       log likelihood = -1256.8179
+rescale eq:    log likelihood = -1228.6278
+Iteration 0:   log likelihood = -1228.6278  
+Iteration 1:   log likelihood =  -1227.407  (backed up)
+Iteration 2:   log likelihood =  -1225.366  (backed up)
+Iteration 3:   log likelihood = -1216.5831  (backed up)
+Iteration 4:   log likelihood = -1210.9623  
+Iteration 5:   log likelihood =  -1210.323  (backed up)
+Iteration 6:   log likelihood = -1199.5959  
+Iteration 7:   log likelihood = -1198.2166  
+Iteration 8:   log likelihood = -1193.1834  
+Iteration 9:   log likelihood = -1190.8805  
+Iteration 10:  log likelihood = -1188.0112  
+Iteration 11:  log likelihood = -1185.7944  
+Iteration 12:  log likelihood = -1184.8715  
+Iteration 13:  log likelihood =  -1183.776  
+Iteration 14:  log likelihood = -1182.6316  
+Iteration 15:  log likelihood = -1182.1119  
+Iteration 16:  log likelihood = -1181.8783  
+Iteration 17:  log likelihood =  -1181.323  
+Iteration 18:  log likelihood =  -1181.162  
+Iteration 19:  log likelihood =  -1180.912  
+Iteration 20:  log likelihood = -1180.7877  
+Iteration 21:  log likelihood = -1180.5545  
+Iteration 22:  log likelihood = -1180.4177  
+Iteration 23:  log likelihood = -1180.2966  
+BFGS stepping has contracted, resetting BFGS Hessian (0)
+Iteration 24:  log likelihood = -1180.2253  
+Iteration 25:  log likelihood = -1180.2209  (backed up)
+Iteration 26:  log likelihood = -1180.2139  (backed up)
+Iteration 27:  log likelihood = -1180.2137  (backed up)
+Iteration 28:  log likelihood = -1180.2113  
+Iteration 29:  log likelihood = -1180.2019  
+Iteration 30:  log likelihood = -1180.1739  
+Iteration 31:  log likelihood = -1180.1278  
+BFGS stepping has contracted, resetting BFGS Hessian (1)
+Iteration 32:  log likelihood = -1180.0852  
+Iteration 33:  log likelihood = -1180.0773  (backed up)
+Iteration 34:  log likelihood = -1180.0762  (backed up)
+Iteration 35:  log likelihood = -1180.0762  (backed up)
+Iteration 36:  log likelihood = -1180.0758  
+Iteration 37:  log likelihood = -1180.0694  
+Iteration 38:  log likelihood = -1180.0671  
+Iteration 39:  log likelihood = -1180.0664  
+BFGS stepping has contracted, resetting BFGS Hessian (2)
+Iteration 40:  log likelihood =  -1180.058  
+Iteration 41:  log likelihood = -1180.0576  (backed up)
+Iteration 42:  log likelihood = -1180.0575  (backed up)
+Iteration 43:  log likelihood = -1180.0575  (backed up)
+Iteration 44:  log likelihood = -1180.0573  
+Iteration 45:  log likelihood = -1180.0466  
+Iteration 46:  log likelihood = -1180.0434  
+BFGS stepping has contracted, resetting BFGS Hessian (3)
+Iteration 47:  log likelihood =  -1180.043  
+Iteration 48:  log likelihood = -1180.0427  (backed up)
+Iteration 49:  log likelihood = -1180.0427  (backed up)
+Iteration 50:  log likelihood = -1180.0427  (backed up)
+Iteration 51:  log likelihood = -1180.0427  
+Iteration 52:  log likelihood = -1180.0422  
+BFGS stepping has contracted, resetting BFGS Hessian (4)
+Iteration 53:  log likelihood = -1180.0414  
+Iteration 54:  log likelihood = -1180.0412  (backed up)
+Iteration 55:  log likelihood = -1180.0412  (backed up)
+Iteration 56:  log likelihood = -1180.0412  (backed up)
+Iteration 57:  log likelihood = -1180.0411  
+Iteration 58:  log likelihood = -1180.0404  
+Iteration 59:  log likelihood = -1180.0401  
+BFGS stepping has contracted, resetting BFGS Hessian (5)
+Iteration 60:  log likelihood = -1180.0381  
+Iteration 61:  log likelihood =  -1180.038  (backed up)
+Iteration 62:  log likelihood = -1180.0364  (backed up)
+Iteration 63:  log likelihood = -1180.0364  (backed up)
+Iteration 64:  log likelihood = -1180.0364  
+Iteration 65:  log likelihood = -1180.0361  
+Iteration 66:  log likelihood = -1180.0357  
+BFGS stepping has contracted, resetting BFGS Hessian (6)
+Iteration 67:  log likelihood = -1180.0348  
+Iteration 68:  log likelihood = -1180.0348  (backed up)
+Iteration 69:  log likelihood = -1180.0348  (backed up)
+Iteration 70:  log likelihood = -1180.0348  (backed up)
+Iteration 71:  log likelihood = -1180.0348  
+Iteration 72:  log likelihood = -1180.0331  
+Iteration 73:  log likelihood = -1180.0328  
+BFGS stepping has contracted, resetting BFGS Hessian (7)
+Iteration 74:  log likelihood = -1180.0319  
+Iteration 75:  log likelihood = -1180.0318  (backed up)
+Iteration 76:  log likelihood = -1180.0317  (backed up)
+Iteration 77:  log likelihood = -1180.0317  (backed up)
+Iteration 78:  log likelihood = -1180.0317  (backed up)
+Iteration 79:  log likelihood = -1180.0313  
+BFGS stepping has contracted, resetting BFGS Hessian (8)
+Iteration 80:  log likelihood =  -1180.031  
+Iteration 81:  log likelihood =  -1180.031  (backed up)
+Iteration 82:  log likelihood =  -1180.031  (backed up)
+Iteration 83:  log likelihood =  -1180.031  (backed up)
+Iteration 84:  log likelihood =  -1180.031  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (9)
+Iteration 85:  log likelihood = -1180.0305  
+Iteration 86:  log likelihood = -1180.0304  (backed up)
+Iteration 87:  log likelihood = -1180.0304  (backed up)
+Iteration 88:  log likelihood = -1180.0304  (backed up)
+Iteration 89:  log likelihood = -1180.0304  
+Iteration 90:  log likelihood = -1180.0303  
+Iteration 91:  log likelihood = -1180.0301  
+BFGS stepping has contracted, resetting BFGS Hessian (10)
+Iteration 92:  log likelihood = -1180.0296  
+Iteration 93:  log likelihood = -1180.0295  (backed up)
+Iteration 94:  log likelihood = -1180.0295  (backed up)
+Iteration 95:  log likelihood = -1180.0295  (backed up)
+Iteration 96:  log likelihood = -1180.0295  
+Iteration 97:  log likelihood = -1180.0292  
+Iteration 98:  log likelihood =  -1180.029  
+BFGS stepping has contracted, resetting BFGS Hessian (11)
+Iteration 99:  log likelihood = -1180.0288  
+Iteration 100: log likelihood = -1180.0288  (backed up)
+Iteration 101: log likelihood = -1180.0288  (backed up)
+Iteration 102: log likelihood = -1180.0288  (backed up)
+Iteration 103: log likelihood = -1180.0288  (backed up)
+Iteration 104: log likelihood = -1180.0285  
+BFGS stepping has contracted, resetting BFGS Hessian (12)
+Iteration 105: log likelihood = -1180.0283  
+Iteration 106: log likelihood = -1180.0283  (backed up)
+Iteration 107: log likelihood = -1180.0283  (backed up)
+Iteration 108: log likelihood = -1180.0283  (backed up)
+Iteration 109: log likelihood = -1180.0283  
+Iteration 110: log likelihood = -1180.0282  
+Iteration 111: log likelihood =  -1180.028  
+BFGS stepping has contracted, resetting BFGS Hessian (13)
+Iteration 112: log likelihood = -1180.0274  
+Iteration 113: log likelihood = -1180.0274  (backed up)
+Iteration 114: log likelihood = -1180.0274  (backed up)
+Iteration 115: log likelihood = -1180.0274  (backed up)
+Iteration 116: log likelihood = -1180.0274  (backed up)
+Iteration 117: log likelihood = -1180.0266  
+BFGS stepping has contracted, resetting BFGS Hessian (14)
+Iteration 118: log likelihood = -1180.0265  
+Iteration 119: log likelihood = -1180.0265  (backed up)
+Iteration 120: log likelihood = -1180.0265  (backed up)
+Iteration 121: log likelihood = -1180.0265  (backed up)
+Iteration 122: log likelihood = -1180.0265  (backed up)
+Iteration 123: log likelihood = -1180.0263  
+BFGS stepping has contracted, resetting BFGS Hessian (15)
+Iteration 124: log likelihood = -1180.0261  
+Iteration 125: log likelihood = -1180.0261  (backed up)
+Iteration 126: log likelihood = -1180.0261  (backed up)
+Iteration 127: log likelihood = -1180.0261  (backed up)
+Iteration 128: log likelihood = -1180.0261  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (16)
+Iteration 129: log likelihood =  -1180.026  
+Iteration 130: log likelihood =  -1180.026  (backed up)
+Iteration 131: log likelihood =  -1180.026  (backed up)
+Iteration 132: log likelihood =  -1180.026  (backed up)
+Iteration 133: log likelihood =  -1180.026  (backed up)
+Iteration 134: log likelihood = -1180.0259  
+BFGS stepping has contracted, resetting BFGS Hessian (17)
+Iteration 135: log likelihood = -1180.0213  
+Iteration 136: log likelihood = -1180.0208  (backed up)
+Iteration 137: log likelihood = -1180.0207  (backed up)
+Iteration 138: log likelihood = -1180.0207  (backed up)
+Iteration 139: log likelihood = -1180.0206  
+Iteration 140: log likelihood = -1180.0191  
+Iteration 141: log likelihood = -1180.0186  
+BFGS stepping has contracted, resetting BFGS Hessian (18)
+Iteration 142: log likelihood = -1180.0185  
+Iteration 143: log likelihood = -1180.0185  (backed up)
+Iteration 144: log likelihood = -1180.0185  (backed up)
+Iteration 145: log likelihood = -1180.0185  
+Iteration 146: log likelihood = -1180.0185  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (19)
+Iteration 147: log likelihood = -1180.0184  
+Iteration 148: log likelihood = -1180.0184  (backed up)
+Iteration 149: log likelihood = -1180.0184  (backed up)
+Iteration 150: log likelihood = -1180.0184  (backed up)
+Iteration 151: log likelihood = -1180.0184  (backed up)
+Iteration 152: log likelihood = -1180.0184  
+Iteration 153: log likelihood = -1180.0183  
+BFGS stepping has contracted, resetting BFGS Hessian (20)
+Iteration 154: log likelihood = -1180.0177  
+Iteration 155: log likelihood = -1180.0176  (backed up)
+Iteration 156: log likelihood = -1180.0176  (backed up)
+Iteration 157: log likelihood = -1180.0176  (backed up)
+Iteration 158: log likelihood = -1180.0176  (backed up)
+Iteration 159: log likelihood = -1180.0172  
+Iteration 160: log likelihood = -1180.0171  
+BFGS stepping has contracted, resetting BFGS Hessian (21)
+Iteration 161: log likelihood =  -1180.017  
+Iteration 162: log likelihood =  -1180.017  (backed up)
+Iteration 163: log likelihood =  -1180.017  (backed up)
+Iteration 164: log likelihood =  -1180.017  (backed up)
+Iteration 165: log likelihood =  -1180.017  
+Iteration 166: log likelihood =  -1180.017  
+BFGS stepping has contracted, resetting BFGS Hessian (22)
+Iteration 167: log likelihood = -1180.0169  
+Iteration 168: log likelihood = -1180.0169  (backed up)
+Iteration 169: log likelihood = -1180.0169  (backed up)
+Iteration 170: log likelihood = -1180.0169  (backed up)
+Iteration 171: log likelihood = -1180.0169  (backed up)
+Iteration 172: log likelihood = -1180.0169  
+Iteration 173: log likelihood = -1180.0169  
+BFGS stepping has contracted, resetting BFGS Hessian (23)
+Iteration 174: log likelihood = -1180.0167  
+Iteration 175: log likelihood = -1180.0167  (backed up)
+Iteration 176: log likelihood = -1180.0167  (backed up)
+Iteration 177: log likelihood = -1180.0167  (backed up)
+Iteration 178: log likelihood = -1180.0167  (backed up)
+Iteration 179: log likelihood = -1180.0166  
+BFGS stepping has contracted, resetting BFGS Hessian (24)
+Iteration 180: log likelihood = -1180.0165  
+Iteration 181: log likelihood = -1180.0165  (backed up)
+Iteration 182: log likelihood = -1180.0165  (backed up)
+Iteration 183: log likelihood = -1180.0165  (backed up)
+Iteration 184: log likelihood = -1180.0165  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (25)
+Iteration 185: log likelihood = -1180.0165  
+Iteration 186: log likelihood = -1180.0165  (backed up)
+Iteration 187: log likelihood = -1180.0165  (backed up)
+Iteration 188: log likelihood = -1180.0164  (backed up)
+Iteration 189: log likelihood = -1180.0164  (backed up)
+Iteration 190: log likelihood = -1180.0164  
+BFGS stepping has contracted, resetting BFGS Hessian (26)
+Iteration 191: log likelihood = -1180.0164  
+Iteration 192: log likelihood = -1180.0164  (backed up)
+Iteration 193: log likelihood = -1180.0164  (backed up)
+Iteration 194: log likelihood = -1180.0164  (backed up)
+Iteration 195: log likelihood = -1180.0164  (backed up)
+Iteration 196: log likelihood = -1180.0164  
+BFGS stepping has contracted, resetting BFGS Hessian (27)
+Iteration 197: log likelihood = -1180.0163  
+Iteration 198: log likelihood = -1180.0163  (backed up)
+Iteration 199: log likelihood = -1180.0163  (backed up)
+Iteration 200: log likelihood = -1180.0163  (backed up)
+Iteration 201: log likelihood = -1180.0163  (backed up)
+Iteration 202: log likelihood = -1180.0162  
+BFGS stepping has contracted, resetting BFGS Hessian (28)
+Iteration 203: log likelihood = -1180.0162  
+Iteration 204: log likelihood = -1180.0162  (backed up)
+Iteration 205: log likelihood = -1180.0162  (backed up)
+Iteration 206: log likelihood = -1180.0162  (backed up)
+Iteration 207: log likelihood = -1180.0162  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (29)
+Iteration 208: log likelihood = -1180.0161  
+Iteration 209: log likelihood = -1180.0161  (backed up)
+Iteration 210: log likelihood = -1180.0161  (backed up)
+Iteration 211: log likelihood = -1180.0161  (backed up)
+Iteration 212: log likelihood = -1180.0161  
+Iteration 213: log likelihood = -1180.0161  
+BFGS stepping has contracted, resetting BFGS Hessian (30)
+Iteration 214: log likelihood =  -1180.016  
+Iteration 215: log likelihood =  -1180.016  (backed up)
+Iteration 216: log likelihood =  -1180.016  (backed up)
+Iteration 217: log likelihood =  -1180.016  (backed up)
+Iteration 218: log likelihood =  -1180.016  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (31)
+Iteration 219: log likelihood =  -1180.016  
+Iteration 220: log likelihood =  -1180.016  (backed up)
+Iteration 221: log likelihood =  -1180.016  (backed up)
+Iteration 222: log likelihood =  -1180.016  (backed up)
+Iteration 223: log likelihood =  -1180.016  (backed up)
+BFGS stepping has contracted, resetting BFGS Hessian (32)
+Iteration 224: log likelihood = -1180.0159  
+Iteration 225: log likelihood = -1180.0159  (backed up)
+Iteration 226: log likelihood = -1180.0159  (backed up)
+Iteration 227: log likelihood = -1180.0159  (backed up)
+Iteration 228: log likelihood = -1180.0159  
+Iteration 229: log likelihood = -1180.0159  
+Iteration 230: log likelihood = -1180.0159  
+BFGS stepping has contracted, resetting BFGS Hessian (33)
+Iteration 231: log likelihood = -1180.0157  
+Iteration 232: log likelihood = -1180.0157  (backed up)
+Iteration 233: log likelihood = -1180.0157  (backed up)
+Iteration 234: log likelihood = -1180.0157  (backed up)
+Iteration 235: log likelihood = -1180.0157  (backed up)
+Iteration 236: log likelihood = -1180.0156  
+
+Nested logit estimates
+Levels             =          2                 Number of obs      =      4728
+Dependent variable =          d                 LR chi2(6)         =  917.1687
+Log likelihood     = -1180.0156                 Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+alterntv     |
+           p |  -.0013303    .001081    -1.23   0.218     -.003449    .0007883
+           q |   .1284825   .1038986     1.24   0.216     -.075155      .33212
+-------------+----------------------------------------------------------------
+type         |
+      dshore |  -11.40196    9.15307    -1.25   0.213    -29.34164    6.537733
+     dshorey |   .1108341   .0531049     2.09   0.037     .0067505    .2149178
+-------------+----------------------------------------------------------------
+(incl. value |
+ parameters) |
+type         |
+      /shore |   29.98591   24.40089     1.23   0.219    -17.83896    77.81078
+       /boat |   14.06438   11.39886     1.23   0.217    -8.276971    36.40572
+------------------------------------------------------------------------------
+LR test of homoskedasticity (iv = 1): chi2(2)=  145.39    Prob > chi2 = 0.0000
+------------------------------------------------------------------------------
+
+. estimates store nlogitunrest
+
+. 
+. *** (2B) Estimate the restricted nested logit model 
+. ***      This is the model on p.511 that has log L = -1252
+. 
+. * Set the inclusive value parameters to 1 
+. nlogit d (alterntv = p q) (type = dshore dshorey), group(id) ivc(shore=1, boat=1)
+
+tree structure specified for the nested logit model
+
+        top --> bottom
+
+        type      alterntv  
+--------------------------
+       shore             1  
+                         2  
+        boat             3  
+                         4  
+
+User-defined constraint(s): 
+    IV constraint(s):
+         [shore]_cons = 1
+         [boat]_cons = 1
+
+initial:       log likelihood = -1256.8179
+rescale:       log likelihood = -1256.8179
+rescale eq:    log likelihood = -1228.6278
+Iteration 0:   log likelihood = -1264.4012  
+Iteration 1:   log likelihood = -1264.1213  (backed up)
+Iteration 2:   log likelihood = -1256.9241  (backed up)
+Iteration 3:   log likelihood = -1255.0984  (backed up)
+Iteration 4:   log likelihood = -1254.4838  
+Iteration 5:   log likelihood = -1252.7216  
+Iteration 6:   log likelihood = -1252.7111  
+Iteration 7:   log likelihood =  -1252.711  
+
+Nested logit estimates
+Levels             =          2                 Number of obs      =      4728
+Dependent variable =          d                 LR chi2(4)         =  771.7778
+Log likelihood     =  -1252.711                 Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+alterntv     |
+           p |   -.020246   .0012832   -15.78   0.000     -.022761    -.017731
+           q |   .7552644   .0918004     8.23   0.000      .575339    .9351899
+-------------+----------------------------------------------------------------
+type         |
+      dshore |  -.5897435   .1565201    -3.77   0.000    -.8965172   -.2829697
+     dshorey |  -.0790869   .0381453    -2.07   0.038    -.1538503   -.0043235
+-------------+----------------------------------------------------------------
+(incl. value |
+ parameters) |
+type         |
+      /shore |          1          .        .       .            .           .
+       /boat |          1          .        .       .            .           .
+------------------------------------------------------------------------------
+LR test of homoskedasticity (iv = 1): chi2(0)=    0.00    Prob > chi2 =      .
+------------------------------------------------------------------------------
+
+. estimates store nlogitrest
+
+. 
+. * Perform a likelihood ratio test that inclusive parameters = 1
+. lrtest nlogitunrest nlogitrest
+
+likelihood-ratio test                                  LR chi2(2)  =    145.39
+(Assumption: nlogitrest nested in nlogitunrest)        Prob > chi2 =    0.0000
+
+. 
+. *** (2C) As a check, verify that this restricted nested logit = conditional logit
+. 
+. clogit d p q dshore dshorey, group(id)
+
+Iteration 0:   log likelihood = -1547.6028
+Iteration 1:   log likelihood = -1317.5764
+Iteration 2:   log likelihood = -1262.8183
+Iteration 3:   log likelihood =  -1253.096
+Iteration 4:   log likelihood = -1252.7117
+Iteration 5:   log likelihood =  -1252.711
+
+Conditional (fixed-effects) logistic regression   Number of obs   =       4728
+                                                  LR chi2(4)      =     771.78
+                                                  Prob > chi2     =     0.0000
+Log likelihood =  -1252.711                       Pseudo R2       =     0.2355
+
+------------------------------------------------------------------------------
+           d |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           p |  -.0202461   .0012832   -15.78   0.000    -.0227611   -.0177311
+           q |   .7552646   .0918003     8.23   0.000     .5753392    .9351899
+      dshore |  -.5897442     .15652    -3.77   0.000    -.8965178   -.2829706
+     dshorey |  -.0790866   .0381453    -2.07   0.038    -.1538499   -.0043232
+------------------------------------------------------------------------------
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section4\mma15p2gev.txt
+  log type:  text
+ closed on:  19 May 2005, 12:19:10
+----------------------------------------------------------------------------------------------------

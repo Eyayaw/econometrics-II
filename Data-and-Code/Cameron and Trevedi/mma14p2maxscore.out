@@ -1,0 +1,178 @@
+--> READ;NOBS=630       ;NVAR=2         ;  file = mma14p1binary.asc ;
+    NAMES=CHARTER, LNRELP $
+
+--> PROBIT;Lhs=charter;Rhs=ONE,lnrelp$
+Normal exit from iterations. Exit status=0.
+
++---------------------------------------------+
+| Binomial Probit Model                       |
+| Maximum Likelihood Estimates                |
+| Model estimated: Nov 09, 2004 at 03:30:45PM.|
+| Dependent variable              CHARTER     |
+| Weighting variable                 None     |
+| Number of observations              630     |
+| Iterations completed                  6     |
+| Log likelihood function       -204.4109     |
+| Restricted log likelihood     -375.0617     |
+| Chi squared                    341.3016     |
+| Degrees of freedom                    1     |
+| Prob[ChiSqd > value] =         .0000000     |
+| Hosmer-Lemeshow chi-squared =  18.96258     |
+| P-value=  .00423 with deg.fr. =       6     |
++---------------------------------------------+
++---------+--------------+----------------+--------+---------+----------+
+|Variable | Coefficient  | Standard Error |b/St.Er.|P[|Z|>z] | Mean of X|
++---------+--------------+----------------+--------+---------+----------+
+          Index function for probability
+ Constant     1.194360403   .89508361E-01   13.344   .0000
+ LNRELP      -1.055514516   .76115584E-01  -13.867   .0000     .27455808
+ (Note: E+nn or E-nn means multiply by 10 to + or -nn power.)
+
+ 
++----------------------------------------+
+| Fit Measures for Binomial Choice Model |
+| Probit   model for variable CHARTER    |
++----------------------------------------+
+| Proportions P0= .282540   P1= .717460  |
+| N =     630 N0=     178   N1=     452  |
+| LogL =  -204.41086 LogL0 =  -375.0617  |
+| Estrella = 1-(L/L0)^(-2L0/n) = .51455  |
++----------------------------------------+
+|     Efron |  McFadden  |  Ben./Lerman  |
+|    .47845 |    .45499  |       .79475  |
+|    Cramer | Veall/Zim. |     Rsqrd_ML  |
+|    .49082 |    .64650  |       .41827  |
++----------------------------------------+
+| Information  Akaike I.C. Schwarz I.C.  |
+| Criteria         .65527     421.71317  |
++----------------------------------------+
+Frequencies of actual & predicted outcomes
+Predicted outcome has maximum probability.
+Threshold value for predicting Y=1 = .5000
+            Predicted
+------  ----------  +  -----
+Actual      0    1  |  Total
+------  ----------  +  -----
+  0       117   61  |    178
+  1        38  414  |    452
+------  ----------  +  -----
+Total     155  475  |    630
+--> LOGIT; Lhs=charter;Rhs=ONE,lnrelp$
+Normal exit from iterations. Exit status=0.
+
++---------------------------------------------+
+| Multinomial Logit Model                     |
+| Maximum Likelihood Estimates                |
+| Model estimated: Nov 09, 2004 at 03:30:47PM.|
+| Dependent variable              CHARTER     |
+| Weighting variable                 None     |
+| Number of observations              630     |
+| Iterations completed                  7     |
+| Log likelihood function       -206.8270     |
+| Restricted log likelihood     -375.0617     |
+| Chi squared                    336.4694     |
+| Degrees of freedom                    1     |
+| Prob[ChiSqd > value] =         .0000000     |
+| Hosmer-Lemeshow chi-squared =  23.33705     |
+| P-value=  .00149 with deg.fr. =       7     |
++---------------------------------------------+
++---------+--------------+----------------+--------+---------+----------+
+|Variable | Coefficient  | Standard Error |b/St.Er.|P[|Z|>z] | Mean of X|
++---------+--------------+----------------+--------+---------+----------+
+          Characteristics in numerator of Prob[Y = 1]
+ Constant     2.053124899       .16893068   12.154   .0000
+ LNRELP      -1.822530412       .14456807  -12.607   .0000     .27455808
+
+ 
++--------------------------------------------------------------------+
+| Information Statistics for Discrete Choice Model.                  |
+|                            M=Model MC=Constants Only   M0=No Model |
+| Criterion F (log L)     -206.82697        -375.06167    -436.68272 |
+| LR Statistic vs. MC      336.46940            .00000        .00000 |
+| Degrees of Freedom         1.00000            .00000        .00000 |
+| Prob. Value for LR          .00000            .00000        .00000 |
+| Entropy for probs.       206.82697         375.06167     436.68272 |
+| Normalized Entropy          .47363            .85889       1.00000 |
+| Entropy Ratio Stat.      459.71151         123.24211        .00000 |
+| Bayes Info Criterion     420.09966         756.56906     879.81117 |
+| BIC - BIC(no model)      459.71151         123.24211        .00000 |
+| Pseudo R-squared            .44855            .00000        .00000 |
+| Pct. Correct Prec.        84.44444            .00000      50.00000 |
+| Means:       y=0    y=1    y=2    y=3    yu=4   y=5,    y=6   y>=7 |
+| Outcome     .2825  .7175  .0000  .0000  .0000  .0000  .0000  .0000 |
+| Pred.Pr     .2825  .7175  .0000  .0000  .0000  .0000  .0000  .0000 |
+| Notes: Entropy computed as Sum(i)Sum(j)Pfit(i,j)*logPfit(i,j).     |
+|        Normalized entropy is computed against M0.                  |
+|        Entropy ratio statistic is computed against M0.             |
+|        BIC = 2*criterion - log(N)*degrees of freedom.              |
+|        If the model has only constants or if it has no constants,  |
+|        the statistics reported here are not useable.               |
++--------------------------------------------------------------------+
++----------------------------------------+
+| Fit Measures for Binomial Choice Model |
+| Logit    model for variable CHARTER    |
++----------------------------------------+
+| Proportions P0= .282540   P1= .717460  |
+| N =     630 N0=     178   N1=     452  |
+| LogL =  -206.82697 LogL0 =  -375.0617  |
+| Estrella = 1-(L/L0)^(-2L0/n) = .50771  |
++----------------------------------------+
+|     Efron |  McFadden  |  Ben./Lerman  |
+|    .47526 |    .44855  |       .79271  |
+|    Cramer | Veall/Zim. |     Rsqrd_ML  |
+|    .48871 |    .64053  |       .41379  |
++----------------------------------------+
+| Information  Akaike I.C. Schwarz I.C.  |
+| Criteria         .66294     426.54538  |
++----------------------------------------+
+Frequencies of actual & predicted outcomes
+Predicted outcome has maximum probability.
+Threshold value for predicting Y=1 = .5000
+            Predicted
+------  ----------  +  -----
+Actual      0    1  |  Total
+------  ----------  +  -----
+  0       118   60  |    178
+  1        38  414  |    452
+------  ----------  +  -----
+Total     156  474  |    630
+--> MSCORE ; Lhs = charter ; Rhs = ONE,lnrelp;Nbt = 50$
+
+  +----------------------------------------------------------------------+
+  | Maximum Score Estimates of Linear Quantile                           |
+  | Regression Model from Binary Response Data                           |
+  | Quantile                .500      Number of Parameters =     2       |
+  | Observations input   =   630      Maximum Iterations   =   500       |
+  | End Game Iterations  =     1      Bootstrap Estimates  =    50       |
+  | Check Ties?               No                                         |
+  | Save bootstraps?          No                                         |
+  | Start values from MSCORE (normalized)                                |
+  | Normal exit after    1 iterations.                                   |
+  | Score functions:     Naive   At theta(0)      Maximum                |
+  |            Raw      .43492       .66984        .73333                |
+  |     Normalized      .71746       .83492        .86667                |
+  | Estimated MSEs from  50 bootstrap samples                            |
+  | (Nonconvergence in   0 cases)                                        |
+  | Angular deviation (radians) of bootstraps from estimate              |
+  | Mean square =   .159391             Mean absolute =   .105079        |
+  | Standard errors below are based on bootstrap mean squared            |
+  | deviations.  These and the t-ratios are only approximations.         |
+  +----------------------------------------------------------------------+
++---------+--------------+----------------+--------+---------+----------+
+|Variable | Coefficient  | Standard Error |b/St.Er.|P[|Z|>z] | Mean of X|
++---------+--------------+----------------+--------+---------+----------+
+ Constant     .7756081999       .12013620    6.456   .0000
+ LNRELP      -.6312146388       .10303600   -6.126   .0000     .27455808
+
+ 
+Frequencies of actual & predicted outcomes
+Predicted outcome is the sign of x(i)*theta.
+
+            Predicted
+------  ----------  +  -----
+Actual      0    1  |  Total
+------  ----------  +  -----
+  0       115   63  |    178
+  1        31  421  |    452
+------  ----------  +  -----
+Total     146  484  |    630

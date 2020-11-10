@@ -1,0 +1,410 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section3\mma11p1boot.txt
+  log type:  text
+ opened on:  18 May 2005, 15:52:55
+
+. 
+. ********** OVERVIEW OF MMA11P1BOOT.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 11.3 pages 366-368
+. * Bootstrap applied to exponential regression model
+. * Provides
+. * (1) Bootstrap distribution of beta and t-statistic (Table 11.1)
+. * (2) Various statistics from bootstrap (pages 366-8)
+. * (3) Bootstrap density of the t-statistic (Figure 11.1) 
+. * using generated data (see below)
+. 
+. * Note: To speed up progam reduce breps - the number of bootstrap replications
+. *       But final program should use many repications
+. 
+. * Note: This program uses ereg which is an old Stata command 
+. *       superceded by streg, dist(exp)
+. 
+. * Note: For bootstrap see also mm07p4boot.do
+. *       which has additional commands / ways to bootstrap
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8
+
+.   
+. ********** GENERATE DATA **********
+. 
+. * Model is  y ~ exponential(exp(a + bx + cz))
+. * where  x and z are joint normal (1,1,0.1,0.1,0.5)
+. * i.e. means 0.1  and  0.1
+. *      sd's  0.1  and  0.1 and correln 0.5 (so correln^2 = .25)
+. *  variances 0.01 and 0.01 and covariance 0.005
+. 
+. * Generate data from joint normal
+. * Use fact that x is N(mu0.1,0.1)
+. *       and z | x is N(0.1 + .05/.1*(x - .1), .01x.75 = .0075)
+. *       so that st dev = sqrt(0.0075) = 0.0866025
+. 
+. set obs 50 
+obs was 0, now 50
+
+. set seed 10001
+
+. * Generate x and z bivariate normal
+. scalar mu1=0.1
+
+. scalar mu2=0.1
+
+. scalar sig1=0.1
+
+. scalar sig2=0.1
+
+. scalar rho=0.5
+
+. scalar sig12=rho*sig1*sig2 
+
+. gen x = mu1 + sig1*invnorm(uniform()) 
+
+. gen muzgivx = mu2+(sig12/(sig2*sig2))*(x-mu1)
+
+. gen sigzgivx = sqrt(sig2*sig2*(1-rho*rho))
+
+. gen z = muzgivx + sigzgivx*invnorm(uniform()) 
+
+. * To generate y exponential with mean mu=Ey use
+. *   Integral 0 to a of (1/mu)exp(-x/mu) dx   by change of variables
+. * = Integral 0 to a/mu of exp(-t)dt
+. * = incomplete gamma function P(0,a/mu) in the terminology of Stata
+. gen Ey = exp(-2.0+2*x+2*z)
+
+. gen y = Ey*invgammap(1,uniform())
+
+. gen logy = log(y)
+
+. 
+. * Descriptive Statistics
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           x |        50    .0935209    .1031485  -.1173506   .2778609
+     muzgivx |        50    .0967604    .0515742  -.0086753   .1889304
+    sigzgivx |        50    .0866025           0   .0866025   .0866025
+           z |        50    .1033014    .0909297  -.0885447   .3137469
+          Ey |        50    .2114837     .071719   .0945722   .4314067
+-------------+--------------------------------------------------------
+           y |        50    .2024206    .2237202   .0005293   .9601147
+        logy |        50   -2.282336     1.45494  -7.543878  -.0407026
+
+. ereg y x z
+
+Iteration 0:   log likelihood = -84.246434  
+Iteration 1:   log likelihood = -80.068104  
+Iteration 2:   log likelihood = -79.871694  
+Iteration 3:   log likelihood = -79.871338  
+Iteration 4:   log likelihood = -79.871338  
+
+Exponential regression -- entry time 0
+log expected-time form                            Number of obs   =         50
+                                                  LR chi2(2)      =       8.75
+Log likelihood = -79.871338                       Prob > chi2     =     0.0126
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .2670543   1.417339     0.19   0.851    -2.510879    3.044988
+           z |   4.663384   1.740712     2.68   0.007     1.251652    8.075117
+       _cons |  -2.191619   .2328589    -9.41   0.000    -2.648014   -1.735224
+------------------------------------------------------------------------------
+
+. 
+. save mma11p1boot, replace
+file mma11p1boot.dta saved
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile y x z using mma11p1boot.asc, replace
+
+. 
+. ********** SIMPLE BOOTSTRAP ********** 
+. 
+. * Stata produces four bootstrap 100*(1-alpha) confidence intervals
+. * (N) and (P) have no asymptotic refinement
+. * (BC)-(BCA) have asymptotic refinement
+. * For details see program mma07p4boot.do
+. 
+. * Change the following for different number of simulations S
+. * From page 399, for testing better to use 999 than 1000
+. global breps = 999  /* The number of bootstrap reps used below */ 
+
+. 
+. set seed 20001
+
+. 
+. * A simple and adequate bootstrap command for the slope coefficients is
+. bs "ereg y x z"   "_b[x] _b[z]", reps($breps) level(95)
+
+command:      ereg y x z
+statistics:   _bs_1      = _b[x]
+              _bs_2      = _b[z]
+
+Bootstrap statistics                              Number of obs    =        50
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   999  .2670543 -.1885509  1.420956   -2.52135   3.055458   (N)
+             |                                        -2.9054   2.696445   (P)
+             |                                      -2.590993   2.864327  (BC)
+       _bs_2 |   999  4.663384  .0524786  1.939086   .8582302   8.468539   (N)
+             |                                       .5006047   8.483892   (P)
+             |                                        .231034   8.174835  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. 
+. ********** MORE DETAILED BOOTSTRAP **********
+. 
+. * The following bootstrap also gives standard error at each replication
+. * and saves data from replications for further analysis
+. 
+. * In partiulcar, want to use the percentile-t method, 
+. * which provides asymtptotic refinement
+. 
+. * Stata does not give this. For methods see
+. * e.g. Efron and Tibsharani (1993, pp.160-162)  
+. * e.g. Cameron and Trivedi (2005) Chapter 11.2.6-11.2.7
+. * For sample s compute t-test(s) = (bhat(s)-bhat) / se(s)
+. * where bhat is initial estimate 
+. * and bhat(s) and se(s) are for sth round.
+. * Order the t-test(s) statistics and choose the alpha/2 percentiles
+. * which give the critical values for the t-test
+. 
+. * Implementation requires saving the results from each bootstrap replication 
+. * in order to obtain ccritical values from percentiles of bootstrap distribution
+. 
+. use mma11p1boot.dta, clear
+
+. 
+. * Get and store coefficients (b) 
+. * for regressors in the original model and data before bootstrap
+. quietly ereg y x z
+
+. global bx=_b[x]
+
+. global sex=_se[x]
+
+. global bz=_b[z]
+
+. global sez=_se[z]
+
+. di " Coefficients    bx:  " $bx  "  and bz:  " $bz
+ Coefficients    bx:  .26705432  and bz:  4.6633845
+
+. di " Standard error sex:  " $sex "  and sez: " $sez
+ Standard error sex:  1.4173391  and sez: 1.7407119
+
+. 
+. * Bootstrap and save coeff estimates and se's from each replication
+. set seed 20001
+
+. bs "ereg y x z"   "_b[x] _b[z] _se[x] _se[z]", reps($breps) level(95) saving(mma11p1bootreps) repl
+> ace
+
+command:      ereg y x z
+statistics:   _bs_1      = _b[x]
+              _bs_2      = _b[z]
+              _bs_3      = _se[x]
+              _bs_4      = _se[z]
+
+Bootstrap statistics                              Number of obs    =        50
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   999  .2670543 -.1885509  1.420956   -2.52135   3.055458   (N)
+             |                                        -2.9054   2.696445   (P)
+             |                                      -2.590993   2.864327  (BC)
+       _bs_2 |   999  4.663384  .0524786  1.939086   .8582302   8.468539   (N)
+             |                                       .5006047   8.483892   (P)
+             |                                        .231034   8.174835  (BC)
+       _bs_3 |   999  1.417339  .0644196  .1718393   1.080131   1.754547   (N)
+             |                                       1.234399   1.902349   (P)
+             |                                       1.196068   1.742845  (BC)
+       _bs_4 |   999  1.740712  .0910103   .186631   1.374478   2.106946   (N)
+             |                                       1.542322   2.257937   (P)
+             |                                       1.453673   2.058318  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. 
+. * Now use the bootstrap estimates
+. use mma11p1bootreps, clear
+(bootstrap: ereg y x z)
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       _bs_1 |       999    .0785034    1.420956  -9.431229   4.278278
+       _bs_2 |       999    4.715863    1.939086  -1.747643   12.09208
+       _bs_3 |       999    1.481759    .1718393   1.145421   2.761842
+       _bs_4 |       999    1.831722     .186631   1.387625   2.910449
+
+. * Order comes from  "_b[x] _b[z] _se[x] _se[z]" in earlier bs
+. gen bxs = _bs_1
+
+. gen bzs = _bs_2
+
+. gen sexs = _bs_3
+
+. gen sezs = _bs_4
+
+. gen ttestxs = (bxs - $bx)/sexs
+
+. gen ttestzs = (bzs - $bz)/sezs
+
+. 
+. **********  (1) TABLE 11.1 (page 367)
+. 
+. summarize bzs ttestzs, d
+
+                             bzs
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%    -.3361366      -1.747643
+ 5%     1.544816      -1.716207
+10%     2.270323      -1.366866       Obs                 999
+25%     3.570291      -1.205571       Sum of Wgt.         999
+
+50%      4.77197                      Mean           4.715863
+                        Largest       Std. Dev.      1.939086
+75%     5.970802       10.10243
+90%     7.100958       10.42623       Variance       3.760056
+95%     7.810663       10.76733       Skewness      -.1344324
+99%     9.426978       12.09208       Kurtosis       3.545415
+
+                           ttestzs
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     -2.66391      -3.921595
+ 5%    -1.727528      -3.483456
+10%     -1.32364      -3.201425       Obs                 999
+25%    -.6209012      -2.975815       Sum of Wgt.         999
+
+50%     .0618649                      Mean           .0261125
+                        Largest       Std. Dev.      1.046855
+75%     .7034938       2.693856
+90%     1.323415       3.087892       Variance       1.095904
+95%      1.70558        3.11692       Skewness      -.1596043
+99%     2.529097       3.738328       Kurtosis       3.337749
+
+. 
+. * Additionally need the 2.5 and 97.5 percentiles not given in summarize, d
+. 
+. * Coefficient of z
+. _pctile bzs, p(2.5,97.5)
+
+. di " Lower 2.5 and upper 2.5 percentile of coeff b for z: " r(r1) "  and  " r(r2) 
+ Lower 2.5 and upper 2.5 percentile of coeff b for z: .50060469  and  8.4838924
+
+. 
+. * t-statistic for z 
+. _pctile ttestzs, p(2.5,97.5)
+
+. di " Lower 2.5 and upper 2.5 percentile of ttest on z: " r(r1) "  and  " r(r2) 
+ Lower 2.5 and upper 2.5 percentile of ttest on z: -2.1827998  and  2.0659592
+
+. 
+. ********** (2) RESULTS IN TEXT PAGES 366-7 ********** 
+. 
+. * (2A) Bootstrap standard error estimate (no refinement)
+. * These are given earlier in bootstrap table output
+. * Equivalently get the standard deviation of bzs
+. 
+. quietly sum bzs
+
+. scalar bzbootse = r(sd)
+
+. di "Bootstrap estimate of standard error: " bzbootse
+Bootstrap estimate of standard error: 1.9390864
+
+. 
+. * (2B) Test b3 = 0 using percentile-t method (asymptotic refinement)
+. * Use the 2.5% and 97.5% bootstrap critical values for t-statistic for z 
+. 
+. _pctile ttestzs, p(2.5,97.5)
+
+. di " Lower 2.5 and upper 2.5 percentile of ttest on z: " r(r1) "  and  " r(r2) 
+ Lower 2.5 and upper 2.5 percentile of ttest on z: -2.1827998  and  2.0659592
+
+. 
+. * (2D) 95% confidence interval with asymptotic refinement
+. * Use the preceding critical values
+. 
+. scalar lbz = $bz + r(r1)*$sez    /* Note the plus sign here */
+
+. scalar ubz = $bz + r(r2)*$sez 
+
+. di " Percentile-t interval lower and upper bounds:  (" lbz   ","  ubz ")" 
+ Percentile-t interval lower and upper bounds:  (.86375888,8.2596243)
+
+. 
+. * (2B-Var) Variation for symmetric two-sided test on z 
+. 
+. gen absttestzs = abs(ttestzs)
+
+. _pctile absttestzs, p(95)
+
+. di " Upper 5 percentile of symmetric two-sided test on z: " r(r1) "
+ Upper 5 percentile of symmetric two-sided test on z: 2.0775187
+
+. 
+. * (2C) Test b3 = 0 without asymptotic refinement
+. * Usual Wald test except use bootstrap estimate of standard error
+. 
+. scalar Wald = ($bz - 0) / bzbootse
+
+. di "Wald statistic using bootstrap standard error: " Wald
+Wald statistic using bootstrap standard error: 2.404939
+
+. 
+. * (2E) Bootstrap estimate of bias
+. * This is given in the earlier bootstrap results table
+. * and is explained in the text
+. 
+. ********** (3) FIGURE 11.1 (p.368) PLOTS ESTIMATED DENSITY OF T-STATISTIC FOR Z
+. 
+. set scheme s1mono
+
+. label var ttestzs "Bootstrap t-statistic"
+
+. kdensity ttestzs, normal /*
+>   */ scale (1.2) plotregion(style(none)) /*
+>   */ title("Bootstrap Density of 't-Statistic'") /*
+>   */ xtitle("t-statistic from each bootstrap replication", size(medlarge)) xscale(titlegap(*5)) /*
+>  
+>   */ ytitle("Density", size(medlarge)) yscale(titlegap(*5)) /* 
+>   */ legend(pos(11) ring(0) col(1)) legend(size(small)) /*
+>   */ legend( label(1 "Bootstrap Estimate") label(2 "Standard Normal")) 
+
+. graph save ch11boot, replace
+(file ch11boot.gph saved)
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section3\mma11p1boot.txt
+  log type:  text
+ closed on:  18 May 2005, 15:53:47
+----------------------------------------------------------------------------------------------------

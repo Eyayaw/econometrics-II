@@ -1,0 +1,118 @@
+? MMA06P1NL2SLS.LIM March 2005 for Limdep Version 7
+
+? NOTE: GIVES RESULTS NL2SLS RESULTS A LITTLE DIFFERENT FROM TABLE 6.4 - see below
+
+open; output=mma06p1nl2sls.out $  
+Title; NL2SLS Example: Results for Nl2SLS differ a little from p.199 $
+
+?********* OVERVIEW OF MMA06P1NL2SLS.LIM **********
+
+?* LIMDEP Program 
+?* copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+?* used for "Microeconometrics: Methods and Applications" 
+?* by A. Colin Cameron and Pravin K. Trivedi (2005)
+?* Cambridge University Press 
+
+? Chapter 6.5.4 pp.198-9 
+? NL2SLS in a nonlinear model
+? Provides Table 6.4
+?   (1) OLS         inconsistent
+?   (2) NL2SLS      consistent
+?   (3) Wrong 2SLS  inconsistent
+? using generated data (see below)
+
+? NOTE: The results here differ a little from Table 6.4
+? For NL2SLS this gives b = 0.969 se = 0.041 R^2 = 0.84
+? a correction to       b = 0.960 se = 0.046 R^2 = 0.85
+
+?********* GENERATE DATA and SUMMARIZE ********
+
+? Program to create data for NL2SLS
+? Model is  y = 1*x^2 + u
+?           x = 1*z + v
+? where  u and v are joint normal (0,0,1,1,0.8)
+
+? Use fact that u is N(0,1)
+?       and v | u is N(0 + (.8/1)(u - 0), 1 - .8x.8/1 = 0.36
+
+calc; ran(1212121) $
+sample; 1-200 $
+create; u = rnn(0,1);
+        muvgivnu = 0.8*u;
+        v = rnn(muvgivnu,0.36) $
+
+? x equals 1
+create; z = 1;
+        zsq = z*z $
+create; x = z + v;
+      xsq = x*x;
+        y = 1*xsq + u $
+
+? Descriptive statistics
+dstat; rhs = y,x,xsq,z,zsq,u,v $
+
+? Correlations
+calc; list; cor(u,v) $
+calc; list; cor(y,x) $
+? Note that z is uncorrelated with x and y since z=1 is a constant
+calc; list; cor(y,z) $
+calc; list; cor(x,z) $
+
+? Save data for use in programs other than LIMDEP
+write; y,x,xsq,z,zsq,u,v; file=mma06p1nl2sls.asc; format=(7f12.8) $
+
+?********* BEGIN ANALYSIS: OLS, NL2SLS and wrong 2SLS
+
+?*** (1) OLS is inconsistent
+Title; (1) Table 6.4 OLS column: ols of y on x is inconsistent $
+olsq; lhs = y; rhs = xsq $
+
+? Repeat using nlsq command
+nlsq; lhs = y; labels = bols; fcn=bols*xsq; start=3 $
+
+?*** (2) NL2SLS is consistent. Results here slightly different from Table 6.4
+
+? (2A) nl2sls with z an instrument for xsq. 
+Title; (2A) Table 6.4 NL2SLS column: nl2sls of y on x with instrument z is consistent $
+nlsq; lhs = y; labels = bnl2sls; fcn=bnl2sls*xsq; start=3; inst=z $
+
+? (2B) nl2sls with zsq an instrument for xsq.
+? Here using z or zsq as instrument is same since z = 1
+Title; (2B) instead use zsq as instrument is same as here z = 1 $
+nlsq; lhs = y; labels = bnl2sls2; fcn=bnl2sls2*xsq; start=3; inst=zsq $
+
+? (2C) Basmann's interpretation of 2SLS (do IV with z as instrument) 
+?      gives same result as nonlinear (since dE[y]/db = xsq)
+? 2sls with z an instrument for xsq
+Title; (2C) same using Basmann's interpretation as linear model $
+2sls; lhs=y; rhs=xsq; inst=z $
+
+?*** (3) Wrong 2SLS is inconsistent. 
+
+? (3A) Theil's 2sls where first regress x on z is inconsistent
+? 2sls from OLS of z on x at first stage.  This is wrong NL2SLS.
+Title; Theil's 2sls where first regress x on z is inconsistent $
+olsq; lhs = x; rhs = z; keep=xhat $
+create; xhatsq = xhat*xhat $
+Title; (3A) Table 6.4 Two-stage column: ols of y on xhat^2 is inconsistent $
+olsq; lhs = y; rhs = xhatsq $
+
+? Note that the rsquared for this regression is zero. 
+? xhat (= a*z = a since z is one) is nonstochastic. 
+? True R-squared is between y and yhat = x'bTheil
+matrix; bTheil = b $
+namelist; xlist = x $
+create; ypTheil = Dot(xlist,bTheil) $
+Title; (3A) Table 6.4 Two-stage column: square this to get r-squared $
+calc; list; cor(y,ypTheil) $
+
+? (3B) Theil's 2sls where first regress z on xsq is okay for this model.
+? However, will give wrong standard errors for b
+? 2sls from OLS of x on zsq at first stage = NL2SLS in this example
+Title; If instead regress xsq on z at first stage then consistent $
+olsq; lhs = xsq; rhs = z; keep=xsqhat $
+Title; (3b) Correct two-stage regression (though wrong s.e.) $
+olsq; lhs = y; rhs = xsqhat $
+
+
+

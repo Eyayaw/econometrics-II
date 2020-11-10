@@ -1,0 +1,418 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma04p3iv.txt
+  log type:  text
+ opened on:  17 May 2005, 13:44:29
+
+. 
+. ********** OVERVIEW OF MMA04P3IV.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 4.8.8 pages 102-3
+. * Instrumental variables analysis.
+. * (1) IV Regression (with robust s.e.'s though not needed here for iid error).
+. * (2) Table 4.4 
+. * using generated data (see below)
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8
+
+. 
+. ********** GENERATE DATA and SUMMARIZE **********
+. 
+. * Model is 
+. *    y = b1 + b2*x + u
+. *    x = c1 + c2*z + v
+. *    z ~ N[2,1]
+. * where b1=0, b2=0.5, c1=0 and c2=1
+. * and   u and v are joint normal (0,0,1,1,0.8)
+. 
+. * OLS of y on z is inconsistent as z is correlated with u
+. * Instead need to do IV with instrument x for z
+. * Also try using 
+.  
+. set seed 10001
+
+. set obs 10000
+obs was 0, now 10000
+
+. scalar b1 = 0
+
+. scalar b2 = 0.5
+
+. scalar c1 = 0
+
+. scalar c2 = 1
+
+. 
+. * Generate errors u and v
+. * Use fact that u is N(0,1)
+. * and v | u is N(0 + (.8/1)(u - 0), 1 - .8x.8/1 = 0.36)
+. gen u = 1*invnorm(uniform()) 
+
+. gen muvgivnu = 0.8*u
+
+. gen v = 1*(muvgivnu+sqrt(0.36)*invnorm(uniform()))
+
+. 
+. * Generate instrument z (which is purely random)
+. gen z = 2 + 1*invnorm(uniform()) 
+
+. 
+. * Generate regressor x which is correlated with z, and with u via v 
+. gen x = c1 + c2*z + v
+
+.  
+. * Generate dependent variable y
+. gen y = b1 + b2*x + u
+
+. 
+. * Generate z-cubed. Used as an alternative instrument
+. gen zcube = z*z*z
+
+. 
+. * Descriptive Statistics
+. describe
+
+Contains data
+  obs:        10,000                          
+ vars:             7                          
+ size:       320,000 (96.9% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+u               float  %9.0g                  
+muvgivnu        float  %9.0g                  
+v               float  %9.0g                  
+z               float  %9.0g                  
+x               float  %9.0g                  
+y               float  %9.0g                  
+zcube           float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           u |     10000     .003772    1.010726  -4.010302   4.267661
+    muvgivnu |     10000    .0030176    .8085809  -3.208241   3.414129
+           v |     10000    .0097031    1.005874  -3.992237    3.79261
+           z |     10000    1.997786    1.013118  -1.895752    5.81496
+           x |     10000    2.007489    1.436511  -3.139744   7.366555
+-------------+--------------------------------------------------------
+           y |     10000    1.007516    1.538611  -5.309155   7.794924
+       zcube |     10000    14.14145    17.88016  -6.813095   196.6257
+
+. correlate y x z u v
+(obs=10000)
+
+             |        y        x        z        u        v
+-------------+---------------------------------------------
+           y |   1.0000
+           x |   0.8423   1.0000
+           z |   0.3403   0.7140   1.0000
+           u |   0.9237   0.5716   0.0107   1.0000
+           v |   0.8601   0.7090   0.0124   0.8055   1.0000
+
+
+. correlate y x z u v, cov
+(obs=10000)
+
+             |        y        x        z        u        v
+-------------+---------------------------------------------
+           y |  2.36732
+           x |  1.86165  2.06356
+           z |  .530456   1.0391  1.02641
+           u |   1.4365  .829866  .010909  1.02157
+           v |  1.33119  1.02447  .012687  .818958  1.01178
+
+
+. graph matrix y x z u v
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata  
+. outfile y x z u v using mma04p3iv.asc, replace
+
+. 
+. ********** DO THE ANALYSIS: ESTIMATE MODELS **********
+. 
+. * (1) OLS is inconsistent (first column of Table 4.4)
+. regress y x
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) =24412.17
+       Model |  16793.2198     1  16793.2198           Prob > F      =  0.0000
+    Residual |  6877.65935  9998  .687903516           R-squared     =  0.7094
+-------------+------------------------------           Adj R-squared =  0.7094
+       Total |  23670.8791  9999  2.36732464           Root MSE      =   .8294
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .9021522    .005774   156.24   0.000      .890834    .9134704
+       _cons |  -.8035441    .014253   -56.38   0.000    -.8314827   -.7756054
+------------------------------------------------------------------------------
+
+. regress y x, robust
+
+Regression with robust standard errors                 Number of obs =   10000
+                                                       F(  1,  9998) =24780.49
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.7094
+                                                       Root MSE      =   .8294
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .9021522   .0057309   157.42   0.000     .8909184    .9133859
+       _cons |  -.8035441   .0141056   -56.97   0.000    -.8311939   -.7758942
+------------------------------------------------------------------------------
+
+. estimates store olswrong
+
+. 
+. * (2) IV with instrument x is consistent and efficient (second column of Table 4.4)
+. ivreg y (x = z) 
+
+Instrumental variables (2SLS) regression
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) = 2728.97
+       Model |  13628.1781     1  13628.1781           Prob > F      =  0.0000
+    Residual |   10042.701  9998    1.004471           R-squared     =  0.5757
+-------------+------------------------------           Adj R-squared =  0.5757
+       Total |  23670.8791  9999  2.36732464           Root MSE      =  1.0022
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .5104982   .0097723    52.24   0.000     .4913426    .5296538
+       _cons |   -.017303   .0220296    -0.79   0.432    -.0604854    .0258793
+------------------------------------------------------------------------------
+Instrumented:  x
+Instruments:   z
+------------------------------------------------------------------------------
+
+. ivreg y (x = z), robust
+
+IV (2SLS) regression with robust standard errors       Number of obs =   10000
+                                                       F(  1,  9998) = 2670.19
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.5757
+                                                       Root MSE      =  1.0022
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .5104982   .0098792    51.67   0.000     .4911329    .5298635
+       _cons |   -.017303   .0220785    -0.78   0.433    -.0605813    .0259752
+------------------------------------------------------------------------------
+Instrumented:  x
+Instruments:   z
+------------------------------------------------------------------------------
+
+. estimates store iv
+
+. 
+. * (3) IV estimator in (3) can be computed by 
+. *       regress y on z  gives dy/dz
+. *       regress x on z  gives dx/dz
+. * and divide the two
+. regress y z
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) = 1309.44
+       Model |  2741.16635     1  2741.16635           Prob > F      =  0.0000
+    Residual |  20929.7128  9998  2.09338995           R-squared     =  0.1158
+-------------+------------------------------           Adj R-squared =  0.1157
+       Total |  23670.8791  9999  2.36732464           Root MSE      =  1.4469
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           z |    .516808   .0142819    36.19   0.000     .4888126    .5448035
+       _cons |  -.0249553    .031991    -0.78   0.435    -.0876642    .0377535
+------------------------------------------------------------------------------
+
+. matrix byonz = e(b)
+
+. regress x z
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) =10396.43
+       Model |  10518.3341     1  10518.3341           Prob > F      =  0.0000
+    Residual |  10115.2362  9998  1.01172597           R-squared     =  0.5098
+-------------+------------------------------           Adj R-squared =  0.5097
+       Total |  20633.5703  9999  2.06356339           Root MSE      =  1.0058
+
+------------------------------------------------------------------------------
+           x |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           z |    1.01236   .0099287   101.96   0.000     .9928979    1.031822
+       _cons |  -.0149899     .02224    -0.67   0.500    -.0585847     .028605
+------------------------------------------------------------------------------
+
+. matrix bxonz = e(b)
+
+. matrix ivfirstprinciples = byonz[1,1]/bxonz[1,1]
+
+. matrix list byonz
+
+byonz[1,2]
+             z       _cons
+y1   .51680804  -.02495533
+
+. matrix list bxonz
+
+bxonz[1,2]
+             z       _cons
+y1   1.0123602  -.01498985
+
+. matrix list ivfirstprinciples
+
+symmetric ivfirstprinciples[1,1]
+          c1
+r1  .5104982
+
+. 
+. * (4) IV can be computed as 2SLS, but wrong standard errors
+. *     (third column of Table 4.4)
+. * (4A) OLS of x on z gives xhat
+. regress x z
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) =10396.43
+       Model |  10518.3341     1  10518.3341           Prob > F      =  0.0000
+    Residual |  10115.2362  9998  1.01172597           R-squared     =  0.5098
+-------------+------------------------------           Adj R-squared =  0.5097
+       Total |  20633.5703  9999  2.06356339           Root MSE      =  1.0058
+
+------------------------------------------------------------------------------
+           x |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           z |    1.01236   .0099287   101.96   0.000     .9928979    1.031822
+       _cons |  -.0149899     .02224    -0.67   0.500    -.0585847     .028605
+------------------------------------------------------------------------------
+
+. predict xhat, xb
+
+. * (4B) OLS of x on xhat gives IV but wrong standard errors
+. regress y xhat
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) = 1309.44
+       Model |  2741.16636     1  2741.16636           Prob > F      =  0.0000
+    Residual |  20929.7127  9998  2.09338995           R-squared     =  0.1158
+-------------+------------------------------           Adj R-squared =  0.1157
+       Total |  23670.8791  9999  2.36732464           Root MSE      =  1.4469
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        xhat |   .5104982   .0141075    36.19   0.000     .4828446    .5381518
+       _cons |   -.017303   .0318026    -0.54   0.586    -.0796425    .0450364
+------------------------------------------------------------------------------
+
+. regress y xhat, robust
+
+Regression with robust standard errors                 Number of obs =   10000
+                                                       F(  1,  9998) = 1271.86
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.1158
+                                                       Root MSE      =  1.4469
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        xhat |   .5104982   .0143144    35.66   0.000      .482439    .5385574
+       _cons |   -.017303   .0319207    -0.54   0.588    -.0798741     .045268
+------------------------------------------------------------------------------
+
+. estimates store twosls
+
+.  
+. * (5) IV with instrument xcubed is consistent but inefficient
+. *     (last column of Table 4.4)
+. ivreg y (x = zcube) 
+
+Instrumental variables (2SLS) regression
+
+      Source |       SS       df       MS              Number of obs =   10000
+-------------+------------------------------           F(  1,  9998) = 2001.31
+       Model |  13598.1181     1  13598.1181           Prob > F      =  0.0000
+    Residual |   10072.761  9998   1.0074776           R-squared     =  0.5745
+-------------+------------------------------           Adj R-squared =  0.5744
+       Total |  23670.8791  9999  2.36732464           Root MSE      =  1.0037
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .5086427   .0113699    44.74   0.000     .4863555    .5309299
+       _cons |  -.0135782   .0249344    -0.54   0.586    -.0624546    .0352982
+------------------------------------------------------------------------------
+Instrumented:  x
+Instruments:   zcube
+------------------------------------------------------------------------------
+
+. ivreg y (x = zcube), robust
+
+IV (2SLS) regression with robust standard errors       Number of obs =   10000
+                                                       F(  1,  9998) = 1894.15
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.5745
+                                                       Root MSE      =  1.0037
+
+------------------------------------------------------------------------------
+             |               Robust
+           y |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .5086427   .0116871    43.52   0.000     .4857337    .5315517
+       _cons |  -.0135782   .0253208    -0.54   0.592     -.063212    .0360556
+------------------------------------------------------------------------------
+Instrumented:  x
+Instruments:   zcube
+------------------------------------------------------------------------------
+
+. estimates store ivineff
+
+. 
+. ********** DISPLAY KEY RESULTS in Table 4.4 p.103 **********
+. 
+. * Table 4.4 page 103
+. estimates table olswrong iv twosls ivineff, se stats(N r2) b(%8.3f) keep(_cons x xhat)
+
+----------------------------------------------------------
+    Variable | olswrong      iv       twosls    ivineff   
+-------------+--------------------------------------------
+       _cons |   -0.804     -0.017     -0.017     -0.014  
+             |    0.014      0.022      0.032      0.025  
+           x |    0.902      0.510                 0.509  
+             |    0.006      0.010                 0.012  
+        xhat |                          0.510             
+             |                          0.014             
+-------------+--------------------------------------------
+           N |  1.0e+04    1.0e+04    1.0e+04    1.0e+04  
+          r2 |    0.709      0.576      0.116      0.574  
+----------------------------------------------------------
+                                              legend: b/se
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma04p3iv.txt
+  log type:  text
+ closed on:  17 May 2005, 13:44:41
+----------------------------------------------------------------------------------------------------

@@ -1,0 +1,89 @@
+? MMA15P3MNL.LIM March 2005 for LIMDEP version 7.0
+
+OPEN; OUTPUT = mma15p3mnl.out $
+
+? ********** OVERVIEW OF MMA15P3MNL.LIM **********
+
+? LIMDEP Program 
+? copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+? used for "Microeconometrics: Methods and Applications" 
+? by A. Colin Cameron and Pravin K. Trivedi (2005)
+? Cambridge University Press 
+
+? Chapter 15.2.2 pages 491-5
+? Multinomial analysis.
+? It provides ....
+?   (0)  Data summary (Table 15.1)
+?   (1A) Multinomial Logit estimates (Table 15.1)
+?   (1B) Multinomial Logit marginal effects (text page 494)
+
+? Related programs are 
+?    mma15p2gev.do   nested logit model using Stata
+?    mma15p3mnl.lim  multinomial logit using Limdep
+?    mma15p4gev.lim  conditional and nested logit using Limdep and Nlogit
+
+? To run this program you need data file
+?    Nldata.asc 
+
+? This is for multinomial logit only
+? See separate program for conditional and nested logit */
+
+? ********** DATA DESCRIPTION **********
+
+/* Data Set Used in:
+  J. A. Herriges and C. L. Kling, 
+  "Nonlinear Income Effects in Random Utility Models", 
+  Review of Economics and Statistics, 81(1999): 62-72
+
+  Filename: NLDATA.ASC
+  Format: Ascii
+  Number of Observations: 1182
+  These are 3 lines each with 4 variables so 4 x 1182 = 4728 observations 
+  Variable Number and Description
+  1	Recreation mode choice. = 1 if beach, = 2 if pier; = 3 if private boat; = 4 if charter
+  2	Price for chosen alternative
+  3	Catch rate for chosen alternative
+  4	= 1 if beach mode chosen; = 0 otherwise
+  5	= 1 if pier mode chosen; = 0 otherwise
+  6	= 1 if private boat mode chosen; = 0 otherwise
+  7	= 1 if charter boat mode chosen; = 0 otherwise
+  8	= price for beach mode
+  9	= price for pier mode
+  10	= price for private boat mode
+  11	= price for charter boat mode
+  12	= catch rate for beach mode
+  13	= catch rate for pier mode
+  14	= catch rate for private boat mode
+  15	= catch rate for charter boat mode
+  16	= monthly income
+*/
+
+? ********** READ IN DATA and SUMMARIZE (Table 15.1, p.492) **********
+
+Read ; nobs=1182 ; nvar = 16 ; file=nldata.asc;
+names = mode,price,crate,dbeach,dpier,dprivate,dcharter,pbeach,ppier,
+        pprivate,pcharter,qbeach,qpier,qprivate,qcharter,income $
+
+? Income in $1,000
+create; ydiv1000 = income/1000 $
+? For Limdep outcome must be 0 to 3 not 1 to 4
+create; modenew = mode - 1 $
+
+dstat; rhs = mode,price,crate,dbeach,dpier,dprivate,dcharter,pbeach,ppier,
+        pprivate,pcharter,qbeach,qpier,qprivate,qcharter,income $
+
+? ********** MULTINOMIAL LOGIT: ALTERNATIVE-INVARIANT REGRESSOR *********
+
+? Gives Table 15.2 p.493 MNL column
+? and marginal effects reported at bottom p.494 
+
+Title; Multinomial logit of mode on income $
+Logit ; lhs=modenew
+       ; rhs = one,ydiv1000
+       ; marginal effects $
+
+? ********** CLOSE OUTPUT **********
+
+close; file = mma15p3mnl.out $
+stop $
+

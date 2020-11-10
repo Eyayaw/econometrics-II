@@ -1,0 +1,469 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section2\mma07p4boot.txt
+  log type:  text
+ opened on:  18 May 2005, 21:36:29
+
+. 
+. ********** OVERVIEW OF MMA07BOOT4.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 7.8 pages 254-256
+. * Bootstrap applied to probit model
+. * Provides
+. *  (1) Bootstrap confidence intervals
+. *  (2) Bootstrap hypothesis test without refinement
+. *  (3) Bootstrap hypothesis test with refinement: percentile-t method
+. 
+. * Note corrections to book
+. *  - sample size is N=40  not N=30
+. *  - use 999 bootstrap replications not 1000
+. *  - for asymptotic refinement p.256 the critical region 
+. *      is (-1.89, 1.80) not (-2.62, 1.83)
+. 
+. * For more detail on bootstrap see 
+. * Chapter 11: Bootstrap Methods pages 355-383
+. * and program mma11p1boot.do
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8
+
+.   
+. ********** GENERATE DATA **********
+. 
+. * DGP is Probit: Pr[y=1] = PHI(a + bx)
+. * where  x is N[0,1]
+. * and  a = 0  and b = 1
+. 
+. * Change the following for different sample size N
+. global numobs "40"
+
+. 
+. * Probit example with slope coefficient equal to 1
+. set seed 10105
+
+. set obs $numobs
+obs was 0, now 40
+
+. gen x = invnorm(uniform())
+
+. gen y = 0
+
+. replace y = 1 if 0+1.0*x+invnorm(uniform()) > 0
+(19 real changes made)
+
+. save xyforsim, replace
+file xyforsim.dta saved
+
+. summarize 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+           x |        40   -.0359197    .9203391  -2.210579    1.45199
+           y |        40        .475    .5057363          0          1
+
+. probit y x
+
+Iteration 0:   log likelihood = -27.675866
+Iteration 1:   log likelihood = -22.927488
+Iteration 2:   log likelihood = -22.735204
+Iteration 3:   log likelihood = -22.733966
+Iteration 4:   log likelihood = -22.733966
+
+Probit estimates                                  Number of obs   =         40
+                                                  LR chi2(1)      =       9.88
+                                                  Prob > chi2     =     0.0017
+Log likelihood = -22.733966                       Pseudo R2       =     0.1786
+
+------------------------------------------------------------------------------
+           y |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+           x |   .8168831   .2942893     2.78   0.006     .2400867    1.393679
+       _cons |  -.0725436   .2162576    -0.34   0.737    -.4964006    .3513135
+------------------------------------------------------------------------------
+
+. save mma07p4boot, replace
+file mma07p4boot.dta saved
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata
+. outfile y x using mma07p4boot.asc, replace
+
+. 
+. ********** (1) BOOTSTRAP CONFIDENCE INTERVALS ********** 
+. 
+. * Stata produces four bootstrap 100*(1-alpha) confidence intervals
+. * (1)-(2) have no asymptotic refinement
+. * (3)-(4) have asymptotic refinement
+. 
+. * (1) Regular asymptotic normal: bhat +/- t(S-1)_alpha/2*se(bhat)
+. *     except instead of using the initial se(bhat) 
+. *     we use the standard deviation of bhat from the bootstrap reps
+. *     and use t(S-1) rather than z for critical value
+. *     where S = number of bootstrap reps
+. 
+. * (2) Percentile method: which orders the bhat(s) from simulations and
+. *     goes from alpha/2 lowest bhat(s) to the alpha/2 highest bhat(s) 
+. *     where (s) denotes the s-th bootstrap sample
+. 
+. * (3) Bootstrap-corrected. Same as (4) with a=0
+. 
+. * (4) Bootstrap-corrected and accelerated. 
+. *     This works with the pivotal Wald statistic.
+. *     See the manual [R]bootstrap or a textbook.
+. *     e.g. Efron and Tibsharani (1993, pp.184-188) with a=0
+. *     This orders the bhats from simulations and
+. *     goes from p1 to the p2 highest
+. *     where p1 and p2 are bias-correction adjustments to alpha/2 and 1-alpha/2
+. *     Let p1 = Phi(2z0 - z_alpha/2)
+. *         p2 = Phi(2z0 + z_alpha/2)
+. *         z0 measures the median bias in bhat with
+. *         z0 = Phi-inv(fraction of the bhat(s) < bhat)
+. *     And if z0=0 then p1 = alpha/2 and no correction 
+. 
+. * Change the following for different number of simulations S
+. * From page 399, for testing better to use 999 than 1000
+. global breps "999"   /* The number of bootstrap reps used below */ 
+
+. 
+. * (1A) Simplest bootstrap is of all the estimated coefficients
+. set seed 10105
+
+. bootstrap "probit y x" _b, reps($breps) bca
+
+command:      probit y x
+statistics:   b_x        = _b[x]
+              b_cons     = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =        40
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         b_x |   999  .8168831  .1017329  .3763803   .0782956   1.555471   (N)
+             |                                       .3495505   1.878616   (P)
+             |                                       .2808956   1.600026  (BC)
+             |                                       .1552112   1.480223 (BCa)
+      b_cons |   999 -.0725436 -.0176301  .2448404  -.5530047   .4079175   (N)
+             |                                       -.596443   .4247662   (P)
+             |                                      -.5528302   .4381396  (BC)
+             |                                      -.5205303   .4445401 (BCa)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+       BCa = bias-corrected and accelerated
+
+. 
+. * (1B) This bootstrap is of MLE of b2 and the associated standard error
+. *     and additionally gives the bias-accelerated method of Efron
+. set seed 10105
+
+. bootstrap "probit y x" _b[x] _se[x], reps($breps) bca
+
+command:      probit y x
+statistics:   _bs_1      = _b[x]
+              _bs_2      = _se[x]
+
+Bootstrap statistics                              Number of obs    =        40
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   999  .8168831  .1017329  .3763803   .0782956   1.555471   (N)
+             |                                       .3495505   1.878616   (P)
+             |                                       .2808956   1.600026  (BC)
+             |                                       .1552112   1.480223 (BCa)
+       _bs_2 |   999  .2942893  .0422005  .0932673   .1112667   .4773118   (N)
+             |                                       .2323841   .5831083   (P)
+             |                                       .2214397   .4475662  (BC)
+             |                                       .2162534   .4143377 (BCa)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+       BCa = bias-corrected and accelerated
+
+. 
+. * (1C) This bootstrap repeats (2) 
+. *     but will permit bootstrapping if Stata commands are more than one line
+. use mma07p4boot, clear
+
+. program define commandtobootstrap, rclass
+  1.   version 8.0
+  2.   quietly probit y x
+  3.   return scalar b2hat=_b[x]
+  4.   return scalar seb2hat=_se[x]
+  5. end
+
+. set seed 10105
+
+. bootstrap "commandtobootstrap" r(b2hat) r(seb2hat), reps($breps)
+
+command:      commandtobootstrap
+statistics:   _bs_1      = r(b2hat)
+              _bs_2      = r(seb2hat)
+
+Bootstrap statistics                              Number of obs    =        40
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   999  .8168831  .1017329  .3763803   .0782956   1.555471   (N)
+             |                                       .3495505   1.878616   (P)
+             |                                       .2808956   1.600026  (BC)
+       _bs_2 |   999  .2942893  .0422005  .0932673   .1112667   .4773118   (N)
+             |                                       .2323841   .5831083   (P)
+             |                                       .2214397   .4475662  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. 
+. ********** (2) BOOTSTRAP HYPOTHESIS TESTS - NO REFINEMENT p.255 ********** 
+. 
+. * We want to test H0: b2 = 1 against Ha: b2 not equal 1
+. 
+. * For a simple test such as this we can just use
+. * the bootstrap confidence intervals from (1) 
+. * and reject if bhat2 is not in the confidence interval
+. 
+. * Here we instead present a common method without refinement
+. * essentially (1) above, performing the usual Wald test, 
+. * except the standard error is estimated by bootstrap.
+. * This is useful when hard to obtain standard error by other means.
+. * Here  W = (b2hat - b2_0) / seb2hat_boot  where b2_0 = 1
+. * and reject at level .05 if |W| > z_.025 = 1.96
+. 
+. use mma07p4boot, clear
+
+. * Save the estimate 
+. quietly probit y x
+
+. scalar b2est = _b[x]
+
+. * Obtain the bootstrap standard error
+. set seed 10105
+
+. bootstrap "probit y x" _b, reps($breps) bca
+
+command:      probit y x
+statistics:   b_x        = _b[x]
+              b_cons     = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =        40
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         b_x |   999  .8168831  .1017329  .3763803   .0782956   1.555471   (N)
+             |                                       .3495505   1.878616   (P)
+             |                                       .2808956   1.600026  (BC)
+             |                                       .1552112   1.480223 (BCa)
+      b_cons |   999 -.0725436 -.0176301  .2448404  -.5530047   .4079175   (N)
+             |                                       -.596443   .4247662   (P)
+             |                                      -.5528302   .4381396  (BC)
+             |                                      -.5205303   .4445401 (BCa)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+       BCa = bias-corrected and accelerated
+
+. matrix sebboot = e(se)
+
+. scalar seb2boot = sebboot[1,1]   /* x is first then constant */
+
+. * Calculate the test statistic
+. scalar Wald = (b2est - 1)/seb2boot
+
+. 
+. * DISPLAY RESULTS at bottom p.255
+. * Note: Text had typo: 
+. * (1-0.817)/0.376 = -0.487 should be (0.817-1)/0.376 = -0.487
+. 
+. di "Probit slope estimate is:        "   b2est
+Probit slope estimate is:        .8168831
+
+. di "Bootstrap standard estimate is:  "   seb2boot 
+Bootstrap standard estimate is:  .37638029
+
+. di "Wald statistic (no refinement) is: " Wald
+Wald statistic (no refinement) is: -.48652096
+
+. di "Reject at level .05 if |Wald| > 1.96"
+Reject at level .05 if |Wald| > 1.96
+
+. 
+. ********** (3) BOOTSTRAP HYPOTHESIS TESTS - PERCENTILE-T p.256 ********** 
+. 
+. * Stata does not give this. For methods see
+. * e.g. Efron and Tibsharani (1993, pp.160-162)  
+. * e.g. Cameron and Trivedi (2005) Chapter 11.2.6-11.2.7
+. * For sample s compute t-test(s) = (bhat(s)-bhat) / se(s)
+. * where bhat is initial estimate 
+. * and bhat(s) and se(s) are for sth round.
+. * Order the t-test(s) statistics and choose the alpha/2 percentiles
+. * which give the critical values for the t-test
+. 
+. * Implementation requires saving the results from each bootstrap replication 
+. * in order to obtain ccritical values from percentiles of bootstrap distribution
+. 
+. * (3A) Here bootstrap computes (b(s) - bhat) / se(s)  s = 1,...,S
+.  
+. use mma07p4boot, clear
+
+. * Save the estimate and the Wald test statistic 
+. quietly probit y x
+
+. scalar b2est = _b[x]
+
+. scalar Wald = (_b[x] - 1)/_se[x]
+
+. * Then bootstrap calculates (b(s) - bhat) / se(s)
+. set seed 10105
+
+. bootstrap "probit y x" ((_b[x]-b2est)/_se[x]), reps($breps) /*
+>    */ level(95) saving(mma07p4bootreps) replace
+
+command:      probit y x
+statistic:    _bs_1      = (_b[x]-b2est)/_se[x]
+
+Bootstrap statistics                              Number of obs    =        40
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   999         0  .1003619  .9350234  -1.834837   1.834837   (N)
+             |                                      -1.890602   1.801358   (P)
+             |                                      -2.101316   1.565618  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. * Then get data sets with result from each bootstrap
+. use mma07p4bootreps, clear
+(bootstrap: probit y x)
+
+. sum                 /* Here just _bs_1 */
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       _bs_1 |       999    .1003619    .9350234  -3.032139   2.572848
+
+. gen b2test = _bs_1  /* _bs_1 is the bootstrap result of interest */
+
+. sum b2test, detail  /* Gives percentiles but not 2.5% and 97.5%  */
+
+                           b2test
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%    -2.188575      -3.032139
+ 5%    -1.540843      -2.605178
+10%    -1.137846      -2.599248       Obs                 999
+25%    -.4995352      -2.566578       Sum of Wgt.         999
+
+50%     .1238111                      Mean           .1003619
+                        Largest       Std. Dev.      .9350234
+75%     .7789762        2.22565
+90%     1.338348       2.359132       Variance       .8742688
+95%     1.560646       2.377491       Skewness      -.2505319
+99%     2.014282       2.572848       Kurtosis       2.853737
+
+. _pctile b2test, p(2.5,97.5)
+
+. 
+. * DISPLAY RESULTS on p.256
+. 
+. * Note: Error on p.256  Here get (-1.89, 1.80) not (-2.62, 1.83)
+. di "Lower 2.5 and upper 2.5 percentile of coeff b for z: " r(r1) "  and  " r(r2) 
+Lower 2.5 and upper 2.5 percentile of coeff b for z: -1.8906019  and  1.8013585
+
+. di "Reject H0 if Wald = " Wald " lies outside " r(r1) " ," r(r2) ")"
+Reject H0 if Wald = -.62223436 lies outside -1.8906019 ,1.8013585)
+
+. 
+. * (3B) Equivalently bootstrap calculates b(s) and se(s)   s = 1,...,S
+. *      and then later calculate (b(s) - bhat) / se(s)
+. 
+. use mma07p4boot, clear
+
+. * Save the estimate and the Wald test statistic 
+. quietly probit y x
+
+. scalar b2est = _b[x]
+
+. scalar Wald = (_b[x] - 1)/_se[x]
+
+. * Then bootstrap calculates b(s) and se(s)
+. set seed 10105
+
+. bootstrap "probit y x" _b[x] _se[x], reps($breps) /*
+>    */ level(95) saving(mma07p4bootreps) replace
+
+command:      probit y x
+statistics:   _bs_1      = _b[x]
+              _bs_2      = _se[x]
+
+Bootstrap statistics                              Number of obs    =        40
+                                                  Replications     =       999
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   999  .8168831  .1017329  .3763803   .0782956   1.555471   (N)
+             |                                       .3495505   1.878616   (P)
+             |                                       .2808956   1.600026  (BC)
+       _bs_2 |   999  .2942893  .0422005  .0932673   .1112667   .4773118   (N)
+             |                                       .2323841   .5831083   (P)
+             |                                       .2214397   .4475662  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. * Then get data sets with result from each bootstrap
+. use mma07p4bootreps, clear
+(bootstrap: probit y x)
+
+. sum                 /* Here _bs_1 and _bs_2 */
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+       _bs_1 |       999     .918616    .3763803   .0030288   3.806198
+       _bs_2 |       999    .3364898    .0932673   .2162534    1.34312
+
+. gen b2test = (_bs_1 - b2est)/_bs_2
+
+. _pctile b2test, p(2.5,97.5)
+
+. 
+. * DISPLAY RESULTS on p.256
+. * Note: Error on p.256  Here get (-1.89, 1.80) not (-2.62, 1.83)
+. di "Lower 2.5 and upper 2.5 percentile of coeff b for z: " r(r1) "  and  " r(r2) 
+Lower 2.5 and upper 2.5 percentile of coeff b for z: -1.8906019  and  1.8013583
+
+. di "Reject H0 if Wald = " Wald " lies outside " r(r1) " ," r(r2) ")"
+Reject H0 if Wald = -.62223436 lies outside -1.8906019 ,1.8013583)
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section2\mma07p4boot.txt
+  log type:  text
+ closed on:  18 May 2005, 21:36:36
+----------------------------------------------------------------------------------------------------

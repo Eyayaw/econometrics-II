@@ -1,0 +1,190 @@
+---
+title:  "Labor Supply: Wages and Hours Worked, Ziliak (1997)"
+author: "Eyayaw Beze"
+date:   "`r format.Date('2020-07-05', '%B %d, %Y')`"
+output: pdf_document
+---
+
+
+```{r setup, include =FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, comment = "#>")
+if (!requireNamespace("Ecdat")) install.packages("Ecdat")
+library(dplyr)
+
+my_round <- function(x, digits = 2) {
+  round(x, digits = 2)
+}
+
+labor_ss <- Ecdat::LaborSupply
+names(labor_ss)[names(labor_ss)=="lnhr"] <- "lnhrs"
+labor_ss <- relocate(labor_ss, c("id", "year"), .before = "lnhrs")
+```
+
+# Data Summary
+Data on **`r knitr::combine_words(names(labor_ss))`**
+
+```{r }
+(N <- length(unique(labor_ss$id))) # cross-sections
+(TT <- length(unique(labor_ss$year))) # length of Time
+from <- min(labor_ss$year)
+to <- max(labor_ss$year)
+(NT <- N*TT) # total number of observations
+mainvars <- c("lnhrs", "lnwg")
+K <- 1 # num of dep var; we lnwg as the only regressor
+grand_mean <- my_round(sapply(labor_ss[mainvars], mean))
+```
+
+The dimension of the data set is N = `r N` cross-sections by T = `r TT` (years) from `r from` to `r to`. Thus, there are $N\times T = `r N*TT`$ observations. 
+The sample means of lnhrs and lnwg are respectively, `r grand_mean[[1]]` and `r grand_mean[[2]]`, implying geometric means of `r format(exp(grand_mean[[1]]), big.mark = ",", digits = 2)` hours and $`r my_round(exp(grand_mean[[2]]))`. 
+
+```{r summary-stats}
+
+summ_stats <- sapply(labor_ss[-grep("^id|year", names(labor_ss))], 
+                     function(x, na.rm = FALSE) list(min = min(x),
+                                                    mean = mean(x), 
+                                                    sd = sd(x),
+                                                    max = max(x)), na.rm = TRUE)
+dims <- dim(summ_stats)
+dimnames <- dimnames(summ_stats)
+summ_stats <- my_round(unlist(summ_stats))
+dim(summ_stats) <- dims
+dimnames(summ_stats) <- dimnames
+
+summ_stats
+```
+
+The sample standard deviations are respectively, `r summ_stats[[2]]` and `r summ_stats[[4]]` indicating considerably greater variability in percentage terms in wages rather than hours.  
+
+# Decompose total variation of a series 
+We can decompose the total variation of a series $x_{it}$ around its grand mean $\bar x$ into **within sum of squares** and **between sum of squares**: 
+
+$$\begin{aligned} \sum_{i=1}^{N} \sum_{t=1}^{T}\left(x_{i t}-\bar{x}\right)^{2} &=\sum_{i=1}^{N} \sum_{t=1}^{T}\left[\left(x_{i t}-\bar{x}_{i}\right)+\left(\bar{x}_{i}-\bar{x}\right)\right]^{2} \\ &=\sum_{i=1}^{N} \sum_{t=1}^{T}\left(x_{i t}-\bar{x}_{i}\right)^{2}+\sum_{i=1}^{N} \sum_{t=1}^{T}\left(\bar{x}_{i}-\bar{x}\right)^{2} \end{aligned}$$. 
+
+This leads to within standard deviation $S_{\mathrm{W}}$ and between standard deviation $s_{\mathrm{B}}$, where 
+\[s_{\mathrm{W}}^{2}=\frac{1}{N T-N} \sum_{i=1}^{N} \sum_{t=1}^{T}\left(x_{i t}-\bar{x}_{i}\right)^{2} \] and \[ s_{\mathrm{B}}^{2}=\frac{1}{N-1} \sum_{i=1}^{N}\left(\bar{x}_{i}-\bar{x}\right)^{2} \]. 
+
+```{r estimation}
+ df_between <- 
+   labor_ss %>% 
+   group_by(id) %>% 
+   summarise(across(contains("ln"), mean, .names = "mean_{col}")) %>% 
+    select(id, contains("mean_"))
+ 
+ df_within <- 
+   labor_ss %>% 
+   group_by(id) %>% 
+   mutate(across(contains("ln"), function(x) x-mean(x), .names = "demeaned_{col}")) %>%
+   select(id, year, contains("demeaned_")) %>% 
+    ungroup()
+ df_fd <- 
+    labor_ss %>% 
+    group_by(id) %>% 
+    mutate(across(contains("ln"), function(x) x-dplyr::lag(x), .names = "fd_{col}")) %>%
+    select(id, year, contains("fd_")) %>% 
+    ungroup()
+
+ssw <- sapply(df_within[c("demeaned_lnhrs", "demeaned_lnwg")], 
+              function(x) sum(x**2)) 
+ssb <- sapply(df_between[c("mean_lnhrs", "mean_lnwg")], 
+              function(x) sum((x - mean(x))**2))
+
+sst <- sapply(labor_ss[c("lnhrs", "lnwg")], 
+              function(x) sum((x - mean(x))**2))
+ss <- rbind(ssw, ssb, sst) # sum of squares between, within and total variations.
+dimnames(ss)[[2]] <- mainvars # in terms of the original names of variables
+ss 
+rm(sst, ssb, ssw)
+
+
+```
+```{r helper}
+touch_names <- function(nms, left = TRUE) {
+   if (left) 
+      sub("(\\w+)_(\\w+)", "\\2", nms) # if stat name first e.g mean_x
+   else  
+      sub("(\\w+)_(\\w+)", "\\1", nms) # if stat name second e.g. x_mean
+   }
+
+# to have identical variable names (against POLS) for stargazer output
+names(df_between) <- touch_names(names(df_between))
+names(df_within) <- touch_names(names(df_within))
+names(df_fd) <- touch_names(names(df_fd))
+
+denominator <- c(NT-N, N-1)
+sd_lnhrs <- Map(function(x, y) sqrt(x/y), ss[-3, 1], denominator)
+sd_lnwg <- Map( function(x, y) sqrt(x/y), ss[-3, 2], denominator)
+```
+
+The within and between standard deviations are, respectively, `r sd_lnhrs[[1]]` and `r sd_lnhrs[[2]] ` for lnhrs, and  `r sd_lnwg[[1]]` and `r sd_lnwg[[2]]`.
+
+```{r }
+POLS <- lm(lnhrs~lnwg, labor_ss)
+Between <- lm(lnhrs~lnwg, df_between)
+Within <- lm(lnhrs~lnwg+0
+             , df_within)
+fd <- lm(lnhrs~lnwg, df_fd) # first difference 
+```
+
+RE variance matrix estimate requires consistent estimates of the variance components $\sigma_{\varepsilon}^{2}$ and $\sigma_{\alpha}^{2}$. From the within or fixed effects regression of $\left(y_{i t}-\bar{y}_{i}\right)$ on $\left(\mathbf{x}_{i t}-\overline{\mathbf{x}}_{i}\right)$ we obtain \[\widehat{\sigma}_{\varepsilon}^{2}=\frac{1}{N(T-1)-K} \sum_{i} \sum_{t}\left(\left(y_{i t}-\bar{y}_{i}\right)-\left(\mathbf{x}_{i t}-\overline{\mathbf{x}}_{i}\right)^{\prime} \widehat{\boldsymbol{\beta}}_{\mathrm{W}}\right)^{2}.\]
+From the between regression of $\bar{y}_{i}$ on an intercept and $\overline{\mathbf{x}}_{i},$ an equation that has error term with variance $\sigma_{\alpha}^{2}+\sigma_{\varepsilon}^{2} / T,$ we obtain \[ \widehat{\sigma}_{\alpha}^{2}=\frac{1}{N-(K+1)} \sum_{i}\left(\bar{y}_{i}-\widehat{\mu}_{\mathrm{B}} -\overline{\mathbf{x}}_{i}^{\prime} \widehat{\boldsymbol{\beta}}_{\mathrm{B}}\right)^{2}-\frac{1}{T} \widehat{\sigma}_{\varepsilon}^{2} \]
+
+Then, $\lambda=1-\frac{\sigma_{\varepsilon}}{\left(T \sigma_{\alpha}^{2}+\sigma_{\varepsilon}^{2}\right)^{1 / 2}}$.
+
+
+```{r }
+# variance components of the RE GLS estimator
+(var_epsilon <- sum((df_within[["lnhrs"]] - 
+                        df_within[["lnwg"]]*coef(Within))**2)/(NT-N-K)
+)
+(var_alpha <- sum((df_between[["lnhrs"]]- coef(Between)[[1]] - 
+                      df_between[["lnwg"]]*coef(Between)[[2]])**2)/(N-(K+1)) - 
+      (1/TT) * var_epsilon)
+
+(lambda <- 1 - (var_epsilon)**.5/ (TT * var_alpha + var_epsilon)**.5)
+```
+
+The individual effects $\alpha_{it}$ can be estimated by 
+$$ \hat\alpha_{i} = \bar y_i - \mathbf{x}_i'\mathbf{\beta_W}.$$ 
+
+```{r }
+# estimate individual effects in FE or within estimator
+alpha <- df_between[["lnhrs"]]-df_between[["lnwg"]]*coef(Within)
+alpha_bar <- mean(alpha)
+```
+
+Thus, $\hat\alpha_{i} =$ `r my_round(alpha_bar)`. 
+
+```{r }
+coeffs <- lapply(list(POLS, Between, Within, fd), coef) # all coeffs comparison
+coeffs[[3]] <- c("(Intercept)" = alpha_bar, coef(Within))
+coeffs <- do.call(cbind, coeffs)
+covariate.labels <- c("$\\beta$", "$\\alpha$")
+dimnames(coeffs)[[1]] <- rev(covariate.labels)
+dimnames(coeffs)[[2]] <- c("POLS" ,   "Between", "Within" , "First Diff")
+knitr::kable(coeffs)
+
+
+```
+```{r regression-output, results = "asis"}
+#
+# how to add coefficients by myself? 
+# coef = list("$\\alpha$" =coeffs[1,], "$\\beta$" = coeffs[2,])
+
+ stargazer::stargazer(list(POLS, Between, Within, fd),
+                      covariate.labels = covariate.labels,
+                      dep.var.caption = "",
+                      dep.var.labels = "",
+                      column.labels = c("POLS", "Between", "Within", "First Diff"), 
+                      header = FALSE,
+                      model.numbers = FALSE,
+                      digits = 3L,
+                      font.size = "small",
+                      df = FALSE,
+                      omit.stat = "adj.rsq",
+                      title = "Hours and Wages: Standard Linear Panel Model Estimators")
+ 
+```
+```{r convert it into .Rmd, include = FALSE}
+knitr::spin("Ziliak-1997.R", knit = FALSE)
+```
+

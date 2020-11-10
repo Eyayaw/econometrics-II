@@ -1,0 +1,2224 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section6\mma25p2matching.txt
+  log type:  text
+ opened on:  26 May 2005, 10:26:31
+
+. 
+. ********** OVERVIEW OF MMA25P2MATCHING.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 25.8.5 pages 893-6 Tables 25.5-25.7
+. * Evaluating treatment effect of training on Earnings
+. * using Dehejia-Wahba data (originally Lalonde data)
+. 
+. * (1) For DW 2002 specification of the logit model for propensity score
+. *     calculate treatment effect by matching methods (Tables 25.5-6)
+. *     (  ) give distribution of propensity score (Table 25.5)
+. *     (1A) nearest neighbor matching
+. *     (1B) radius matching r = 0.001
+. *     (1C) radius matching r = 0.001
+. *     (1D) radius matching r = 0.001
+. *     (1E) stratification
+. *     (1F) kernel matching
+. * (2) For DW 1999 specification of the logit model for propensity score
+. *     calculate treatment effect by matching methods (Table 25.6)
+. 
+. * The program MMA25P1TREATMENT.DO provides simpler nonmatching methods
+. * for the same data. 
+. 
+. * To run this program you need data file 
+. *     nswpsid.da1
+. 
+. * To run this program you need the Stata add-ons 
+. * pscore.ado, atts.ado, attr.ado, attnd.ado, attnw.ado 
+. * due to  Sascha O. Becker and Andrea Ichino (2002)
+. * "Estimation of average treatment effects based on propensity scores", 
+. * The Stata Journal, Vol.2, No.4, pp. 358-377.
+. 
+. * This program uses version 2.02 May 13 2005 for Stata version 8
+. * downloadable from http://www.iue.it/Personal/Ichino/#pscore
+. * We earlier used version 1.29 October 8 2002 for Stata version 7
+. * downloadable from http://www.iue.it/Personal/Ichino/#pscore
+. * and obtained the same results
+. 
+. * To speed up the program reduce breps: the number of bootstrap 
+. * replications used to obtain bootstrap standard errors
+. * Bootstrap se's will differ from text as here seed is set to 10101
+. 
+. ********** STATA SETUP **********
+. 
+. set more off
+
+. version 8
+
+. set scheme s1mono   /* Used for graphs */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * Data set nswpsid.da1 is data set nswpsid.da1 from Guido Imbens 
+. * http://emlab.berkeley.edu/users/imbens/index.shtml
+. 
+. * Data originally from DW99 
+. *    R.H. Dehejia and S. Wahba (1999) 
+. *    "Causal Effects in Nonexperimental Studies: reevaluating the 
+. *    Evaluation of Training Programs", JASA, 1053-1062
+. * or DW02
+. *    R.H. Dehejia and S. Wahba (2002) 
+. *    "Propensity-score Matching Methods for Nonexperimental Causal
+. *     Studies", ReStat, 151-161
+. * which in turn are from 
+. *    Lalonde, R. (1986), "Evaluating the Econometric Evaluations of 
+. *    Training Programs with Experimental Data," AER,  604-620.
+. 
+. * Each observation is for an individual. 
+. * There are 2,675 observations: 185 in treated group and 2490 in control
+. 
+. * Variables are 
+. *  TREAT 1 if treated (NSW treated) and 0 if not (PSID-1 control)
+. *  AGE   in years
+. *  EDUC  in years   
+. *  BLACK 1 if black
+. *  HISP  1 if hispanic
+. *  MARR  1 if married
+. *  RE74  Real annual earnings in 1974  (pre-treatment)
+. *  RE75  Real annual earnings in 1974  (pre-treatment)
+. *  RE78  Real annual earnings in 1974  (post-treatment)
+. *  U74   1 if unemployed in 1974
+. *  U75   1 if unemployed in 1974
+. 
+. * NOTE: U74 and U75 are miscoded in these data and also in the 
+. *       summary statistics table of DW02
+. *       See below for correction to data
+. 
+. ********** READ DATA AND TRANSFORMATIONS **********
+. 
+. ****** propensity score for nsw-psid composite sample*************
+. ****** output for MMA Tables 25.6 & 25.7 ***********************
+. 
+. infile TREAT AGE EDUC BLACK HISP MARR RE74 RE75 RE78 U74 U75 /*
+>   */ using nswpsid.da1
+(2675 observations read)
+
+. 
+. * The original data reversed U74 and U75
+. * Should be U74=1 if R74=0 and U74=0 if R74>0 anmd similar for U75
+. * This effects results with propensity score though not eariler results
+. 
+. * Wrong U74 and U75
+. sum U74 U75
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         U74 |      2675    .1345794    .3413376          0          1
+         U75 |      2675    .1293458     .335645          0          1
+
+. 
+. * Correct the original data
+. drop U74 U75
+
+. gen U74 = cond(RE74 == 0, 1, 0)
+
+. gen U75 = cond(RE75 == 0, 1, 0) 
+
+. 
+. * Correct U74 and U75
+. sum U74 U75
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         U74 |      2675    .1293458     .335645          0          1
+         U75 |      2675    .1345794    .3413376          0          1
+
+. 
+. * Create regressors used as additional controls in regressions below
+. gen AGESQ = AGE*AGE
+
+. gen EDUCSQ = EDUC*EDUC
+
+. * DW99 do not define NODEGREE but following gives Table 1 means
+. gen NODEGREE = 0
+
+. replace NODEGREE = 1 if EDUC < 12
+(891 real changes made)
+
+. gen RE74SQ = RE74*RE74
+
+. gen RE75SQ = RE75*RE75
+
+. gen U74BLACK = U74*BLACK
+
+. gen U74HISP = U74*HISP
+
+. 
+. sum AGE EDUC NODEGREE BLACK HISP MARR U74 U75 RE74 RE75 RE78 TREAT /*
+>    */ AGESQ EDUCSQ RE74SQ RE75SQ U74BLACK U74HISP
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         AGE |      2675    34.22579    10.49984         17         55
+        EDUC |      2675    11.99439    3.053556          0         17
+    NODEGREE |      2675    .3330841    .4714045          0          1
+       BLACK |      2675    .2915888    .4545789          0          1
+        HISP |      2675    .0343925    .1822693          0          1
+-------------+--------------------------------------------------------
+        MARR |      2675    .8194393    .3847257          0          1
+         U74 |      2675    .1293458     .335645          0          1
+         U75 |      2675    .1345794    .3413376          0          1
+        RE74 |      2675       18230    13722.25          0     137149
+        RE75 |      2675    17850.89    13877.78          0     156653
+-------------+--------------------------------------------------------
+        RE78 |      2675    20502.38    15632.52          0     121174
+       TREAT |      2675    .0691589    .2537716          0          1
+       AGESQ |      2675     1281.61    766.8415        289       3025
+      EDUCSQ |      2675    153.1862    70.62231          0        289
+      RE74SQ |      2675    5.21e+08    8.47e+08          0   1.88e+10
+-------------+--------------------------------------------------------
+      RE75SQ |      2675    5.11e+08    8.91e+08          0   2.45e+10
+    U74BLACK |      2675    .0549533    .2279316          0          1
+     U74HISP |      2675    .0056075    .0746868          0          1
+
+. 
+. bysort TREAT: sum AGE EDUC NODEGREE BLACK HISP MARR U74 U75 RE74 RE75 RE78 TREAT /*
+>    */ AGESQ EDUCSQ RE74SQ RE75SQ U74BLACK U74HISP
+
+----------------------------------------------------------------------------------------------------
+-> TREAT = 0
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         AGE |      2490     34.8506    10.44076         18         55
+        EDUC |      2490    12.11687    3.082435          0         17
+    NODEGREE |      2490    .3052209    .4605934          0          1
+       BLACK |      2490    .2506024     .433447          0          1
+        HISP |      2490    .0325301    .1774389          0          1
+-------------+--------------------------------------------------------
+        MARR |      2490    .8662651    .3404357          0          1
+         U74 |      2490    .0863454    .2809298          0          1
+         U75 |      2490          .1    .3000603          0          1
+        RE74 |      2490    19428.75    13406.88          0     137149
+        RE75 |      2490    19063.34    13596.95          0     156653
+-------------+--------------------------------------------------------
+        RE78 |      2490    21553.92    15555.35          0     121174
+       TREAT |      2490           0           0          0          0
+       AGESQ |      2490     1323.53     769.796        324       3025
+      EDUCSQ |      2490    156.3161    71.43048          0        289
+      RE74SQ |      2490    5.57e+08    8.66e+08          0   1.88e+10
+-------------+--------------------------------------------------------
+      RE75SQ |      2490    5.48e+08    9.12e+08          0   2.45e+10
+    U74BLACK |      2490    .0144578    .1193923          0          1
+     U74HISP |      2490    .0036145    .0600237          0          1
+
+----------------------------------------------------------------------------------------------------
+-> TREAT = 1
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         AGE |       185    25.81622    7.155019         17         48
+        EDUC |       185    10.34595     2.01065          4         16
+    NODEGREE |       185    .7081081    .4558666          0          1
+       BLACK |       185    .8432432    .3645579          0          1
+        HISP |       185    .0594595    .2371244          0          1
+-------------+--------------------------------------------------------
+        MARR |       185    .1891892    .3927217          0          1
+         U74 |       185    .7081081    .4558666          0          1
+         U75 |       185          .6    .4912274          0          1
+        RE74 |       185    2095.574    4886.623          0    35040.1
+        RE75 |       185    1532.056    3219.251          0    25142.2
+-------------+--------------------------------------------------------
+        RE78 |       185    6349.145    7867.405          0    60307.9
+       TREAT |       185           1           0          1          1
+       AGESQ |       185    717.3946    431.2517        289       2304
+      EDUCSQ |       185    111.0595    39.30388         16        256
+      RE74SQ |       185    2.81e+07    1.14e+08          0   1.23e+09
+-------------+--------------------------------------------------------
+      RE75SQ |       185    1.27e+07    5.60e+07          0   6.32e+08
+    U74BLACK |       185          .6    .4912274          0          1
+     U74HISP |       185    .0324324    .1776263          0          1
+
+
+. 
+. *** NOTE: The benchmark estimate obtained from NSW experiment is 
+. ***       $1,794 = Average(RE_78 for NSW treated) - Average (RE_78 for NSW comtrols)
+. ***       See MMA25P3EXTRA.DO
+. 
+. ********** (1) ANALYSIS for DW02 SPECIFICATION OF THE PROPENSITY SCORE **********
+. 
+. * Following defines number of bootstrap replications
+. * Table 25.6 used 200 (or 100 in some places)
+. global breps 200
+
+. 
+. * From DW02 Table 3 footnote a the propensity score uses the following regressors
+. global XDW02 AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U75 U74HISP
+
+. 
+. **** Table 25.5 p.894 summarizes propensity score 
+. **** using just those observations with common support
+. 
+. pscore TREAT $XDW02, pscore(myscore) comsup blockid(myblock) numblo(5) level(0.005) logit
+
+
+
+**************************************************** 
+Algorithm to estimate the propensity score 
+**************************************************** 
+
+
+The treatment is TREAT
+
+      TREAT |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      2,490       93.08       93.08
+          1 |        185        6.92      100.00
+------------+-----------------------------------
+      Total |      2,675      100.00
+
+
+
+Estimation of the propensity score 
+
+Iteration 0:   log likelihood = -672.64954
+Iteration 1:   log likelihood = -551.87026
+Iteration 2:   log likelihood = -355.56578
+Iteration 3:   log likelihood = -234.78051
+Iteration 4:   log likelihood =  -208.2965
+Iteration 5:   log likelihood = -199.26423
+Iteration 6:   log likelihood = -197.26114
+Iteration 7:   log likelihood =  -197.1054
+Iteration 8:   log likelihood = -197.10179
+Iteration 9:   log likelihood = -197.10175
+
+Logit estimates                                   Number of obs   =       2675
+                                                  LR chi2(14)     =     951.10
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -197.10175                       Pseudo R2       =     0.7070
+
+------------------------------------------------------------------------------
+       TREAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         AGE |   .2628422    .120206     2.19   0.029     .0272428    .4984416
+       AGESQ |  -.0053794   .0018341    -2.93   0.003    -.0089742   -.0017846
+        EDUC |   .7149774   .3418173     2.09   0.036     .0450278    1.384927
+      EDUCSQ |  -.0426178   .0179039    -2.38   0.017    -.0777088   -.0075269
+        MARR |  -1.780857    .301802    -5.90   0.000    -2.372378   -1.189336
+    NODEGREE |   .1891046   .4257533     0.44   0.657    -.6453564    1.023566
+       BLACK |   2.519383    .370358     6.80   0.000     1.793495    3.245272
+        HISP |   3.087327   .7340486     4.21   0.000     1.648618    4.526036
+        RE74 |  -.0000448   .0000425    -1.05   0.292     -.000128    .0000385
+        RE75 |  -.0002678   .0000485    -5.52   0.000    -.0003628   -.0001727
+      RE74SQ |   1.99e-09   7.75e-10     2.57   0.010     4.72e-10    3.51e-09
+         U74 |   3.100056   .5187391     5.98   0.000     2.083346    4.116766
+         U75 |  -1.273525   .4644557    -2.74   0.006    -2.183842   -.3632088
+     U74HISP |  -1.925803    1.07186    -1.80   0.072     -4.02661    .1750032
+       _cons |  -7.407524   2.445692    -3.03   0.002    -12.20099   -2.614056
+------------------------------------------------------------------------------
+
+note: 65 failures and 0 successes completely determined.
+
+
+
+Note: the common support option has been selected
+The region of common support is [.00036433, .98576756]
+
+
+
+Description of the estimated propensity score 
+in region of common support 
+
+                 Estimated propensity score
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0003871       .0003643
+ 5%     .0004805       .0003669
+10%     .0006343       .0003702       Obs                1271
+25%     .0016393       .0003714       Sum of Wgt.        1271
+
+50%     .0090427                      Mean           .1447205
+                        Largest       Std. Dev.      .2809511
+75%     .0897599       .9803043
+90%      .656286       .9830988       Variance       .0789335
+95%     .9392306       .9855413       Skewness       2.049999
+99%     .9640553       .9857676       Kurtosis       5.748631
+
+
+
+****************************************************** 
+Step 1: Identification of the optimal number of blocks 
+Use option detail if you want more detailed output 
+****************************************************** 
+
+
+The final number of blocks is 6
+
+This number of blocks ensures that the mean propensity score
+is not different for treated and controls in each blocks
+
+
+
+********************************************************** 
+Step 2: Test of balancing property of the propensity score 
+Use option detail if you want more detailed output 
+********************************************************** 
+
+
+The balancing property is satisfied 
+
+
+This table shows the inferior bound, the number of treated
+and the number of controls for each block 
+
+  Inferior |
+  of block |         TREAT
+of pscore  |         0          1 |     Total
+-----------+----------------------+----------
+  .0003643 |       960          9 |       969 
+        .1 |        56         10 |        66 
+        .2 |        33         14 |        47 
+        .4 |        22         24 |        46 
+        .6 |         7         33 |        40 
+        .8 |         8         95 |       103 
+-----------+----------------------+----------
+     Total |     1,086        185 |     1,271 
+
+Note: the common support option has been selected
+
+
+******************************************* 
+End of the algorithm to estimate the pscore 
+******************************************* 
+
+. 
+. **** For completeness do same with common support option NOT selected 
+. 
+. drop myscore myblock
+
+. pscore TREAT $XDW02, pscore(myscore) blockid(myblock) numblo(5) level(0.005) logit
+
+
+
+**************************************************** 
+Algorithm to estimate the propensity score 
+**************************************************** 
+
+
+The treatment is TREAT
+
+      TREAT |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      2,490       93.08       93.08
+          1 |        185        6.92      100.00
+------------+-----------------------------------
+      Total |      2,675      100.00
+
+
+
+Estimation of the propensity score 
+
+Iteration 0:   log likelihood = -672.64954
+Iteration 1:   log likelihood = -551.87026
+Iteration 2:   log likelihood = -355.56578
+Iteration 3:   log likelihood = -234.78051
+Iteration 4:   log likelihood =  -208.2965
+Iteration 5:   log likelihood = -199.26423
+Iteration 6:   log likelihood = -197.26114
+Iteration 7:   log likelihood =  -197.1054
+Iteration 8:   log likelihood = -197.10179
+Iteration 9:   log likelihood = -197.10175
+
+Logit estimates                                   Number of obs   =       2675
+                                                  LR chi2(14)     =     951.10
+                                                  Prob > chi2     =     0.0000
+Log likelihood = -197.10175                       Pseudo R2       =     0.7070
+
+------------------------------------------------------------------------------
+       TREAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         AGE |   .2628422    .120206     2.19   0.029     .0272428    .4984416
+       AGESQ |  -.0053794   .0018341    -2.93   0.003    -.0089742   -.0017846
+        EDUC |   .7149774   .3418173     2.09   0.036     .0450278    1.384927
+      EDUCSQ |  -.0426178   .0179039    -2.38   0.017    -.0777088   -.0075269
+        MARR |  -1.780857    .301802    -5.90   0.000    -2.372378   -1.189336
+    NODEGREE |   .1891046   .4257533     0.44   0.657    -.6453564    1.023566
+       BLACK |   2.519383    .370358     6.80   0.000     1.793495    3.245272
+        HISP |   3.087327   .7340486     4.21   0.000     1.648618    4.526036
+        RE74 |  -.0000448   .0000425    -1.05   0.292     -.000128    .0000385
+        RE75 |  -.0002678   .0000485    -5.52   0.000    -.0003628   -.0001727
+      RE74SQ |   1.99e-09   7.75e-10     2.57   0.010     4.72e-10    3.51e-09
+         U74 |   3.100056   .5187391     5.98   0.000     2.083346    4.116766
+         U75 |  -1.273525   .4644557    -2.74   0.006    -2.183842   -.3632088
+     U74HISP |  -1.925803    1.07186    -1.80   0.072     -4.02661    .1750032
+       _cons |  -7.407524   2.445692    -3.03   0.002    -12.20099   -2.614056
+------------------------------------------------------------------------------
+
+note: 65 failures and 0 successes completely determined.
+
+
+
+Description of the estimated propensity score 
+
+                 Estimated propensity score
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     2.36e-09       1.76e-12
+ 5%     8.39e-08       5.07e-12
+10%     4.47e-07       1.14e-11       Obs                2675
+25%     .0000107       1.14e-11       Sum of Wgt.        2675
+
+50%     .0002558                      Mean           .0691589
+                        Largest       Std. Dev.      .2074207
+75%     .0071195       .9830988
+90%      .129801       .9855413       Variance       .0430234
+95%     .6394923       .9857676       Skewness       3.407447
+99%     .9572224        .986626       Kurtosis       13.56404
+
+
+
+****************************************************** 
+Step 1: Identification of the optimal number of blocks 
+Use option detail if you want more detailed output 
+****************************************************** 
+
+
+The final number of blocks is 7
+
+This number of blocks ensures that the mean propensity score
+is not different for treated and controls in each blocks
+
+
+
+********************************************************** 
+Step 2: Test of balancing property of the propensity score 
+Use option detail if you want more detailed output 
+********************************************************** 
+
+Variable BLACK is not balanced in block 1
+
+The balancing property is not satisfied 
+
+Try a different specification of the propensity score 
+
+  Inferior |
+  of block |         TREAT
+of pscore  |         0          1 |     Total
+-----------+----------------------+----------
+         0 |     2,265          7 |     2,272 
+       .05 |        98          2 |       100 
+        .1 |        56         10 |        66 
+        .2 |        33         14 |        47 
+        .4 |        22         24 |        46 
+        .6 |         7         33 |        40 
+        .8 |         9         95 |       104 
+-----------+----------------------+----------
+     Total |     2,490        185 |     2,675 
+
+
+
+******************************************* 
+End of the algorithm to estimate the pscore 
+******************************************* 
+
+. 
+. **** All of the following use common support
+. 
+. ****************************************************************************
+. **** Note: The results in the first half of Table 25.6 
+. ****       erroneously added RE75SQ as a regressor.
+. ****       This does not effect Table 25.5 (done correctly) or 
+. ****       stratification estimates (which used myscore from correct model).
+. ****       But it does effect NN, radius and kernel estimates.
+. ****       To enable comparison with the text we do analysis here 
+. ****       both with and without RE75SQ.
+. ****       Even dropping RE75SQ the results continue to differ from DW02.
+. ****                            Text      Corrected
+. ****                         Table 25.6   Table 25.6    DW 2002
+. ****       NN                  2385         1286         1202
+. ****       Radius = 0.001     -7815        -7808         1187
+. ****       Radius = 0.0001    -9333        -6401         1191
+. ****       Radius = 0.00001   -2200        -1135         1198
+. ****       Stratification      1497         1497          
+. ****       Kernel              1309         1342
+. ****************************************************************************
+. 
+. **** Row 1 Table 25.6: Nearest neighbor matching (random version)
+. set seed 10101
+
+. attnd RE78 TREAT $XDW02 RE75SQ, comsup boot reps($breps) dots logit
+
+
+ The program is searching the nearest neighbor of each treated unit. 
+ This operation may take a while.
+
+
+
+ATT estimation with Nearest Neighbor Matching method 
+(random draw version)
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT    Std. Err.          t
+---------------------------------------------------------
+
+      185          53    2385.430     1792.028      1.331
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+nearest neighbour matches
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attnd RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U
+> 75 U74HISP RE75SQ , pscore() logit comsup
+statistic:    attnd      = r(attnd)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       attnd |   200   2385.43 -859.5093  1094.969   226.1985   4544.661   (N)
+             |                                      -937.0529   3515.425   (P)
+             |                                       1202.547   4697.713  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with Nearest Neighbor Matching method
+(random draw version)
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185          53    2385.430    1094.969       2.179
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+nearest neighbour matches
+
+. set seed 10101
+
+. attnd RE78 TREAT $XDW02, comsup boot reps($breps) dots logit
+
+
+ The program is searching the nearest neighbor of each treated unit. 
+ This operation may take a while.
+
+
+
+ATT estimation with Nearest Neighbor Matching method 
+(random draw version)
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT    Std. Err.          t
+---------------------------------------------------------
+
+      185          60    1285.782     3895.044      0.330
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+nearest neighbour matches
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attnd RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U
+> 75 U74HISP , pscore() logit comsup
+statistic:    attnd      = r(attnd)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       attnd |   200  1285.782   319.006  1275.405  -1229.261   3800.825   (N)
+             |                                      -1128.466   3835.567   (P)
+             |                                      -2181.243   3294.797  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with Nearest Neighbor Matching method
+(random draw version)
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185          60    1285.782    1275.405       1.008
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+nearest neighbour matches
+
+. 
+. **** Row 2 Table 25.6: Radius matching for Radius=0.001
+. set seed 10101
+
+. attr RE78 TREAT $XDW02 RE75SQ, comsup boot reps($breps) dots logit radius(0.001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       54         517   -7815.382    1118.181      -6.989
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP RE75SQ , pscore() logit comsup radius(.001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200 -7815.381  1345.983  3794.466   -15297.9  -332.8595   (N)
+             |                                      -18163.96   936.3913   (P)
+             |                                      -21184.98  -2839.753  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       54         517   -7815.381    3794.466      -2.060
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. set seed 10101
+
+. attr RE78 TREAT $XDW02, comsup boot reps($breps) dots logit radius(0.001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       51         541   -7808.241    1146.418      -6.811
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP , pscore() logit comsup radius(.001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200 -7808.242  1022.016  3770.093   -15242.7  -373.7819   (N)
+             |                                      -16697.45   1438.308   (P)
+             |                                      -18942.21  -1204.325  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       51         541   -7808.242    3770.093      -2.071
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. 
+. **** Row 3 Table 25.6: Radius matching for Radius=0.0001
+. set seed 10101
+
+. attr RE78 TREAT $XDW02 RE75SQ, comsup boot reps($breps) dots logit radius(0.0001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       24          92   -9333.120    2285.624      -4.083
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP RE75SQ , pscore() logit comsup radius(.0001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200  -9333.12  4076.044   5211.11   -19609.2   942.9621   (N)
+             |                                      -19094.04   4604.865   (P)
+             |                                      -22414.52  -4341.134  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       24          92   -9333.120    5211.110      -1.791
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. set seed 10101
+
+. attr RE78 TREAT $XDW02, comsup boot reps($breps) dots logit radius(0.0001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       27          91   -6401.345    2054.218      -3.116
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP , pscore() logit comsup radius(.0001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200 -6401.345  310.4673   5618.88  -17481.53   4678.842   (N)
+             |                                      -18778.71   4636.073   (P)
+             |                                      -21404.97   3740.767  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       27          91   -6401.345    5618.880      -1.139
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. 
+. **** Row 4 Table 25.6: Radius matching for Radius=0.00001
+. set seed 10101
+
+. attr RE78 TREAT $XDW02 RE75SQ, comsup boot reps($breps) dots logit radius(0.00001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       15          19   -2200.022    2986.211      -0.737
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP RE75SQ , pscore() logit comsup radius(.00001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200 -2200.022  626.9762   7009.51  -16022.47   11622.43   (N)
+             |                                      -24355.12   8831.196   (P)
+             |                                       -31741.1   4217.228  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       15          19   -2200.022    7009.510      -0.314
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. set seed 10101
+
+. attr RE78 TREAT $XDW02, comsup boot reps($breps) dots logit radius(0.00001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       16          17   -1135.184    3189.367      -0.356
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP , pscore() logit comsup radius(.00001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   199 -1135.184  -2079.93  7030.204  -14998.87    12728.5   (N)
+             |                                       -23808.6     8048.6   (P)
+             |                                      -16939.85   9102.585  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       16          17   -1135.184    7030.204      -0.161
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. 
+. **** Row 5 Table 25.6: Stratification Matching
+. set seed 10101
+
+. atts RE78 TREAT, pscore(myscore) blockid(myblock) comsup boot reps($breps) dots
+
+
+
+ATT estimation with the Stratification method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1086    1497.484     920.688       1.626
+
+---------------------------------------------------------
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      atts RE78 TREAT , pscore(myscore) blockid(myblock) comsup
+statistic:    atts       = r(atts)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        atts |   200  1497.484  91.22797   913.129  -303.1669   3298.134   (N)
+             |                                      -16.69353    3509.36   (P)
+             |                                      -64.37524   3306.115  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Stratification method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1086    1497.484     913.129       1.640
+
+---------------------------------------------------------
+
+. 
+. **** Row 6 Table 25.6: Kernel Matching
+. set seed 10101
+
+. attk RE78 TREAT $XDW02 RE75SQ, comsup boot reps($breps) dots logit
+
+
+ The program is searching for matches of each treated unit. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Kernel Matching method 
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1058    1309.217           .           .
+
+---------------------------------------------------------
+Note: Analytical standard errors cannot be computed. Use
+the bootstrap option to get bootstrapped standard errors.
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attk RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP RE75SQ , pscore() logit comsup bwidth(.06)
+statistic:    attk       = r(attk)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attk |   200  1309.217  45.93746  958.1801  -580.2722   3198.707   (N)
+             |                                      -412.7856   3416.999   (P)
+             |                                      -374.4567   3450.043  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Kernel Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1058    1309.217     958.180       1.366
+
+---------------------------------------------------------
+
+. set seed 10101
+
+. attk RE78 TREAT $XDW02, comsup boot reps($breps) dots logit
+
+
+ The program is searching for matches of each treated unit. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Kernel Matching method 
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1086    1342.016           .           .
+
+---------------------------------------------------------
+Note: Analytical standard errors cannot be computed. Use
+the bootstrap option to get bootstrapped standard errors.
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attk RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ U74 U7
+> 5 U74HISP , pscore() logit comsup bwidth(.06)
+statistic:    attk       = r(attk)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attk |   200  1342.016  61.94744  933.8668  -499.5284   3183.561   (N)
+             |                                      -378.5027   3354.131   (P)
+             |                                      -405.7551   3349.118  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Kernel Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1086    1342.016     933.867       1.437
+
+---------------------------------------------------------
+
+. 
+. ********** (2) ANALYSIS for DW99 SPECIFICATION OF THE PROPENSITY SCORE **********
+. 
+. * From DW99 Table 3 footnote e the propensity score uses the following regressors
+. global XDW99 AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ RE75SQ U74BLACK
+
+. 
+. * Note that CT Table 25.6 footnote b erroneously lists RE74*RE75 as regressor
+. * but this program (correctly) did not include RE74*RE75
+. 
+. **** Propensity score with just those observations with common support
+. 
+. drop myscore myblock
+
+. pscore TREAT $XDW99, pscore(myscore) comsup blockid(myblock) numblo($breps) level(0.005) logit
+
+
+
+**************************************************** 
+Algorithm to estimate the propensity score 
+**************************************************** 
+
+
+The treatment is TREAT
+
+      TREAT |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      2,490       93.08       93.08
+          1 |        185        6.92      100.00
+------------+-----------------------------------
+      Total |      2,675      100.00
+
+
+
+Estimation of the propensity score 
+
+Iteration 0:   log likelihood = -672.64954
+Iteration 1:   log likelihood = -499.56574
+Iteration 2:   log likelihood = -318.55053
+Iteration 3:   log likelihood = -248.28844
+Iteration 4:   log likelihood = -225.08984
+Iteration 5:   log likelihood = -219.00396
+Iteration 6:   log likelihood = -209.30653
+Iteration 7:   log likelihood = -208.38887
+Iteration 8:   log likelihood = -205.17689
+Iteration 9:   log likelihood = -204.93156
+Iteration 10:  log likelihood = -204.92951
+Iteration 11:  log likelihood =  -204.9295
+
+Logit estimates                                   Number of obs   =       2675
+                                                  LR chi2(13)     =     935.44
+                                                  Prob > chi2     =     0.0000
+Log likelihood =  -204.9295                       Pseudo R2       =     0.6953
+
+------------------------------------------------------------------------------
+       TREAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         AGE |   .3305734   .1203353     2.75   0.006     .0947206    .5664262
+       AGESQ |  -.0063429   .0018561    -3.42   0.001    -.0099808   -.0027049
+        EDUC |   .8247711   .3534216     2.33   0.020     .1320775    1.517465
+      EDUCSQ |  -.0483153   .0186057    -2.60   0.009    -.0847819   -.0118488
+        MARR |  -1.884062   .2994614    -6.29   0.000    -2.470996   -1.297129
+    NODEGREE |   .1299868   .4284278     0.30   0.762    -.7097163      .96969
+       BLACK |   1.132961    .352088     3.22   0.001     .4428814    1.823041
+        HISP |   1.962762   .5673735     3.46   0.001     .8507302    3.074793
+        RE74 |  -.0001047   .0000355    -2.95   0.003    -.0001743   -.0000351
+        RE75 |  -.0002172   .0000415    -5.23   0.000    -.0002986   -.0001357
+      RE74SQ |   2.36e-09   6.57e-10     3.59   0.000     1.07e-09    3.65e-09
+      RE75SQ |   1.58e-10   6.68e-10     0.24   0.813    -1.15e-09    1.47e-09
+    U74BLACK |   2.137042   .4273667     5.00   0.000     1.299419    2.974665
+       _cons |  -7.552458   2.451721    -3.08   0.002    -12.35774   -2.747173
+------------------------------------------------------------------------------
+
+note: 19 failures and 0 successes completely determined.
+
+
+
+Note: the common support option has been selected
+The region of common support is [.00065257, .97487544]
+
+
+
+Description of the estimated propensity score 
+in region of common support 
+
+                 Estimated propensity score
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0006813       .0006526
+ 5%     .0008363       .0006581
+10%     .0011416       .0006593       Obs                1331
+25%     .0024351       .0006598       Sum of Wgt.        1331
+
+50%     .0111854                      Mean           .1388772
+                        Largest       Std. Dev.       .275571
+75%     .0779976       .9744237
+90%     .6200607       .9747552       Variance       .0759394
+95%     .9494181       .9747918       Skewness        2.17177
+99%      .970738       .9748754       Kurtosis       6.296349
+
+
+
+****************************************************** 
+Step 1: Identification of the optimal number of blocks 
+Use option detail if you want more detailed output 
+****************************************************** 
+
+
+The final number of blocks is 195
+
+This number of blocks ensures that the mean propensity score
+is not different for treated and controls in each blocks
+
+
+
+********************************************************** 
+Step 2: Test of balancing property of the propensity score 
+Use option detail if you want more detailed output 
+********************************************************** 
+
+
+The balancing property is satisfied 
+
+
+This table shows the inferior bound, the number of treated
+and the number of controls for each block 
+
+  Inferior |
+  of block |         TREAT
+of pscore  |         0          1 |     Total
+-----------+----------------------+----------
+  .0006526 |       501          2 |       503 
+      .005 |       143          3 |       146 
+       .01 |        78          0 |        78 
+      .015 |        42          0 |        42 
+       .02 |        38          0 |        38 
+      .025 |        29          1 |        30 
+       .03 |        22          0 |        22 
+      .035 |        23          0 |        23 
+       .04 |        22          0 |        22 
+      .045 |        17          1 |        18 
+       .05 |        23          0 |        23 
+      .055 |        13          1 |        14 
+       .06 |        12          0 |        12 
+      .065 |         9          0 |         9 
+       .07 |        11          1 |        12 
+      .075 |         9          1 |        10 
+       .08 |         6          0 |         6 
+      .085 |         6          0 |         6 
+       .09 |         8          1 |         9 
+      .095 |         6          0 |         6 
+        .1 |         9          0 |         9 
+      .105 |         4          0 |         4 
+       .11 |         8          0 |         8 
+      .115 |         3          0 |         3 
+       .12 |         1          0 |         1 
+      .125 |         2          3 |         5 
+       .13 |         6          1 |         7 
+      .135 |         1          0 |         1 
+       .14 |         1          1 |         2 
+      .145 |         1          0 |         1 
+       .15 |         2          0 |         2 
+      .155 |         4          0 |         4 
+       .16 |         3          0 |         3 
+      .165 |         2          0 |         2 
+      .175 |         1          0 |         1 
+       .18 |         0          1 |         1 
+      .185 |         1          0 |         1 
+       .19 |         2          0 |         2 
+      .195 |         2          1 |         3 
+        .2 |         1          0 |         1 
+      .205 |         1          0 |         1 
+      .215 |         5          0 |         5 
+      .225 |         2          1 |         3 
+       .23 |         2          1 |         3 
+      .235 |         2          3 |         5 
+       .24 |         2          0 |         2 
+      .245 |         0          1 |         1 
+       .25 |         0          2 |         2 
+       .26 |         1          1 |         2 
+      .265 |         1          0 |         1 
+       .27 |         1          0 |         1 
+       .28 |         1          0 |         1 
+      .285 |         1          0 |         1 
+       .29 |         2          1 |         3 
+      .295 |         2          1 |         3 
+        .3 |         2          0 |         2 
+      .305 |         0          1 |         1 
+      .315 |         1          0 |         1 
+       .32 |         0          1 |         1 
+      .325 |         2          1 |         3 
+       .33 |         1          0 |         1 
+      .335 |         0          1 |         1 
+       .34 |         1          1 |         2 
+      .345 |         1          2 |         3 
+       .35 |         2          0 |         2 
+      .355 |         0          1 |         1 
+      .365 |         1          0 |         1 
+       .37 |         2          0 |         2 
+      .375 |         2          2 |         4 
+       .38 |         1          2 |         3 
+      .385 |         1          4 |         5 
+        .4 |         0          1 |         1 
+      .405 |         0          2 |         2 
+       .42 |         0          1 |         1 
+      .425 |         1          0 |         1 
+       .45 |         2          0 |         2 
+       .47 |         1          0 |         1 
+       .48 |         1          1 |         2 
+      .485 |         2          0 |         2 
+      .495 |         1          0 |         1 
+        .5 |         0          2 |         2 
+       .51 |         0          2 |         2 
+      .515 |         2          1 |         3 
+      .525 |         0          1 |         1 
+       .53 |         0          2 |         2 
+      .535 |         0          1 |         1 
+       .54 |         1          0 |         1 
+      .555 |         0          1 |         1 
+       .56 |         1          1 |         2 
+      .565 |         1          0 |         1 
+       .57 |         0          1 |         1 
+      .575 |         1          1 |         2 
+       .59 |         0          1 |         1 
+      .595 |         0          1 |         1 
+        .6 |         0          1 |         1 
+      .605 |         0          1 |         1 
+       .61 |         1          2 |         3 
+      .615 |         0          1 |         1 
+       .62 |         0          1 |         1 
+      .625 |         0          1 |         1 
+      .635 |         1          2 |         3 
+       .64 |         1          1 |         2 
+      .645 |         2          0 |         2 
+      .665 |         0          1 |         1 
+       .67 |         1          0 |         1 
+      .675 |         0          3 |         3 
+       .68 |         1          0 |         1 
+       .69 |         1          0 |         1 
+       .71 |         1          1 |         2 
+      .735 |         0          1 |         1 
+       .74 |         1          0 |         1 
+      .745 |         2          0 |         2 
+      .765 |         1          1 |         2 
+       .79 |         0          4 |         4 
+      .795 |         0          1 |         1 
+        .8 |         0          1 |         1 
+      .805 |         0          2 |         2 
+      .815 |         0          3 |         3 
+      .825 |         0          1 |         1 
+       .84 |         0          1 |         1 
+      .845 |         0          1 |         1 
+       .85 |         0          1 |         1 
+       .86 |         0          1 |         1 
+      .865 |         0          1 |         1 
+      .895 |         0          1 |         1 
+        .9 |         0          2 |         2 
+      .905 |         0          2 |         2 
+      .915 |         0          1 |         1 
+       .92 |         0          1 |         1 
+      .925 |         0          7 |         7 
+       .93 |         0          2 |         2 
+      .935 |         0          1 |         1 
+       .94 |         0          3 |         3 
+      .945 |         1          6 |         7 
+       .95 |         1         14 |        15 
+      .955 |         0         16 |        16 
+       .96 |         1          5 |         6 
+      .965 |         3         12 |        15 
+       .97 |         1         13 |        14 
+-----------+----------------------+----------
+     Total |     1,146        185 |     1,331 
+
+Note: the common support option has been selected
+
+
+******************************************* 
+End of the algorithm to estimate the pscore 
+******************************************* 
+
+. 
+. **** For completeness do same with common support option NOT selected 
+. 
+. drop myscore myblock
+
+. pscore TREAT $XDW99, pscore(myscore) blockid(myblock) numblo($breps) level(0.005) logit
+
+
+
+**************************************************** 
+Algorithm to estimate the propensity score 
+**************************************************** 
+
+
+The treatment is TREAT
+
+      TREAT |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      2,490       93.08       93.08
+          1 |        185        6.92      100.00
+------------+-----------------------------------
+      Total |      2,675      100.00
+
+
+
+Estimation of the propensity score 
+
+Iteration 0:   log likelihood = -672.64954
+Iteration 1:   log likelihood = -499.56574
+Iteration 2:   log likelihood = -318.55053
+Iteration 3:   log likelihood = -248.28844
+Iteration 4:   log likelihood = -225.08984
+Iteration 5:   log likelihood = -219.00396
+Iteration 6:   log likelihood = -209.30653
+Iteration 7:   log likelihood = -208.38887
+Iteration 8:   log likelihood = -205.17689
+Iteration 9:   log likelihood = -204.93156
+Iteration 10:  log likelihood = -204.92951
+Iteration 11:  log likelihood =  -204.9295
+
+Logit estimates                                   Number of obs   =       2675
+                                                  LR chi2(13)     =     935.44
+                                                  Prob > chi2     =     0.0000
+Log likelihood =  -204.9295                       Pseudo R2       =     0.6953
+
+------------------------------------------------------------------------------
+       TREAT |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+         AGE |   .3305734   .1203353     2.75   0.006     .0947206    .5664262
+       AGESQ |  -.0063429   .0018561    -3.42   0.001    -.0099808   -.0027049
+        EDUC |   .8247711   .3534216     2.33   0.020     .1320775    1.517465
+      EDUCSQ |  -.0483153   .0186057    -2.60   0.009    -.0847819   -.0118488
+        MARR |  -1.884062   .2994614    -6.29   0.000    -2.470996   -1.297129
+    NODEGREE |   .1299868   .4284278     0.30   0.762    -.7097163      .96969
+       BLACK |   1.132961    .352088     3.22   0.001     .4428814    1.823041
+        HISP |   1.962762   .5673735     3.46   0.001     .8507302    3.074793
+        RE74 |  -.0001047   .0000355    -2.95   0.003    -.0001743   -.0000351
+        RE75 |  -.0002172   .0000415    -5.23   0.000    -.0002986   -.0001357
+      RE74SQ |   2.36e-09   6.57e-10     3.59   0.000     1.07e-09    3.65e-09
+      RE75SQ |   1.58e-10   6.68e-10     0.24   0.813    -1.15e-09    1.47e-09
+    U74BLACK |   2.137042   .4273667     5.00   0.000     1.299419    2.974665
+       _cons |  -7.552458   2.451721    -3.08   0.002    -12.35774   -2.747173
+------------------------------------------------------------------------------
+
+note: 19 failures and 0 successes completely determined.
+
+
+
+Description of the estimated propensity score 
+
+                 Estimated propensity score
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     2.84e-08       4.49e-11
+ 5%     4.47e-07       4.88e-10
+10%     2.07e-06       4.88e-10       Obs                2675
+25%      .000034       4.95e-10       Sum of Wgt.        2675
+
+50%     .0006388                      Mean           .0691589
+                        Largest       Std. Dev.      .2063646
+75%      .010941       .9744237
+90%     .1336877       .9747552       Variance       .0425863
+95%     .6200607       .9747918       Skewness       3.471137
+99%     .9651648       .9748754       Kurtosis       14.05057
+
+
+
+****************************************************** 
+Step 1: Identification of the optimal number of blocks 
+Use option detail if you want more detailed output 
+****************************************************** 
+
+
+The final number of blocks is 195
+
+This number of blocks ensures that the mean propensity score
+is not different for treated and controls in each blocks
+
+
+
+********************************************************** 
+Step 2: Test of balancing property of the propensity score 
+Use option detail if you want more detailed output 
+********************************************************** 
+
+Variable BLACK is not balanced in block 1
+
+The balancing property is not satisfied 
+
+Try a different specification of the propensity score 
+
+  Inferior |
+  of block |         TREAT
+of pscore  |         0          1 |     Total
+-----------+----------------------+----------
+         0 |     1,845          2 |     1,847 
+      .005 |       143          3 |       146 
+       .01 |        78          0 |        78 
+      .015 |        42          0 |        42 
+       .02 |        38          0 |        38 
+      .025 |        29          1 |        30 
+       .03 |        22          0 |        22 
+      .035 |        23          0 |        23 
+       .04 |        22          0 |        22 
+      .045 |        17          1 |        18 
+       .05 |        23          0 |        23 
+      .055 |        13          1 |        14 
+       .06 |        12          0 |        12 
+      .065 |         9          0 |         9 
+       .07 |        11          1 |        12 
+      .075 |         9          1 |        10 
+       .08 |         6          0 |         6 
+      .085 |         6          0 |         6 
+       .09 |         8          1 |         9 
+      .095 |         6          0 |         6 
+        .1 |         9          0 |         9 
+      .105 |         4          0 |         4 
+       .11 |         8          0 |         8 
+      .115 |         3          0 |         3 
+       .12 |         1          0 |         1 
+      .125 |         2          3 |         5 
+       .13 |         6          1 |         7 
+      .135 |         1          0 |         1 
+       .14 |         1          1 |         2 
+      .145 |         1          0 |         1 
+       .15 |         2          0 |         2 
+      .155 |         4          0 |         4 
+       .16 |         3          0 |         3 
+      .165 |         2          0 |         2 
+      .175 |         1          0 |         1 
+       .18 |         0          1 |         1 
+      .185 |         1          0 |         1 
+       .19 |         2          0 |         2 
+      .195 |         2          1 |         3 
+        .2 |         1          0 |         1 
+      .205 |         1          0 |         1 
+      .215 |         5          0 |         5 
+      .225 |         2          1 |         3 
+       .23 |         2          1 |         3 
+      .235 |         2          3 |         5 
+       .24 |         2          0 |         2 
+      .245 |         0          1 |         1 
+       .25 |         0          2 |         2 
+       .26 |         1          1 |         2 
+      .265 |         1          0 |         1 
+       .27 |         1          0 |         1 
+       .28 |         1          0 |         1 
+      .285 |         1          0 |         1 
+       .29 |         2          1 |         3 
+      .295 |         2          1 |         3 
+        .3 |         2          0 |         2 
+      .305 |         0          1 |         1 
+      .315 |         1          0 |         1 
+       .32 |         0          1 |         1 
+      .325 |         2          1 |         3 
+       .33 |         1          0 |         1 
+      .335 |         0          1 |         1 
+       .34 |         1          1 |         2 
+      .345 |         1          2 |         3 
+       .35 |         2          0 |         2 
+      .355 |         0          1 |         1 
+      .365 |         1          0 |         1 
+       .37 |         2          0 |         2 
+      .375 |         2          2 |         4 
+       .38 |         1          2 |         3 
+      .385 |         1          4 |         5 
+        .4 |         0          1 |         1 
+      .405 |         0          2 |         2 
+       .42 |         0          1 |         1 
+      .425 |         1          0 |         1 
+       .45 |         2          0 |         2 
+       .47 |         1          0 |         1 
+       .48 |         1          1 |         2 
+      .485 |         2          0 |         2 
+      .495 |         1          0 |         1 
+        .5 |         0          2 |         2 
+       .51 |         0          2 |         2 
+      .515 |         2          1 |         3 
+      .525 |         0          1 |         1 
+       .53 |         0          2 |         2 
+      .535 |         0          1 |         1 
+       .54 |         1          0 |         1 
+      .555 |         0          1 |         1 
+       .56 |         1          1 |         2 
+      .565 |         1          0 |         1 
+       .57 |         0          1 |         1 
+      .575 |         1          1 |         2 
+       .59 |         0          1 |         1 
+      .595 |         0          1 |         1 
+        .6 |         0          1 |         1 
+      .605 |         0          1 |         1 
+       .61 |         1          2 |         3 
+      .615 |         0          1 |         1 
+       .62 |         0          1 |         1 
+      .625 |         0          1 |         1 
+      .635 |         1          2 |         3 
+       .64 |         1          1 |         2 
+      .645 |         2          0 |         2 
+      .665 |         0          1 |         1 
+       .67 |         1          0 |         1 
+      .675 |         0          3 |         3 
+       .68 |         1          0 |         1 
+       .69 |         1          0 |         1 
+       .71 |         1          1 |         2 
+      .735 |         0          1 |         1 
+       .74 |         1          0 |         1 
+      .745 |         2          0 |         2 
+      .765 |         1          1 |         2 
+       .79 |         0          4 |         4 
+      .795 |         0          1 |         1 
+        .8 |         0          1 |         1 
+      .805 |         0          2 |         2 
+      .815 |         0          3 |         3 
+      .825 |         0          1 |         1 
+       .84 |         0          1 |         1 
+      .845 |         0          1 |         1 
+       .85 |         0          1 |         1 
+       .86 |         0          1 |         1 
+      .865 |         0          1 |         1 
+      .895 |         0          1 |         1 
+        .9 |         0          2 |         2 
+      .905 |         0          2 |         2 
+      .915 |         0          1 |         1 
+       .92 |         0          1 |         1 
+      .925 |         0          7 |         7 
+       .93 |         0          2 |         2 
+      .935 |         0          1 |         1 
+       .94 |         0          3 |         3 
+      .945 |         1          6 |         7 
+       .95 |         1         14 |        15 
+      .955 |         0         16 |        16 
+       .96 |         1          5 |         6 
+      .965 |         3         12 |        15 
+       .97 |         1         13 |        14 
+-----------+----------------------+----------
+     Total |     2,490        185 |     2,675 
+
+
+
+******************************************* 
+End of the algorithm to estimate the pscore 
+******************************************* 
+
+. 
+. **** All of the following use common support
+. 
+. **** Row 7 Table 25.6: Nearest neighbor matching (random version)
+. set seed 10101
+
+. attnd RE78 TREAT $XDW99, comsup boot reps($breps) dots logit
+
+
+ The program is searching the nearest neighbor of each treated unit. 
+ This operation may take a while.
+
+
+
+ATT estimation with Nearest Neighbor Matching method 
+(random draw version)
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT    Std. Err.          t
+---------------------------------------------------------
+
+      185          57     560.287     2205.663      0.254
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+nearest neighbour matches
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attnd RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ RE75S
+> Q U74BLACK , pscore() logit comsup
+statistic:    attnd      = r(attnd)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       attnd |   200  560.2872   1104.87  1331.294  -2064.967   3185.542   (N)
+             |                                      -785.5272   4190.844   (P)
+             |                                      -2615.809   2016.239  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with Nearest Neighbor Matching method
+(random draw version)
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185          57     560.287    1331.294       0.421
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+nearest neighbour matches
+
+. 
+. **** Row 8 Table 25.6: Radius matching for Radius=0.001
+. set seed 10101
+
+. attr RE78 TREAT $XDW99, comsup boot reps($breps) dots logit radius(0.001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       57         583   -9358.228     997.561      -9.381
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ RE75SQ
+>  U74BLACK , pscore() logit comsup radius(.001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200 -9358.228  2589.204  3079.824  -15431.51  -3284.949   (N)
+             |                                      -11328.39   901.8873   (P)
+             |                                      -13053.95  -6956.288  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       57         583   -9358.228    3079.824      -3.039
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. 
+. **** Row 9 Table 25.6: Radius matching for Radius=0.0001
+. set seed 10101
+
+. attr RE78 TREAT $XDW99, comsup boot reps($breps) dots logit radius(0.0001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       27          76   -7847.460    2066.697      -3.797
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ RE75SQ
+>  U74BLACK , pscore() logit comsup radius(.0001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   200  -7847.46  2920.804  4850.874  -17413.17   1718.251   (N)
+             |                                      -13423.91   5223.634   (P)
+             |                                      -15432.32   632.0693  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       27          76   -7847.460    4850.874      -1.618
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. 
+. **** Row 10 Table 25.6: Radius matching for Radius=0.00001
+. set seed 10101
+
+. attr RE78 TREAT $XDW99, comsup boot reps($breps) dots logit radius(0.00001)
+
+
+ The program is searching for matches of treated units within radius. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Radius Matching method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       16          13     223.468    4551.850       0.049
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attr RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ RE75SQ
+>  U74BLACK , pscore() logit comsup radius(.00001)
+statistic:    attr       = r(attr)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attr |   199  223.4685 -1272.487  5608.927  -10837.43   11284.37   (N)
+             |                                      -14600.21   8548.427   (P)
+             |                                      -10778.17   11039.05  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Radius Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       16          13     223.468    5608.927       0.040
+
+---------------------------------------------------------
+Note: the numbers of treated and controls refer to actual
+matches within radius
+
+. 
+. **** Row 11 Table 25.6: Stratification Matching
+. set seed 10101
+
+. atts RE78 TREAT, pscore(myscore) blockid(myblock) comsup boot reps($breps) dots
+
+
+
+ATT estimation with the Stratification method
+Analytical standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       98        1233    1322.160           .           .
+
+---------------------------------------------------------
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      atts RE78 TREAT , pscore(myscore) blockid(myblock) comsup
+statistic:    atts       = r(atts)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        atts |   200   1322.16  -51.6285  1276.237  -1194.524   3838.844   (N)
+             |                                      -1515.399   3960.787   (P)
+             |                                      -1383.034   4034.298  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Stratification method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+       98        1233    1322.160    1276.237       1.036
+
+---------------------------------------------------------
+
+. 
+. **** Row 12 Table 25.6: Kernel Matching
+. * pscore TREAT $XDW99, pscore(myscore) comsup blockid(myblock) numblo($breps) level(0.005) logit
+. set seed 10101
+
+. attk RE78 TREAT $XDW99, comsup boot reps($breps) dots logit
+
+
+ The program is searching for matches of each treated unit. 
+ This operation may take a while.
+
+
+
+ATT estimation with the Kernel Matching method 
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1146    1518.694           .           .
+
+---------------------------------------------------------
+Note: Analytical standard errors cannot be computed. Use
+the bootstrap option to get bootstrapped standard errors.
+
+
+
+
+
+Bootstrapping of standard errors 
+
+command:      attk RE78 TREAT AGE AGESQ EDUC EDUCSQ MARR NODEGREE BLACK HISP RE74 RE75 RE74SQ RE75SQ
+>  U74BLACK , pscore() logit comsup bwidth(.06)
+statistic:    attk       = r(attk)
+....................................................................................................
+> ..................................................................................................
+> ..
+
+
+Bootstrap statistics                              Number of obs    =      2675
+                                                  Replications     =       200
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        attk |   200  1518.694  130.8493  808.3386  -75.31444   3112.703   (N)
+             |                                       212.6286   3165.292   (P)
+             |                                       96.05106   2991.407  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+
+
+ATT estimation with the Kernel Matching method
+Bootstrapped standard errors
+
+---------------------------------------------------------
+n. treat.   n. contr.         ATT   Std. Err.           t
+---------------------------------------------------------
+
+      185        1146    1518.694     808.339       1.879
+
+---------------------------------------------------------
+
+. 
+. ********** CLOSE OUTPUT **********
+. log close
+       log:  c:\Imbook\bwebpage\Section6\mma25p2matching.txt
+  log type:  text
+ closed on:  26 May 2005, 11:15:53
+----------------------------------------------------------------------------------------------------

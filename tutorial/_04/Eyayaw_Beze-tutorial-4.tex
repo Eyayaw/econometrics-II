@@ -78,7 +78,7 @@
 
 \title{Tutorial-4}
 \author{Eyayaw Beze}
-\date{June 15, 2020}
+\date{June 21, 2020}
 
 \begin{document}
 \maketitle
@@ -294,7 +294,7 @@ application}\label{exercise-2-did---practical-application}}
 \def\labelenumi{(\alph{enumi})}
 \tightlist
 \item
-  \textbf{\{Reproduce Figure (2) of (Dobkin, Nicosia, and Weinberg
+  \textbf{Reproduce Figure (2) of (Dobkin, Nicosia, and Weinberg
   \protect\hyperlink{ref-DOBKIN201448}{2014})}
 \end{enumerate}
 
@@ -322,7 +322,7 @@ month.}
 \setcounter{enumi}{1}
 \tightlist
 \item
-  \textbf{\{Make a graph that shows the average number of the three
+  \textbf{Make a graph that shows the average number of the three
   different types of labs discovered in event time. Center the figure at
   time 0 (when the law went into effect in the state).}
 \end{enumerate}
@@ -366,21 +366,21 @@ regulation, I coded \(OTC_{st}\) as follows.
 \def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
 \caption{Impact of OTC regulations on methamphetamine lab seizures.}
 \begin{tabular}{l*{8}{c}}
-\toprule
+\midrule\midrule
 \multicolumn{1}{l}{ } & \multicolumn{4}{l}{Number of Labs Seized } & \multicolumn{4}{l}{ Lab capacity under 2 oz \label{fe-results}}\\ \cmidrule(l{3pt}r{3pt}){2-5} \cmidrule(l{3pt}r{3pt}){6-9}
  &\multicolumn{1}{l}{(1)}&\multicolumn{1}{l}{(2)}&\multicolumn{1}{l}{(3)}&\multicolumn{1}{l}{(4)}&\multicolumn{1}{l}{(1)}&\multicolumn{1}{l}{(2)}&\multicolumn{1}{l}{(3)}&\multicolumn{1}{l}{(4)}\\
 \midrule
-OTC Restriction& -6.593\sym{**} & -6.601\sym{**} & -4.830\sym{**} & -5.523\sym{***}& -4.075\sym{**} & -4.077\sym{**} & -2.893\sym{**} & -3.424\sym{***}\\
+OTC\_Restriction& -6.593\sym{**} & -6.601\sym{**} & -4.830\sym{**} & -5.523\sym{***}& -4.075\sym{**} & -4.077\sym{**} & -2.893\sym{**} & -3.424\sym{***}\\
 \midrule
 Mean & 10.90 & 10.90 & 10.90 & 10.90 & 7.834 & 7.834 & 7.834 & 7.834 \\
 Observations& 4937 & 4937 & 4937 & 4937 & 4937 & 4937 & 4937 & 4937 \\
 States & 50 & 50 & 50 & 50 & 50 & 50 & 50 & 50 \\
-\toprule
+\midrule\midrule
 \vspace{0.5cm}\\
 \multicolumn{1}{l}{ } & \multicolumn{4}{l}{Lab capacity 2-8 oz } & \multicolumn{4}{l}{ Lab capacity 9 oz or more }\\ \cmidrule(l{3pt}r{3pt}){2-5} \cmidrule(l{3pt}r{3pt}){6-9}
  &\multicolumn{1}{l}{(1)}&\multicolumn{1}{l}{(2)}&\multicolumn{1}{l}{(3)}&\multicolumn{1}{l}{(4)}&\multicolumn{1}{l}{(1)}&\multicolumn{1}{l}{(2)}&\multicolumn{1}{l}{(3)}&\multicolumn{1}{l}{(4)}\\
 \midrule
-OTC Restriction& -2.251\sym{***}& -2.258\sym{***}& -1.752\sym{***}& -1.940\sym{***}& -0.266 & -0.266 & -0.185 & -0.158 \\
+OTC\_Restriction& -2.251\sym{***}& -2.258\sym{***}& -1.752\sym{***}& -1.940\sym{***}& -0.266 & -0.266 & -0.185 & -0.158 \\
 \midrule
 Mean & 2.177 & 2.177 & 2.177 & 2.177 & 0.890 & 0.890 & 0.890 & 0.890 \\
 Observations& 4937 & 4937 & 4937 & 4937 & 4937 & 4937 & 4937 & 4937 \\

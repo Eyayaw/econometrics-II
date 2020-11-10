@@ -1,0 +1,506 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section5\mma21p4pangls.txt
+  log type:  text
+ opened on:  23 May 2005, 11:38:01
+
+. 
+. ********** OVERVIEW OF MMA21P4PANGLS.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press
+. 
+. * Chapter 21.5.5 page 725 Table 21.6 Pooled panel OLS and GLS
+. * Demonstrate pooled GLS estimation using XTGEE
+. *  (1) No correlation (i.e. pooled OLS)
+. *  (2) Equicorrelated
+. *  (3) AR1
+. *  (4) Unrestricted
+. * Standard errors are default plus panel boostrap
+. 
+. * To run you need file
+. *   MOM.dat    
+. * in your directory
+. 
+. * The four basic linear panel programs are
+. *   mma21p1panfeandre.do    Linear fixed and random effects using xtreg
+. *   mma21p2panfeandre.do    Linear fe and re using transformation and regress
+. *                           plus also has valid Hausman test
+. *   mma21p3panresiduals.do  Residual analysis after linear fe and re 
+. *   mma21p4panpangls.do     Pooled panel OLS and GLS
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono  /* Graphics scheme */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. *  The original data is from 
+. *  Jim Ziliak (1997)
+. *  "Efficient Estimation With Panel Data when Instruments are Predetermined: 
+. * An Empirical Comparison of Moment-Condition Estimators" 
+. * Journal of Business and Economic Statistics, 15, 419-431
+. 
+. * File MOM.dat has data on 532 men over 10 years (1979-1988) 
+. * Data are space-delimited ordered by person with separate line for each year
+. * So id 1 1979, id 1 1980, ..., id 1 1988, id 2 1979, 1d 2 1980, ...
+. * 8 variables: 
+. * lnhr lnwg kids ageh agesq disab id year
+. 
+. * File MOM.dat is the version of the data posted at the JBES website
+. * Note that in chapter 22 we instead use MOMprecise.dat
+. * which is the same data set but with more significant digits
+. 
+. ********** READ DATA AND SUMMARIZE **********
+. *
+. * The data are in ascii file MOM.dat
+. * There are 532 individuals with 10 lines (years) per individual
+. * Read in using Infile: FREE FORMAT WITHOUT DICTIONARY
+. infile lnhr lnwg kids ageh agesq disab id year using MOM.dat
+(5320 observations read)
+
+. 
+. describe
+
+Contains data
+  obs:         5,320                          
+ vars:             8                          
+ size:       191,520 (98.1% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+lnhr            float  %9.0g                  
+lnwg            float  %9.0g                  
+kids            float  %9.0g                  
+ageh            float  %9.0g                  
+agesq           float  %9.0g                  
+disab           float  %9.0g                  
+id              float  %9.0g                  
+year            float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+     Note:  dataset has changed since last saved
+
+. summarize
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+        lnhr |      5320     7.65743    .2855914       2.77       8.56
+        lnwg |      5320    2.609436    .4258924       -.26       4.69
+        kids |      5320    1.555827    1.195924          0          6
+        ageh |      5320    38.91823    8.450351         22         60
+       agesq |      5320    1586.024    689.7759        484       3600
+-------------+--------------------------------------------------------
+       disab |      5320    .0609023    .2391734          0          1
+          id |      5320       266.5    153.5893          1        532
+        year |      5320      1983.5    2.872551       1979       1988
+
+. 
+. ********** DEFINE GLOBALS INCLUDING REGRESSOR LIST *********
+. 
+. * Number of reps for the boostrap
+. * Table 21.6 used 500
+. global nreps 500
+
+. 
+. ********* ANALYSIS: DIFFERENT POOLED GLS ESTIMATES USING XTGEE *********
+. 
+. *** (1) N0 ERROR CORRELATION - SAME AS POOLED OLS Table 21.7 first column
+. 
+. * Default standard error
+. xtgee lnhr lnwg, corr(independent) i(id)
+
+Iteration 1: tolerance = 3.405e-13
+
+GEE population-averaged model                   Number of obs      =      5320
+Group variable:                         id      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                   independent                     max =        10
+                                                Wald chi2(1)       =     82.25
+Scale parameter:                  .0803055      Prob > chi2        =    0.0000
+
+Pearson chi2(5320):                 427.23      Deviance           =    427.23
+Dispersion (Pearson):             .0803055      Dispersion         =  .0803055
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0827436   .0091234     9.07   0.000      .064862    .1006251
+       _cons |   7.441516   .0241219   308.50   0.000     7.394238    7.488795
+------------------------------------------------------------------------------
+
+. estimates store ind
+
+. * "Robust" standard error
+. xtgee lnhr lnwg, corr(independent) i(id) robust
+
+Iteration 1: tolerance = 3.405e-13
+
+GEE population-averaged model                   Number of obs      =      5320
+Group variable:                         id      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                   independent                     max =        10
+                                                Wald chi2(1)       =      7.99
+Scale parameter:                  .0803055      Prob > chi2        =    0.0047
+
+Pearson chi2(5320):                 427.23      Deviance           =    427.23
+Dispersion (Pearson):             .0803055      Dispersion         =  .0803055
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0827436   .0292684     2.83   0.005     .0253785    .1401086
+       _cons |   7.441516   .0795795    93.51   0.000     7.285543    7.597489
+------------------------------------------------------------------------------
+
+. estimates store indrob
+
+. * Correct panel bootstrap standard errors
+. set seed 10001
+
+. bootstrap "xtgee lnhr lnwg, corr(independent) i(id)" "_b[lnwg] _b[_cons]", cluster(id) reps($nreps
+> ) level(95)
+
+command:      xtgee lnhr lnwg , corr(independent) i(id)
+statistics:   _bs_1      = _b[lnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5320
+                                                  N of clusters    =       532
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |    72  .0827435 -.0007854  .0317837   .0193687   .1461184   (N)
+             |                                       .0090096   .1413525   (P)
+             |                                       .0154833   .1413525  (BC)
+       _bs_2 |    72  7.441516  .0024828  .0861859   7.269667   7.613366   (N)
+             |                                        7.27043   7.635125   (P)
+             |                                        7.27043   7.631187  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix indbootse = e(se)
+
+. 
+. *** (2) EQUICORRELATED - SAME AS RE-GLS Table 21.7 second column
+. 
+. * Default standard error
+. xtgee lnhr lnwg, corr(exchangeable) i(id)
+
+Iteration 1: tolerance = .03364039
+Iteration 2: tolerance = .00033468
+Iteration 3: tolerance = 4.733e-06
+Iteration 4: tolerance = 6.715e-08
+
+GEE population-averaged model                   Number of obs      =      5320
+Group variable:                         id      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                  exchangeable                     max =        10
+                                                Wald chi2(1)       =     76.70
+Scale parameter:                  .0805511      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .1195474   .0136507     8.76   0.000     .0927925    .1463023
+       _cons |   7.345479   .0364481   201.53   0.000     7.274042    7.416916
+------------------------------------------------------------------------------
+
+. estimates store exch
+
+. * "Robust" standard error
+. xtgee lnhr lnwg, corr(exchangeable) i(id) robust
+
+Iteration 1: tolerance = .03364039
+Iteration 2: tolerance = .00033468
+Iteration 3: tolerance = 4.733e-06
+Iteration 4: tolerance = 6.715e-08
+
+GEE population-averaged model                   Number of obs      =      5320
+Group variable:                         id      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                  exchangeable                     max =        10
+                                                Wald chi2(1)       =      5.38
+Scale parameter:                  .0805511      Prob > chi2        =    0.0204
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .1195474   .0515426     2.32   0.020     .0185258     .220569
+       _cons |   7.345479   .1379494    53.25   0.000     7.075103    7.615855
+------------------------------------------------------------------------------
+
+. estimates store exchrob
+
+. * Correct panel bootstrap standard errors
+. set seed 10001
+
+. bootstrap "xtgee lnhr lnwg, corr(exchangeable) i(id)" "_b[lnwg] _b[_cons]", cluster(id) reps($nrep
+> s) level(95)
+
+command:      xtgee lnhr lnwg , corr(exchangeable) i(id)
+statistics:   _bs_1      = _b[lnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5320
+                                                  N of clusters    =       532
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |    72  .1195474  .0068755   .059895   .0001201   .2389747   (N)
+             |                                       .0256504   .2573869   (P)
+             |                                       .0256504   .2286118  (BC)
+       _bs_2 |    72  7.345479 -.0179736  .1585556   7.029328    7.66163   (N)
+             |                                       6.990765   7.605015   (P)
+             |                                       7.066358   7.605015  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix exchbootse = e(se)
+
+. 
+. *** (3) AR(1) Table 21.7 third column
+. 
+. * Default standard error
+. xtgee lnhr lnwg, corr(ar 1) i(id) t(year)
+
+Iteration 1: tolerance = .001507
+Iteration 2: tolerance = 2.246e-06
+Iteration 3: tolerance = 1.547e-09
+
+GEE population-averaged model                   Number of obs      =      5320
+Group and time vars:               id year      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                         AR(1)                     max =        10
+                                                Wald chi2(1)       =     46.73
+Scale parameter:                  .0803129      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0843777   .0123428     6.84   0.000     .0601862    .1085691
+       _cons |   7.439893   .0327698   227.04   0.000     7.375665     7.50412
+------------------------------------------------------------------------------
+
+. estimates store ar1
+
+. * "Robust" standard error
+. xtgee lnhr lnwg, corr(ar 1) i(id) t(year) robust
+
+Iteration 1: tolerance = .001507
+Iteration 2: tolerance = 2.246e-06
+Iteration 3: tolerance = 1.547e-09
+
+GEE population-averaged model                   Number of obs      =      5320
+Group and time vars:               id year      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                         AR(1)                     max =        10
+                                                Wald chi2(1)       =      5.15
+Scale parameter:                  .0803129      Prob > chi2        =    0.0232
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0843777   .0371764     2.27   0.023     .0115133    .1572421
+       _cons |   7.439893    .100308    74.17   0.000     7.243293    7.636493
+------------------------------------------------------------------------------
+
+. estimates store ar1rob
+
+. * Correct panel bootstrap standard errors
+. set seed 10001
+
+. bootstrap "xtgee lnhr lnwg, corr(ar 1) i(id)" "_b[lnwg] _b[_cons]", cluster(id) reps($nreps) level
+> (95)
+
+command:      xtgee lnhr lnwg , corr(ar 1) i(id)
+statistics:   _bs_1      = _b[lnwg]
+              _bs_2      = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5320
+                                                  N of clusters    =       532
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+       _bs_1 |   500  .0843777 -.0025819   .050393   -.014631   .1833863   (N)
+             |                                      -.0060264    .184696   (P)
+             |                                      -.0031327   .1860251  (BC)
+       _bs_2 |   500  7.439893  .0077122   .136732   7.171251   7.708534   (N)
+             |                                       7.165532   7.686645   (P)
+             |                                       7.157923   7.676162  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix ar1bootse = e(se)
+
+. 
+. *** (4) HOMOSKEDASTIC UNSTRUCTURED Table 21.7 fourth column
+. 
+. * Default standard error
+. xtgee lnhr lnwg, corr(unstructured) i(id) t(year)
+
+Iteration 1: tolerance = .00721446
+Iteration 2: tolerance = .0003951
+Iteration 3: tolerance = .00001469
+Iteration 4: tolerance = 4.230e-07
+
+GEE population-averaged model                   Number of obs      =      5320
+Group and time vars:               id year      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                  unstructured                     max =        10
+                                                Wald chi2(1)       =     43.67
+Scale parameter:                  .0803575      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0910023   .0137712     6.61   0.000     .0640113    .1179933
+       _cons |   7.426262   .0366836   202.44   0.000     7.354363     7.49816
+------------------------------------------------------------------------------
+
+. estimates store unstr
+
+. * "Robust" standard error
+. xtgee lnhr lnwg, corr(unstructured) i(id) t(year) robust
+
+Iteration 1: tolerance = .00721446
+Iteration 2: tolerance = .0003951
+Iteration 3: tolerance = .00001469
+Iteration 4: tolerance = 4.230e-07
+
+GEE population-averaged model                   Number of obs      =      5320
+Group and time vars:               id year      Number of groups   =       532
+Link:                             identity      Obs per group: min =        10
+Family:                           Gaussian                     avg =      10.0
+Correlation:                  unstructured                     max =        10
+                                                Wald chi2(1)       =      3.29
+Scale parameter:                  .0803575      Prob > chi2        =    0.0695
+
+                               (standard errors adjusted for clustering on id)
+------------------------------------------------------------------------------
+             |             Semi-robust
+        lnhr |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+        lnwg |   .0910023   .0501344     1.82   0.069    -.0072594     .189264
+       _cons |   7.426262   .1328255    55.91   0.000     7.165929    7.686595
+------------------------------------------------------------------------------
+
+. estimates store unstrrob
+
+. * Correct panel bootstrap standard errors
+. set seed 10001
+
+. /* For some reason the following did not work 
+> bootstrap "xtgee lnhr lnwg, corr(unstructured) i(id)" "_b[lnwg] _b[_cons]", cluster(id) reps($nrep
+> s) level(95)
+> matrix unstrbootse = e(se)
+> */
+. 
+. ********** DISPLAY RESULTS IN TABLE 21.7 page 725 **********
+. 
+. * Standard error using iid errors and in some cases panel
+. estimates table ind indrob exch exchrob, /*
+>    */ se stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+------------------------------------------------------------------
+    Variable |    ind         indrob        exch       exchrob    
+-------------+----------------------------------------------------
+        lnwg |      0.083        0.083        0.120        0.120  
+             |      0.009        0.029        0.014        0.052  
+       _cons |      7.442        7.442        7.345        7.345  
+             |      0.024        0.080        0.036        0.138  
+-------------+----------------------------------------------------
+           N |   5320.000     5320.000     5320.000     5320.000  
+          ll |                                                    
+          r2 |                                                    
+         tss |                                                    
+         rss |                                                    
+         mss |                                                    
+        rmse |                                                    
+        df_r |                                                    
+------------------------------------------------------------------
+                                                      legend: b/se
+
+. estimates table ar1 ar1rob unstr unstrrob, /*
+>    */ se stats(N ll r2 tss rss mss rmse df_r) b(%10.3f)
+
+------------------------------------------------------------------
+    Variable |    ar1         ar1rob       unstr       unstrrob   
+-------------+----------------------------------------------------
+        lnwg |      0.084        0.084        0.091        0.091  
+             |      0.012        0.037        0.014        0.050  
+       _cons |      7.440        7.440        7.426        7.426  
+             |      0.033        0.100        0.037        0.133  
+-------------+----------------------------------------------------
+           N |   5320.000     5320.000     5320.000     5320.000  
+          ll |                                                    
+          r2 |                                                    
+         tss |                                                    
+         rss |                                                    
+         mss |                                                    
+        rmse |                                                    
+        df_r |                                                    
+------------------------------------------------------------------
+                                                      legend: b/se
+
+. 
+. * Standard errors using panel bootstrap (regular bootstrap for between)
+. matrix list indbootse
+
+indbootse[1,2]
+        _bs_1      _bs_2
+se  .03178369   .0861859
+
+. matrix list exchbootse
+
+exchbootse[1,2]
+        _bs_1      _bs_2
+se  .05989501  .15855561
+
+. matrix list ar1bootse
+
+ar1bootse[1,2]
+        _bs_1      _bs_2
+se  .05039303  .13673201
+
+. matrix list unstrbootse
+matrix unstrbootse not found
+r(111);
+
+end of do-file
+r(111);
+
+. exit, clear

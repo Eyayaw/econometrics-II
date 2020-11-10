@@ -1,0 +1,712 @@
+------------------------------------------------------------------------------------------------------
+       log:  c:\Imbook\bwebpage\Section6\mma24p1olscluster.txt
+  log type:  text
+ opened on:  24 May 2005, 14:33:58
+
+. 
+. ********** OVERVIEW OF MMA24P1OLSCLUSTER.DO **********
+. 
+. * STATA Program 
+. * copyright C 2005 by A. Colin Cameron and Pravin K. Trivedi 
+. * used for "Microeconometrics: Methods and Applications" 
+. * by A. Colin Cameron and Pravin K. Trivedi (2005)
+. * Cambridge University Press 
+. 
+. * Chapter 24.7 pages 848-53 Table 24.4
+. * Cluster robust inference for OLS cross-section application using
+. * Vietnam Living Standard Survey data
+. 
+. * (0) Descriptive Statistics (Table 24.3 first half)
+. * (1) Linear regression (in logs) with household data (Table 24.4)
+. 
+. * For Tables 24.5-6 for clustered count data see MMA24P2POISCLUSTER.DO
+. 
+. * The cluster effects model is 
+. *   y_it = x_it'b + a_i + e_it
+. * Default xtreg output assumes e_it is iid.
+. * This is usually too strong an assumption.
+. * Instead should get cluster-robust errors after xtreg
+. * See Section 21.2.3 pages 709-12
+. * Stata Version 8 does not do this but Stata version 9 does. 
+. * Here we do a panel bootstrap - results not reported in the text
+. 
+. * To speed up programs reduce breps - the number of bootstrap reps
+. 
+. * To run this program you need data set 
+. *     vietnam_ex1.dta
+. 
+. ********** SETUP **********
+. 
+. set more off
+
+. version 8.0
+
+. set scheme s1mono   /* Used for graphs */
+
+. 
+. ********** DATA DESCRIPTION **********
+. 
+. * The data comes from World Bank 1997 Vietnam Living Standards Survey 
+. * A subset was used in chapter 4.6.4.
+. * The larger sample here is described on pages 848-9
+. 
+. * The data are HOUSEHOLD data
+. * There are N=5006 households in 194 clusters
+. 
+. * The separate data set vietnam_ex2.dta has household-level data
+. 
+. ********** READ IN HOUSEHOLD DATA and SUMMARIZE (Table 24.3) **********
+. 
+. use vietnam_ex1.dta
+
+. desc
+
+Contains data from vietnam_ex1.dta
+  obs:         5,999                          
+ vars:             8                          11 Apr 2005 12:39
+ size:       185,969 (98.2% of memory free)
+-------------------------------------------------------------------------------
+              storage  display     value
+variable name   type   format      label      variable label
+-------------------------------------------------------------------------------
+sex             byte   %8.0g                  Gender of HH.head (1:M;2:F)
+age             int    %8.0g                  Age of household head
+comped98        float  %9.0g       diploma    completed diploma HH.head
+farm            float  %9.0g       loaiho     Type of HH (1:farm; 0:nonfarm)
+hhsize          long   %12.0g                 Household size
+commune         float  %9.0g                  commune code PSU-SVY commands
+lhhexp1         float  %9.0g                  
+lhhex12m        float  %9.0g                  
+-------------------------------------------------------------------------------
+Sorted by:  
+
+. sum
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+         sex |      5999    1.270712    .4443645          1          2
+         age |      5999    48.01284     13.7702         16         95
+    comped98 |      5999    3.385564    2.037543          0          9
+        farm |      5999    .5730955    .4946694          0          1
+      hhsize |      5999    4.752292    1.954292          1         19
+-------------+--------------------------------------------------------
+     commune |      5999    98.26588    56.00461          1        194
+     lhhexp1 |      5999    9.341561    .6877458   6.543108   12.20242
+    lhhex12m |      5006    6.310585    1.593083          0   12.36325
+
+. 
+. rename sex SEX
+
+. rename age AGE
+
+. rename comped98 EDUC
+
+. rename farm FARM
+
+. rename hhsize HHSIZE
+
+. rename commune COMMUNE
+
+. rename lhhexp1 LNHHEXP
+
+. rename lhhex12m LNEXP12M
+
+. gen HHEXP = exp(LNHHEXP)
+
+. 
+. * Following should give same descriptive statistics 
+. * as in top half (Household) in Table 24.3 p.850
+. * But there are some differences plus here have FARM not URBAN
+. sum LNEXP12M AGE SEX HHSIZE FARM EDUC HHEXP LNHHEXP COMMUNE 
+
+    Variable |       Obs        Mean    Std. Dev.       Min        Max
+-------------+--------------------------------------------------------
+    LNEXP12M |      5006    6.310585    1.593083          0   12.36325
+         AGE |      5999    48.01284     13.7702         16         95
+         SEX |      5999    1.270712    .4443645          1          2
+      HHSIZE |      5999    4.752292    1.954292          1         19
+        FARM |      5999    .5730955    .4946694          0          1
+-------------+--------------------------------------------------------
+        EDUC |      5999    3.385564    2.037543          0          9
+       HHEXP |      5999    14599.23    12582.31   694.4419     199271
+     LNHHEXP |      5999    9.341561    .6877458   6.543108   12.20242
+     COMMUNE |      5999    98.26588    56.00461          1        194
+
+. 
+. * Write data to a text (ascii) file so can use with programs other than Stata  
+. * Note that LNEXP12M has some missing values coded as .
+. outfile LNEXP12M AGE SEX HHSIZE FARM EDUC LNHHEXP COMMUNE /*
+>    */using vietnam_ex1.asc, replace
+
+. 
+. ********** ANALYSIS: CLUSTER ANALYSIS FOR LINEAR MODEL [Table 24.4 p.851] **********
+. 
+. * Regressor list for the linear regressions
+. global XLISTLINEAR LNHHEXP AGE SEX HHSIZE FARM EDUC
+
+. 
+. * OLS with usual standard errors (Table 24.4 columns 1-2) 
+. regress LNEXP12M $XLISTLINEAR
+
+      Source |       SS       df       MS              Number of obs =    5006
+-------------+------------------------------           F(  6,  4999) =   82.02
+       Model |  1138.38332     6  189.730553           Prob > F      =  0.0000
+    Residual |   11563.877  4999  2.31323805           R-squared     =  0.0896
+-------------+------------------------------           Adj R-squared =  0.0885
+       Total |  12702.2603  5005  2.53791415           Root MSE      =  1.5209
+
+------------------------------------------------------------------------------
+    LNEXP12M |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6702328   .0418711    16.01   0.000     .5881472    .7523185
+         AGE |   .0105766   .0016554     6.39   0.000     .0073312     .013822
+         SEX |    .097444   .0518961     1.88   0.060    -.0042952    .1991832
+      HHSIZE |   .0289812   .0132524     2.19   0.029     .0030007    .0549617
+        FARM |   .1346891   .0493325     2.73   0.006     .0379757    .2314025
+        EDUC |  -.0903599   .0122803    -7.36   0.000    -.1144346   -.0662852
+       _cons |  -.5107135   .3799642    -1.34   0.179     -1.25561     .234183
+------------------------------------------------------------------------------
+
+. estimates store olsiid
+
+. 
+. * OLS with heteroskedastic-robust standard errors (Table 24.4 column 3) 
+. regress LNEXP12M $XLISTLINEAR, robust
+
+Regression with robust standard errors                 Number of obs =    5006
+                                                       F(  6,  4999) =   80.80
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.0896
+                                                       Root MSE      =  1.5209
+
+------------------------------------------------------------------------------
+             |               Robust
+    LNEXP12M |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6702328   .0425223    15.76   0.000     .5868705    .7535952
+         AGE |   .0105766   .0016634     6.36   0.000     .0073157    .0138376
+         SEX |    .097444   .0519606     1.88   0.061    -.0044217    .1993096
+      HHSIZE |   .0289812   .0134698     2.15   0.031     .0025744     .055388
+        FARM |   .1346891   .0494286     2.72   0.006     .0377873    .2315908
+        EDUC |  -.0903599   .0127869    -7.07   0.000    -.1154278   -.0652919
+       _cons |  -.5107135   .3812665    -1.34   0.180    -1.258163    .2367362
+------------------------------------------------------------------------------
+
+. estimates store olshet
+
+. 
+. * OLS with cluster-robust standard errors (Table 24.4 column 4) 
+. regress LNEXP12M $XLISTLINEAR, cluster(COMMUNE)
+
+Regression with robust standard errors                 Number of obs =    5006
+                                                       F(  6,   193) =   54.91
+                                                       Prob > F      =  0.0000
+                                                       R-squared     =  0.0896
+Number of clusters (COMMUNE) = 194                     Root MSE      =  1.5209
+
+------------------------------------------------------------------------------
+             |               Robust
+    LNEXP12M |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6702328   .0528536    12.68   0.000      .565988    .7744777
+         AGE |   .0105766   .0019371     5.46   0.000     .0067561    .0143972
+         SEX |    .097444   .0595084     1.64   0.103    -.0199263    .2148142
+      HHSIZE |   .0289812   .0153602     1.89   0.061    -.0013142    .0592766
+        FARM |   .1346891   .0608046     2.22   0.028     .0147622    .2546159
+        EDUC |  -.0903599   .0149743    -6.03   0.000    -.1198942   -.0608255
+       _cons |  -.5107135   .4706163    -1.09   0.279    -1.438925    .4174979
+------------------------------------------------------------------------------
+
+. estimates store olsclust
+
+. 
+. * Random effects estimation (FGLS) (Table 24.4 columns 5-6) 
+. * This uses the xtreg command which first requires identifying the cluster
+. iis COMMUNE
+
+. xtreg LNEXP12M $XLISTLINEAR, re
+
+Random-effects GLS regression                   Number of obs      =      5006
+Group variable (i): COMMUNE                     Number of groups   =       194
+
+R-sq:  within  = 0.0518                         Obs per group: min =         1
+       between = 0.2884                                        avg =      25.8
+       overall = 0.0883                                        max =        39
+
+Random effects u_i ~ Gaussian                   Wald chi2(6)       =    335.12
+corr(u_i, X)       = 0 (assumed)                Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+    LNEXP12M |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6268899   .0468004    13.39   0.000     .5351627     .718617
+         AGE |   .0112334   .0016411     6.85   0.000      .008017    .0144499
+         SEX |   .1069915   .0511849     2.09   0.037     .0066709    .2073121
+      HHSIZE |   .0158302   .0135166     1.17   0.242    -.0106618    .0423222
+        FARM |   .0928509   .0549544     1.69   0.091    -.0148578    .2005595
+        EDUC |  -.0638447   .0129744    -4.92   0.000    -.0892741   -.0384153
+       _cons |  -.1660698   .4202027    -0.40   0.693     -.989652    .6575123
+-------------+----------------------------------------------------------------
+     sigma_u |  .46739871
+     sigma_e |  1.4526468
+         rho |  .09381491   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+
+. estimates store refgls
+
+. 
+. * Note that can cluster bootstrap if desired to get more robust standard errors
+. * This is done at end of program
+. 
+. * Fixed effects estimation (FGLS) (Table 24.4 columns 7-8) 
+. xtreg LNEXP12M $XLISTLINEAR, fe
+
+Fixed-effects (within) regression               Number of obs      =      5006
+Group variable (i): COMMUNE                     Number of groups   =       194
+
+R-sq:  within  = 0.0520                         Obs per group: min =         1
+       between = 0.2787                                        avg =      25.8
+       overall = 0.0865                                        max =        39
+
+                                                F(6,4806)          =     43.92
+corr(u_i, Xb)  = 0.0797                         Prob > F           =    0.0000
+
+------------------------------------------------------------------------------
+    LNEXP12M |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6037139   .0520178    11.61   0.000     .5017352    .7056926
+         AGE |   .0115845   .0016706     6.93   0.000     .0083092    .0148597
+         SEX |    .112821   .0520014     2.17   0.030     .0108745    .2147675
+      HHSIZE |   .0107124   .0141127     0.76   0.448     -.016955    .0383797
+        FARM |   .0693037   .0609002     1.14   0.255    -.0500885    .1886959
+        EDUC |  -.0510325   .0135817    -3.76   0.000    -.0776588   -.0244062
+       _cons |   .0361552    .461482     0.08   0.938    -.8685606    .9408711
+-------------+----------------------------------------------------------------
+     sigma_u |  .57732514
+     sigma_e |  1.4526468
+         rho |  .13640519   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+F test that all u_i=0:     F(193, 4806) =     3.49           Prob > F = 0.0000
+
+. estimates store fe
+
+. 
+. * Note that can cluster bootstrap if desired to get more robust standard errors
+. * This is done at end of program
+. 
+. * Random effects estimation by MLE assuming normality (Table 24.4 columns 5-6) 
+. * This uses the xtreg command which first requires identifying the cluster
+. iis COMMUNE
+
+. xtreg LNEXP12M $XLISTLINEAR, mle
+
+Fitting constant-only model:
+Iteration 0:   log likelihood = -9262.6182
+Iteration 1:   log likelihood = -9252.6974
+Iteration 2:   log likelihood = -9252.1542
+Iteration 3:   log likelihood = -9252.1493
+
+Fitting full model:
+Iteration 0:   log likelihood = -9096.5264
+Iteration 1:   log likelihood = -9092.5585
+Iteration 2:   log likelihood = -9092.5546
+
+Random-effects ML regression                    Number of obs      =      5006
+Group variable (i): COMMUNE                     Number of groups   =       194
+
+Random effects u_i ~ Gaussian                   Obs per group: min =         1
+                                                               avg =      25.8
+                                                               max =        39
+
+                                                LR chi2(6)         =    319.19
+Log likelihood  = -9092.5546                    Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+    LNEXP12M |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6276456   .0467072    13.44   0.000      .536101    .7191901
+         AGE |     .01122   .0016406     6.84   0.000     .0080045    .0144354
+         SEX |   .1067788   .0511618     2.09   0.037     .0065035     .207054
+      HHSIZE |     .01603   .0135121     1.19   0.235    -.0104533    .0425133
+        FARM |   .0936529   .0548379     1.71   0.088    -.0138274    .2011332
+        EDUC |  -.0643046   .0130222    -4.94   0.000    -.0898277   -.0387816
+       _cons |  -.1718111   .4192856    -0.41   0.682    -.9935959    .6499737
+-------------+----------------------------------------------------------------
+    /sigma_u |    .455472   .0329742    13.81   0.000     .3908438    .5201002
+    /sigma_e |   1.452303   .0148092    98.07   0.000     1.423278    1.481329
+-------------+----------------------------------------------------------------
+         rho |   .0895499   .0120221                      .0682208    .1154799
+------------------------------------------------------------------------------
+Likelihood-ratio test of sigma_u=0: chibar2(01)=  212.57 Prob>=chibar2 = 0.000
+
+. estimates store remle
+
+. 
+. * Test of the RE specification using Breusch-Pagan test
+. * This is statistic in third bottom row of Table 24.4 
+. quietly xtreg LNEXP12M $XLISTLINEAR, re 
+
+. xttest0
+
+Breusch and Pagan Lagrangian multiplier test for random effects:
+
+        LNEXP12M[COMMUNE,t] = Xb + u[COMMUNE] + e[COMMUNE,t]
+
+        Estimated results:
+                         |       Var     sd = sqrt(Var)
+                ---------+-----------------------------
+                LNEXP12M |   2.537914       1.593083
+                       e |   2.110183       1.452647
+                       u |   .2184615       .4673987
+
+        Test:   Var(u) = 0
+                              chi2(1) =   432.75
+                          Prob > chi2 =     0.0000
+
+. 
+. * Hausman test of FE vs. RE specification
+. * This test is not a robust version. 
+. * Its validity asswumes that errors are iid after including COMMUNE-specific effect
+. * For this example this may be reasonable as cluster bootstrap se's close to usual se's
+. xthausman
+(Warning:  xthausman is no longer a supported command; use -hausman-.  For instructions, see help 
+ hausman.)
+
+
+Hausman specification test
+
+                ---- Coefficients ----
+             |      Fixed       Random
+    LNEXP12M |    Effects      Effects       Difference
+-------------+-----------------------------------------
+     LNHHEXP |   .6037139     .6268899        -.0231759
+         AGE |   .0115845     .0112334          .000351
+         SEX |    .112821     .1069915         .0058295
+      HHSIZE |   .0107124     .0158302        -.0051179
+        FARM |   .0693037     .0928509        -.0235472
+        EDUC |  -.0510325    -.0638447         .0128122
+
+    Test:  Ho:  difference in coefficients not systematic
+
+                 chi2(  6) = (b-B)'[S^(-1)](b-B), S = (S_fe - S_re)
+                           =    17.89
+                 Prob>chi2 =     0.0065
+
+. 
+. * Alternative GLS estimation using the GEE approach 
+. * Same as xtgee with family(gaussian) link(id) corr(exchangeable)
+. * So GLS with equicorrelated errors
+. xtreg LNEXP12M $XLISTLINEAR, pa 
+
+Iteration 1: tolerance = .21691897
+Iteration 2: tolerance = .00610852
+Iteration 3: tolerance = .00014606
+Iteration 4: tolerance = 3.479e-06
+Iteration 5: tolerance = 8.285e-08
+
+GEE population-averaged model                   Number of obs      =      5006
+Group variable:                    COMMUNE      Number of groups   =       194
+Link:                             identity      Obs per group: min =         1
+Family:                           Gaussian                     avg =      25.8
+Correlation:                  exchangeable                     max =        39
+                                                Wald chi2(6)       =    338.97
+Scale parameter:                  2.314413      Prob > chi2        =    0.0000
+
+------------------------------------------------------------------------------
+    LNEXP12M |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+     LNHHEXP |   .6281447   .0466076    13.48   0.000     .5367955     .719494
+         AGE |   .0112111   .0016411     6.83   0.000     .0079946    .0144275
+         SEX |   .1066389   .0511914     2.08   0.037     .0063056    .2069722
+      HHSIZE |   .0161625    .013502     1.20   0.231    -.0103009    .0426259
+        FARM |   .0941811   .0547349     1.72   0.085    -.0130973    .2014594
+        EDUC |  -.0646085   .0129528    -4.99   0.000    -.0899956   -.0392215
+       _cons |  -.1756087   .4185566    -0.42   0.675    -.9959645    .6447472
+------------------------------------------------------------------------------
+
+. estimates store pa
+
+. 
+. ********** DISPLAY TABLE 24.4 RESULTS page 851 **********
+.  
+. estimates table olsiid olshet olsclust, /*
+>    */ b(%10.3f) t(%10.2f) stats(r2 N)
+
+-----------------------------------------------------
+    Variable |   olsiid       olshet      olsclust   
+-------------+---------------------------------------
+     LNHHEXP |      0.670        0.670        0.670  
+             |      16.01        15.76        12.68  
+         AGE |      0.011        0.011        0.011  
+             |       6.39         6.36         5.46  
+         SEX |      0.097        0.097        0.097  
+             |       1.88         1.88         1.64  
+      HHSIZE |      0.029        0.029        0.029  
+             |       2.19         2.15         1.89  
+        FARM |      0.135        0.135        0.135  
+             |       2.73         2.72         2.22  
+        EDUC |     -0.090       -0.090       -0.090  
+             |      -7.36        -7.07        -6.03  
+       _cons |     -0.511       -0.511       -0.511  
+             |      -1.34        -1.34        -1.09  
+-------------+---------------------------------------
+          r2 |      0.090        0.090        0.090  
+           N |   5006.000     5006.000     5006.000  
+-----------------------------------------------------
+                                          legend: b/t
+
+. estimates table pa fe refgls remle, /*
+>    */ b(%10.3f) t(%10.2f) stats(r2 N)
+
+------------------------------------------------------------------
+    Variable |     pa           fe         refgls       remle     
+-------------+----------------------------------------------------
+_            |                                                    
+     LNHHEXP |      0.628        0.604        0.627               
+             |      13.48        11.61        13.39               
+         AGE |      0.011        0.012        0.011               
+             |       6.83         6.93         6.85               
+         SEX |      0.107        0.113        0.107               
+             |       2.08         2.17         2.09               
+      HHSIZE |      0.016        0.011        0.016               
+             |       1.20         0.76         1.17               
+        FARM |      0.094        0.069        0.093               
+             |       1.72         1.14         1.69               
+        EDUC |     -0.065       -0.051       -0.064               
+             |      -4.99        -3.76        -4.92               
+       _cons |     -0.176        0.036       -0.166               
+             |      -0.42         0.08        -0.40               
+-------------+----------------------------------------------------
+LNEXP12M     |                                                    
+     LNHHEXP |                                             0.628  
+             |                                             13.44  
+         AGE |                                             0.011  
+             |                                              6.84  
+         SEX |                                             0.107  
+             |                                              2.09  
+      HHSIZE |                                             0.016  
+             |                                              1.19  
+        FARM |                                             0.094  
+             |                                              1.71  
+        EDUC |                                            -0.064  
+             |                                             -4.94  
+       _cons |                                            -0.172  
+             |                                             -0.41  
+-------------+----------------------------------------------------
+sigma_u      |                                                    
+       _cons |                                             0.455  
+             |                                             13.81  
+-------------+----------------------------------------------------
+sigma_e      |                                                    
+       _cons |                                             1.452  
+             |                                             98.07  
+-------------+----------------------------------------------------
+Statistics   |                                                    
+          r2 |                   0.052                            
+           N |   5006.000     5006.000     5006.000     5006.000  
+------------------------------------------------------------------
+                                                       legend: b/t
+
+. 
+. ********** ADDITIONALLY DO CLUSTER BOOTSTRAPS **********
+. 
+. * These results not given in the text
+. 
+. global breps = 500
+
+. 
+. * Note that can bootstrap if desired to get more robust standard errors
+. * The first reproduces reg , cluster(COMMUNE)
+. bootstrap "reg LNEXP12M $XLISTLINEAR" _b, cluster(COMMUNE) reps($breps) level(95)
+
+command:      reg LNEXP12M LNHHEXP AGE SEX HHSIZE FARM EDUC
+statistics:   b_LNHHEXP  = _b[LNHHEXP]
+              b_AGE      = _b[AGE]
+              b_SEX      = _b[SEX]
+              b_HHSIZE   = _b[HHSIZE]
+              b_FARM     = _b[FARM]
+              b_EDUC     = _b[EDUC]
+              b_cons     = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5006
+                                                  N of clusters    =       194
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   b_LNHHEXP |   500  .6702328  .0000939  .0546562   .5628482   .7776175   (N)
+             |                                       .5575338   .7715588   (P)
+             |                                       .5502583   .7638555  (BC)
+       b_AGE |   500  .0105766  .0000108  .0019538   .0067379   .0144154   (N)
+             |                                       .0067395   .0143774   (P)
+             |                                        .006576   .0141968  (BC)
+       b_SEX |   500   .097444 -.0023301  .0602315  -.0208945   .2157825   (N)
+             |                                      -.0210348   .2196117   (P)
+             |                                      -.0261246   .2083439  (BC)
+    b_HHSIZE |   500  .0289812 -.0008009  .0160043  -.0024629   .0604252   (N)
+             |                                      -.0004838   .0628019   (P)
+             |                                       .0028144   .0662394  (BC)
+      b_FARM |   500  .1346891  .0026611  .0560327   .0245999   .2447782   (N)
+             |                                       .0293473   .2510255   (P)
+             |                                       .0202142   .2483591  (BC)
+      b_EDUC |   500 -.0903599   -.00006   .014992   -.119815  -.0609047   (N)
+             |                                      -.1205786  -.0618314   (P)
+             |                                      -.1204532  -.0615499  (BC)
+      b_cons |   500 -.5107135  .0044955  .4893788   -1.47221   .4507834   (N)
+             |                                      -1.435498   .4444398   (P)
+             |                                      -1.388972   .4859312  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. * The t-statistic vector is e(b)./e(se) where ./ is elt. by elt. division
+. * But Stata Version 8 does not do ./ so instead need the following
+. matrix tols = (vecdiag(diag(e(b))*syminv(diag(e(se)))))'
+
+. matrix list tols, format(%10.2f)
+
+tols[7,1]
+              r1
+b_LNHHEXP  12.26
+    b_AGE   5.41
+    b_SEX   1.62
+ b_HHSIZE   1.81
+   b_FARM   2.40
+   b_EDUC  -6.03
+   b_cons  -1.04
+
+. 
+. * The next two reproduce xtreg , cluster(COMMUNE)
+. * but the cluster option for xtreg is not available for Stata version 8
+. 
+. * For this example the cluster bootstrap se's are within 10 percent
+. * of the usual xtreg se's, so usual se's may be okay here
+. 
+. * Fixed effects estimator
+. bootstrap "xtreg LNEXP12M $XLISTLINEAR, fe" _b, cluster(COMMUNE) reps($breps) level(95)
+
+command:      xtreg LNEXP12M LNHHEXP AGE SEX HHSIZE FARM EDUC , fe
+statistics:   b_LNHHEXP  = _b[LNHHEXP]
+              b_AGE      = _b[AGE]
+              b_SEX      = _b[SEX]
+              b_HHSIZE   = _b[HHSIZE]
+              b_FARM     = _b[FARM]
+              b_EDUC     = _b[EDUC]
+              b_cons     = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5006
+                                                  N of clusters    =       194
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   b_LNHHEXP |   500  .6037139 -.0006143  .0583525   .4890671   .7183608   (N)
+             |                                       .4852716   .7172067   (P)
+             |                                       .4841806   .7148217  (BC)
+       b_AGE |   500  .0115845  5.02e-06  .0017464   .0081532   .0150157   (N)
+             |                                       .0082637   .0151613   (P)
+             |                                       .0084701   .0152766  (BC)
+       b_SEX |   500   .112821 -.0017372  .0546362   .0054756   .2201664   (N)
+             |                                       .0129603   .2214846   (P)
+             |                                        .017047    .235448  (BC)
+    b_HHSIZE |   500  .0107124 -.0004379  .0150286  -.0188148   .0402395   (N)
+             |                                      -.0195233   .0415316   (P)
+             |                                      -.0184428    .044119  (BC)
+      b_FARM |   500  .0693037 -.0010067  .0497627  -.0284666    .167074   (N)
+             |                                      -.0291446   .1679352   (P)
+             |                                      -.0259051   .1705921  (BC)
+      b_EDUC |   500 -.0510325  .0003307  .0153224   -.081137   -.020928   (N)
+             |                                      -.0818133  -.0219096   (P)
+             |                                      -.0844261  -.0230367  (BC)
+      b_cons |   500  .0361552  .0087515  .5186644  -.9828799    1.05519   (N)
+             |                                       -.934128   1.087458   (P)
+             |                                       -.934128   1.087458  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix tfe = (vecdiag(diag(e(b))*syminv(diag(e(se)))))'
+
+. matrix list tfe, format(%10.2f)
+
+tfe[7,1]
+              r1
+b_LNHHEXP  10.35
+    b_AGE   6.63
+    b_SEX   2.06
+ b_HHSIZE   0.71
+   b_FARM   1.39
+   b_EDUC  -3.33
+   b_cons   0.07
+
+. 
+. * Random effects estimator
+. bootstrap "xtreg LNEXP12M $XLISTLINEAR, re" _b, cluster(COMMUNE) reps($breps) level(95)
+
+command:      xtreg LNEXP12M LNHHEXP AGE SEX HHSIZE FARM EDUC , re
+statistics:   b_LNHHEXP  = _b[LNHHEXP]
+              b_AGE      = _b[AGE]
+              b_SEX      = _b[SEX]
+              b_HHSIZE   = _b[HHSIZE]
+              b_FARM     = _b[FARM]
+              b_EDUC     = _b[EDUC]
+              b_cons     = _b[_cons]
+
+Bootstrap statistics                              Number of obs    =      5006
+                                                  N of clusters    =       194
+                                                  Replications     =       500
+
+------------------------------------------------------------------------------
+Variable     |  Reps  Observed      Bias  Std. Err. [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+   b_LNHHEXP |   500  .6268899 -.0079169  .0486878   .5312314   .7225483   (N)
+             |                                       .5261016   .7155449   (P)
+             |                                        .540477   .7254891  (BC)
+       b_AGE |   500  .0112334  .0001211  .0017668   .0077622   .0147047   (N)
+             |                                       .0080698   .0152565   (P)
+             |                                       .0077655   .0147142  (BC)
+       b_SEX |   500  .1069915  .0058127  .0561182  -.0032656   .2172486   (N)
+             |                                       .0046711   .2187323   (P)
+             |                                      -.0109273   .2045939  (BC)
+    b_HHSIZE |   500  .0158302 -.0014562  .0146506  -.0129543   .0446147   (N)
+             |                                       -.017179   .0459636   (P)
+             |                                      -.0108163   .0482198  (BC)
+      b_FARM |   500  .0928509 -.0071707  .0442312   .0059485   .1797532   (N)
+             |                                      -.0014455   .1728321   (P)
+             |                                       .0053411   .1906732  (BC)
+      b_EDUC |   500 -.0638447  .0049481   .014058  -.0914648  -.0362246   (N)
+             |                                      -.0871102   -.029496   (P)
+             |                                       -.094956  -.0407984  (BC)
+      b_cons |   500 -.1660698  .0535286  .4305953  -1.012073   .6799335   (N)
+             |                                      -.8970464   .6892154   (P)
+             |                                      -.9512222   .6032417  (BC)
+------------------------------------------------------------------------------
+Note:  N   = normal
+       P   = percentile
+       BC  = bias-corrected
+
+. matrix tre = (vecdiag(diag(e(b))*syminv(diag(e(se)))))'
+
+. matrix list tre, format(%10.2f)
+
+tre[7,1]
+              r1
+b_LNHHEXP  12.88
+    b_AGE   6.36
+    b_SEX   1.91
+ b_HHSIZE   1.08
+   b_FARM   2.10
+   b_EDUC  -4.54
+   b_cons  -0.39
+
+. 
+. ********** CLOSE OUTPUT
+. log close
+       log:  c:\Imbook\bwebpage\Section6\mma24p1olscluster.txt
+  log type:  text
+ closed on:  24 May 2005, 14:44:12
+----------------------------------------------------------------------------------------------------
