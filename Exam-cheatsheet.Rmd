@@ -1,0 +1,241 @@
+---
+title: 'Econometrics II chearsheet'
+date: '`r format.Date("2020/07/20", "%B %d, %Y")`'
+author: Eyayaw Beze
+output: 
+  pdf_document:
+     keep_tex: yes
+# geometry:
+#   - twocolumn
+#   - margin = .25in
+# papersize: a4
+# fontsize: 10pt
+---
+
+**Assumptions of cross-section Regression:** 
+
+(1) The data $(y_i, x_i)$ are ***inid*** over i---stratified random sampling.
+(2) The model is correctly specified ... says: **linear in parameters**, **no measurement error,** **no omitted variable**.  
+
+**Advantages of panel data (pd) against cross-sectional data**: 
+
+1. Increased precision in estimation 
+2. Solves Omitted variable bias 
+3. Dynamics of individual behavior---lagged outcome variables.\
+
+**Strict-exogeneity**: $\mathrm{E}\left[\varepsilon_{i t} \mid \alpha_{i}, \mathbf{x}_{i 1}, \ldots, \mathbf{x}_{i T}\right]=0, \quad t=1, \ldots, T$ i.e., that $\varepsilon_{i t}$ has mean zero conditional on past, current and future values of $\mathbf{x}$.  
+
+***POLS***: most restrictive model, specifies **constant-coefficients, uses both t and i variations.** $u_{it}$ is likely to be correlated over time for a given individual. 
+Inconsistent if fixed effects model is true. Is appropriate if the constant-coefficients or RE models are appropriate, but panel-corrected standard errors and t-stats must be used for inference. However, $\boldsymbol{\hat\beta}_{\text {POLS }}$ will be inefficient
+and a standard variance matrix is wrong unless additional assumptions of **homoskedasticity** and **no serial correlation** are maintained. 
+
+(a) $\mathrm{E}\left[u_{i t}^{2} \mathbf{x}_{i t}^{\prime} \mathbf{x}_{i t}\right]=\sigma^{2} \mathrm{E}\left[\mathbf{x}_{i t}^{\prime} \mathbf{x}_{i t}\right]$
+
+(b) $E\left[u_{i t} u_{i s} \mathbf{x}_{i t}^{\prime} \mathbf{x}_{i s}\right]=\mathbf{0}, t \neq s$\
+
+***BE***: uses cross-section variation only. Is consistent if $\bar x_i$ are independent of the composite error. Inconsistent for fixed effects model as
+$Cov(\alpha_i, x_{it} \; hence \; \bar x_{i}) \neq 0$\
+
+***FE/FD***: coefficients of time-invariant regressors are not identified.\
+The **incidental parameters problem** implies inconsistency of $\beta_{LSDV}$ in short
+panels as only $N \to \infty$ since there are $N + (T-1) + K$ parameters with only NT
+observations---the number of parameters grows w/ the N. The FE estimator is efficient under the assumption of iid errors (FE.3).
+$\left.\mathrm{E}\left[\varepsilon_{i} \varepsilon_{i}^{\prime} \mid \mathrm{x}_{i}, \alpha_{i}\right]\right]=\sigma_{u}^{2} \mathrm{I}_{T}$.  
+
+**FD** is also efficient under FD.3: (a) $\mathrm{E}\left[e_{i t}^{2} \mathbf{x}_{i t}^{\prime} \mathbf{x}_{i t}\right]=\sigma^{2} \mathrm{E}\left[\mathbf{x}_{i t}^{\prime} \mathbf{x}_{i t}\right]$ (b) $\mathrm{E}\left[e_{i t} e_{i s} \mathbf{x}_{i t}^{\prime} \mathbf{x}_{i s}\right]=\mathbf{0}, t \neq s$
+        where $e=\Delta \varepsilon_{i t},$ yielding the error structure
+        $\varepsilon_{i t}=\varepsilon_{i, t-1}+e_{i t}$. FE.3 maintains that
+        errors are serially uncorrelated, FD.3 maintains that errors follow a **random walk**.  
+with homoskedastic and serially uncorrelated $\varepsilon_{it}$ **FE** is more efficient than **FD**. FD standard errors should be adjusted for the fact that the differenced residuals are serially correlated. POLS leaves $\alpha_i$ completely in the error term and RE only partly---less inconsistent. FE and FD estimators used to control for fixed effects typically remove both good and bad
+variation---susceptible to **attenuation bias** from measurement error.  
+
+-   **RE**: inconsistent if the true model is the one with fixed effects. Treats $\alpha_i$
+    as unobserved random variable that is uncorrelated with the observed regressors
+    $\mathbf{x}_{i}$. Because the omitted variable in a **RE** model is uncorrelated w/ included
+    regressors there is no bias from ignoring it, it becomes part of the residuals.
+    $\alpha_i \; and\; \epsilon_{it}$ are **iid**---independent of regressors. The
+    composite errors $u_{i t}$ will be serially correlated since
+    $\operatorname{Cov}\left[u_{i t}, u_{i s}\right]=\mathrm{E}\left[\left(\alpha_{i}+\varepsilon_{i t}\right)\left(\alpha_{i}+\varepsilon_{i s}\right)\right]=\left\{\begin{array}{ll} \sigma_{\alpha}^{2}, & t \neq s \\ \sigma_{\alpha}^{2}+\sigma_{\varepsilon}^{2}, & t=s \end{array}\right.$
+    So POLS will be consistent but inefficient under the RE model. The most
+    important consequence of **RE** is that the residuals for a given person are
+    correlated across periods. Assumptions of the **RE** model: **linear CEF,
+    homoskedasticity---equi-correlated errors**. The correlated between errors does not vary
+    over time in the RE model.\
+    $\lambda \to 1 \;if\; T \to \infty$ or $\sigma_\alpha^2 > \sigma_\epsilon^2$: unobserved individual effects are
+    important, the coefficients of time constant variables are difficult to estimate. $RE \to FE$.  
+
+**correlated RE model**--RE with addition of $\bar{x}_i$: models the correlated between $\alpha_i$ and $\boldsymbol{x}_{i}$. Adding the time average $\bar{x}_i$ and using RE is the same as subtracting the time average and using POLS.  
+
+**Dynamic Panel Models**: $y_{i t}=\gamma y_{i, t-1}+\alpha_{i}+\varepsilon_{i t}$ whenever we expect the dependent variable to exercise some kind of **persistence**/state dependence (SD) over time. Two sources: (1) **true SD**: $correlated[y_{i, t}, y_{i, t-1}] \simeq \gamma$ or $\alpha_i = 0$ (2) **unobserved heterogeneity** $correlated[y_{i, t}, y_{i, t-1}] \simeq \sigma_\epsilon^2/(\sigma_\alpha^2 + \sigma_\epsilon^2)$ or $\gamma = 0$---correlated of past and current outcomes due to unobserved individual effects. **\textcolor{red}{All pd estimators are inconsistent if the regressors include lagged dependent variables}**. The **FD** version of the dynamic model is inconsistent but we can use two-period lags as an instrument for $correlated[y_{i, t-1}, y_{i, t-2}]$ **Arellano-Bond estimator**, but errors be serially uncorrelated. **If the lagged dependent variables model is the correct one and you use FE, estimation of positive treatment effects tends to be too large. If FE is the correct model and you use lagged dependent variables your estimates tend to be too small**. 
+
+**Mixed-Linear-Models**: $y_{i t}=\mathbf{z}_{i t}^{\prime} \boldsymbol{\beta}+\mathbf{w}_{i t}^{\prime} \boldsymbol{\alpha}_{i}+\varepsilon_{i t}$ where $\mathbf{z}_{i t}$ includes an intercept, $\mathbf{w}_{i t}$ is a vector of observable characteristics, $\boldsymbol{\beta}$ is a fixed parameter vector and $\alpha_{i}$ is a random zero-mean vector.
+
+**Clustered standard errors**---Abadie et.al 2007: motivation is that unobserved components of outcomes for units within clusters are correlated. Clustering is a **sampling design** issue when the sampling follows a 2-stage process, a subset of clusters from a population of clusters, units from sampled clusters. In this case the clustering adjustment is justified by the fact that there are clusters in the population that we do not see in the sample. An **experimental design** issue, when clusters of units, rather than units, are assigned to a treatment. 
+
+Clustering Matters Only if the residuals and the regressors are both correlated Within clusters---not necessarily; what matters is the within-cluster correlated of the product of the residuals & the regressors.
+
+$Var_{clu} \ge Var_{het}$ due to the addition of terms when $i \ne j$, for $i, j \in c$. 
+
+The amount of increase is larger, the:   
+1. more positively correlated the regressors are across observations in the same cluster (via $x_i x_j$) 
+2. more positively correlated are the errors in the same clusters (via $u_iu_j$). 
+3. more observations are in the same cluster. **Aggregated regressor** $\uparrow$CRSE even if there is low within-cluster error correlated, because the regressor of interest is perfectly correlated within clusters.  
+
+The researcher should assess whether the sampling process is clustered or not, and whether the assignment mechanism is clustered. If the answer to both is no, one should not adjust the standard errors for clustering, irrespective of whether such an adjustment would change the standard errors. In case of fixed effects, we need to cluster if either the sampling or assignment to treatment was clustered. However, cluster adjustments will only make an adjustment with fixed effects if there is heterogeneity in treatment effects. So, if there is no heterogeneity in the treatment effects, one need not adjust standard errors for clustering once fixed effects are included. *FE will generally not completely control for within-cluster error correlated, so still use CRVE. Because FE may take out correlated e.g. within schools, but additional correlated within classrooms possible; or serial correlated in the error within cluster (e.g. same persons).* \textcolor{red}{What to cluster over?} Larger and fewer clusters have less bias at the cost of more variability. If clusters are **nested** rather use the broader cluster.
+
+## DiD: is a version of FE/FD estimation using aggregated data.
+
+$\hat{\tau}_{D I D}=\left[\bar{Y}_{1}^{T}-\bar{Y}_{0}^{T}\right]-\left[\bar{Y}_{1}^{C}-\bar{Y}_{0}^{C}\right]$  
+
+
+-   **Stable Unit treatment Value Assumption (SUTVA)**, implies that treatment does not indirectly
+    affect outcomes of the untreated---**no peer or GE effects**.  
+-   **CIA** states that conditional on $\mathrm{x}$, the outcomes are independent of treatment,
+    $\mathrm{y_0, y_1 \perp \mathbf{D}\mid \mathbf{x}}.$  
+-   **Common Trend**: outcome trends would be the same in both groups in the
+    absence of treatment. treatment induces a deviation from this CT. Additional covariets make the CT assumption more credible.    
+-   **Common Support**: overlap between treated & untreated subsamples
+    $\mathrm{0<Pr[\mathbf{D}=1\mid \mathbf{x}]}$.  
+-   **CMA/No Effect Prior to Treatment(NEPT)**
+    $\mathrm{E\bigl[y_0\mid D=1,\mathbf{x}\bigr]=E\bigl[y_0\mid D=0,\mathbf{x}\bigr]=E\bigl[y_0\mid\mathbf{x}\bigr]}$,
+    implies $y_0$ does not determine participation. No anticipation effects from being treated.
+
+Bertrand et al.2004, 3 factors make serial correlated an
+especially important issue in the DID context: often long-timeseries used,
+dependent variable often highly positively serially correlated, treatment variables changes very little within a state over time (often intervention stays on).
+
+## **IV**: Solves endogen-and-simultaneity issues in OLS.
+
+$y=\mathbf{x}^{\prime} \boldsymbol{\beta}+u$; where
+$\mathrm{E}[\mathbf{x} u]\neq 0$, $\boldsymbol{\beta_{OLS}}$ is inconsistent.
+
+**Assumptions**: Identification of $\beta_{IV}$\
+
+**(IV.1)**: **Validity**/predeterminedness:
+$\mathrm{E}[\mathbf{z} u]=0$; **(IV.2)**: **Relevance**. \textcolor{blue}{(a)}
+$\text { rank } E\left[\mathbf{z z}^{\prime}\right]=L$; \textcolor{blue}{(b)}
+$\text { rank } E\left[\mathbf{z} x^{\prime}\right]=K$; where $L \geqslant K$.
+And, we have
+$\widehat{\boldsymbol{\beta}}_{I V}=\left[\mathbf{Z^\prime} \mathbf{X}\right]^{-1} [\mathbf{Z^\prime} y]$
+$\widehat{\boldsymbol{\beta}}_{2SLS}=\left(\hat{\mathbf{X}}^{\prime} \mathbf{X}\right)^{-1} \hat{\mathbf{X}}^{\prime}{\mathbf{y}}$
+where
+$\hat{\mathbf{X}}=\mathrm{\mathbf{P_Z X}}= \mathbf{Z}\left(\mathbf{Z}^{\prime} \mathbf{Z}\right)^{-1} \mathbf{Z}^{\prime} \mathbf{X}$.
+$\widehat{\boldsymbol{\beta}}_{2SLS} = \widehat{\boldsymbol{\beta}}_{IV}\;; if \; L = K$.  
+\textcolor{blue}{Homogeneous/Heterogenoues(LATE IV Estimator) treatment effects}  
+$\text{For a simple model}\; Y_{i}=\alpha+\rho_{i} D_{i}+\epsilon_{i}$; where treatment $\;D_{i}=\pi_{0}+\pi_{1 i} z_{i}+\zeta_{i}$
+
+**Assumptions**:  
+
+1.  **(Independence)**: $z_{i}$ is as good as randomly assigned; it is independent of
+    the vector of potential outcomes and treatment assignments.
+    $\left\{\mathrm{Y}_{i}\left(\mathrm{D}_{1 i}, 1\right), \mathrm{Y}_{0 i}\left(\mathrm{D}_{0 i}, 0\right), \mathrm{D}_{1 i}, \mathrm{D}_{0 i}\right\} \perp \perp \mathrm{Z}_{i}.$
+    Independence implies that the **first-stage** is the average causal effect of
+    $\mathrm{Z}_{i}$ on $\mathrm{D}_{i}$ $$
+    \begin{aligned}
+    E\left[\mathrm{D}_{i} \mid \mathrm{z}_{i}=1\right]-E\left[\mathrm{D}_{i} \mid \mathrm{z}_{i}=0\right] = \\ E\left[\mathrm{D}_{1 i} \mid \mathrm{z}_{i}=1\right]-E\left[\mathrm{D}_{0 i} \mid \mathrm{z}_{i}=0\right]
+    =E\left[\mathrm{D}_{1 i}-\mathrm{D}_{0 i}\right]
+    \end{aligned}
+    $$ Independence is also **sufficient** for a causal interpretation of the
+    **reduced form**---the causal effect of the instrument on the dependent variable.
+    Specifically,
+    $E\left[\mathrm{Y}_{i} \mid \mathrm{z}_{i}=1\right]-E\left[\mathrm{Y}_{i} \mid \mathrm{Z}_{i}=0\right]=E\left[\mathrm{Y}_{i}\left(\mathrm{D}_{1 i}, 1\right)-\mathrm{Y}_{i}\left(\mathrm{D}_{0 i}, 0\right)\right]$
+
+2.  **Exclusion Restriction (ER)** $\mathrm{Y}_{i}(d, 0)=\mathrm{Y}_{i}(d, 1) \equiv \mathrm{Y}_{d i}$
+    for $d=0,1$. instrument operates through a single known causal channel. In
+    homogeneity, ER is expressed by $E[z_i\varepsilon_i] = 0$.
+
+3.  **(First-stage)** $E\left[\mathrm{D}_{1 i}-\mathrm{D}_{0 i}\right] \neq 0$
+
+4.  **(Monotonicity)** $\mathrm{D}_{1 i}-\mathrm{D}_{0 i} \geq 0$, or vice
+    versa. $\rightarrow E[\mathrm{D}_{1 i}-\mathrm{D}_{0 i}]=P(D_{1i}>D_{0i})$,
+    means that while the instrument may have no effect on some people, all of
+    those who are affected are affected in the same way. Then, $$
+    \begin{aligned}
+    \frac{E\left[Y_{i} \mid z_{i}=1\right]-E\left[Y_{i} \mid z_{i}=0\right]}{E\left[D_{i} \mid z_{i}=1\right]-E\left[D_{i} \mid z_{i}=0\right]}
+    \end{aligned}
+        $$
+
+The ER is distinct from the claim that the instrument is (as good as) randomly
+assigned. Rather, it is a claim about a unique channel for causal effects of the
+instrument. A failure of **monotonicity** means the instrument pushes some people into treatment
+while pushing others out---(**defiers**).
+
+-   **Compliers**. The subpop w/ $d_{1i} = 1$ & $d_{0i} = 0$:
+-   **Always-takers (AT)**. The subpop w/ $d_{1i} =d_{0i} = 1$:
+-   **Never-takers (NT)**. The subpop w/ $d_{1i} =d_{0i} = 0$:
+
+without adding further assumptions (e.g., constant causal effects), LATE is not informative
+about effects on NT & AT because, by definition, treatment status for these two groups is
+unchanged by the instrument (random assignment).
+
+**LATE** is the effect of treatment on the **population of compliers**. The average causal effect on compliers is not usually the same as the ATT. The treated consist of either AT or compliers with the **instrument switched on**.
+
+$$\begin{small}
+\begin{aligned}
+\overbrace{E\left[\mathrm{Y}_{1 i}-\mathrm{Y}_{0 i} \mid \mathrm{D}_{i}=1\right]}^{\text {effect on the treated }}
+= \overbrace{E\left[\mathrm{Y}_{1 i}-\mathrm{Y}_{0 i} \mid \mathrm{D}_{0 i}=1\right]}^{\text {effect on AT }}P\left[\mathrm{D}_{0 i}=1 \mid \mathrm{D}_{i}=1\right] \\
++ \underbrace{E\left[\mathrm{Y}_{1 i}-\mathrm{Y}_{0 i} \mid \mathrm{D}_{1 i}>\mathrm{D}_{0 i}\right]}_{\text {effect on compliers }}P\left[\mathrm{D}_{1 i}>\mathrm{D}_{0 i}, \mathrm{z}_{i}=1 \mid \mathrm{D}_{i}=1\right]
+\end{aligned}
+\end{small}$$
+
+The **ATT** \textcolor{blue}{(ATU)} is a weighted average. of effects on **AT & compliers**
+\textcolor{blue}{(NT and compliers)}. population ATE = a weighted average of effects on compliers, AT, & NT.\
+The size of a compliers group is the Wald 1st-stage,
+$P(D_{i1} > D_{i0})=E\left[D_{1 i} \mid z_i = 1\right] -E\left[D_{0 i}\mid z_{i}=0\right]$.
+The proportion of the treated who are compliers is given by the 1st-stage, times the probability that the instrument is switched on $P[z_i =1]$, divided by the prop treated $P[D_i = 1]$.  
+**Staiger & Stock (1997)** F < 10 may indicate problems with finite sample bias---weak instrument. IV may be more inconsistent than OLS when the correlated between the instrument and the regressor is low. IV **less precise** than OLS. $variable(\hat{\beta}_{IV})\ge variable(\hat{\beta}_{OLS})$ unless $correlated(x, z) = 1$.
+
+## LPM Logit Probit  
+
+For general binary dependent variable model
+$p(\mathbf{x})=\operatorname{Pr}(y=1 \mid \mathbf{x})=\mathbf{x}^{\prime} \boldsymbol{\beta}$\
+Marginal effects of a $x_{j}$
+:$\frac{\partial \operatorname{Pr}(y=1 \mid \mathbf{x})}{\partial x_{j}} = F'(x'\beta)\beta_{j}$
+
+-   Ignores discreteness & will treat the dependent variable as continuous.
+-   Does not constrain predicted probabilities to lie between 0 & 1.
+-   Does not take into account that outcomes might not be naturally ordered
+-   \textcolor{blue}{(+)} Interest is in analyzing partial effects averaged over
+    the distribution of x.
+-   \textcolor{blue}{(+)} The $x_j$ take on only a few values & the model is
+    saturated. Thus, the CEF is (close to) a linear function of the regressors.
+-   For latent index model $z: \ F(z) = z; F(z) = \Phi (z); F(z) = 1/(1+exp(-z))$
+-   The MLE is consistent if the CEF is correctly specified:
+    $E[y|x] = F(x'\beta)$
+-   Identification of the single-index model requires a restriction of the variable (u)
+    to secure uniqueness of $\beta$. In the probit model the error variance is set
+    to one.
+-   Also the mean of the error distribution needs to be normalized: usually to
+    zero.
+
+For non-linear models, where
+
+$F^{\prime}\left(\mathbf{x}^{\prime} \boldsymbol{\beta}\right) \neq c$ the me
+will vary with the evaluation point $x$ and the choice of $F(\cdot)$:\
+1. $(\mathrm{AME}): N^{-1} \sum_{i} F^{\prime}\left(\mathbf{x}_{i}^{\prime} \widehat{\boldsymbol{\beta}}\right) \widehat{\beta}_{j}$\
+2. The average of the regressors
+$(\mathrm{MEM}): F^{\prime}\left(\overline{\mathrm{x}}^{\prime} \widehat{\beta}\right) \widehat{\beta}_{j}$\
+3. The marginal effect at a representative point
+$\mathbf{x}_{1}(\mathrm{MER}): F^{\prime}\left(\mathbf{x}_{1}^{\prime} \widehat{\boldsymbol{\beta}}\right) \widehat{\beta}_{j}$
+
+**Threats to Internal Validity**
+
+(1.) Failure to Randomize: If the subjects are not randomly assigned to the treatment group. 
+(2.) Failure to Follow the Treatment Protocol--defiers 
+(3.) Attrition: If subjects systematically drop out of the study.
+(4.) Experimental effects: If subjects know that they are in an experiment. (5.) Small Sample Sizes
+
+**Threats to External Validity**
+
+(1.) Unrepresentative Sample, and Program or Policy
+(2.) GE effects: If market and/or environmental conditions cannot be kept constant when an internally valid program is
+implemented broadly, external validity may be doubtful.
+
+## RDD
+
+**RD** methods exploit precise knowledge of the rules determining assignment to treatment around a threshold val of a variable. **SRDD**: treatment status is **deterministic** and a
+
+**discontinuous** fun of covariate. We do not observe both treated and untreated values of $x_{i}$ for individuals, thus validity of $\mathrm{RD}$ relies on our willingness to extrapolate in a neighborhood of $c$. model.eq: $Y_{i}=\alpha+\beta x_{i}+\tau D_{i}+\eta_{i}$ **FRDD** exploits discontinuities in the prob or expected val of treatment conditional on a covariate. Thus, the discontinuity
+becomes an IV for treatment and we use 2SLS.  
+
+**Matching** estimators are normally used when 1. The interest is in the ATT rather than the ATE. 2. Randomization into treatment is not possible. 3. There is a large pool of potential control subjects.
