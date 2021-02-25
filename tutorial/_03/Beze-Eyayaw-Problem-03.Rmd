@@ -46,10 +46,10 @@ $$\displaystyle{plim \hat{\beta}^B_1 = \beta_1 + \frac{\sigma_{xa}}{Var(\bar x_i
 \begin{gather*}
 \begin{aligned}
 \underset{n\rightarrow \infty}{p\lim \mathsf{\hat\beta}^{B}_1 } & = \frac{Cov(\bar y_i,\bar x_i)}{Var(\bar x_i)}  = \frac{Cov(\beta_0 + \beta_1\bar{x_i} + a_i + \bar{u_i},\bar x_i)}{Var(\bar x_i)}\\
-& = \frac{Cov(\beta_0 + \beta_1 \bar x_i,\bar x_i) + Cov(a_i, \bar x_i) + \overbrace{Cov(\bar u_i, \bar x_i)}^{= \;0 \;by \;orthogonality}}{Var(x)} \\
-& = \frac{Cov(\beta_0 + \beta_1 \bar x_i,\bar x_i) + \sigma_{xa} }{Var(x)}\\
-& = \frac{\beta_0 E(\bar x_i) + \beta_1 E(\bar x_i^2) - E(\bar x_i)\bigl[\beta_0 + \beta_1E(\bar x_i)\bigr] + \sigma_{xa}}{Var(\bar x_i)}\\
-& = \frac{\beta_1 \left[E(\bar x_i^2) - [E(\bar x_i)]^2\right] +\sigma_{xa}}{Var(\bar x_i)}\\
+& = \frac{\overbrace{Cov(\beta_0, \bar x_i)}^{ =\; 0} + Cov(\beta_1 \bar x_i,\bar x_i) + Cov(a_i, \bar x_i) + \overbrace{Cov(\bar u_i, \bar x_i)}^{= \;0 \;by \;orthogonality}}{Var(x)} \\
+& = \frac{Cov(\beta_1 \bar x_i,\bar x_i) + \sigma_{xa} }{Var(x)}\\
+& = \frac{\beta_1 E(\bar x_i^2) - \bigl[\beta_1E(\bar x_i)\bigr]E(\bar x_i) + \sigma_{xa}}{Var(\bar x_i)}\\
+& = \frac{\beta_1 \overbrace{\left[E(\bar x_i^2) - [E(\bar x_i)]^2\right]}^{=\;Var(\bar x_i)} +\sigma_{xa}}{Var(\bar x_i)}\\
 & = \beta_1 + \frac{\sigma_{xa}}{Var(\bar x_i)}
 \end{aligned}
 \end{gather*}
